@@ -1,0 +1,124 @@
+using System.Collections.Immutable;
+using Plank.Fuzzing;
+using Plank.Reading;
+using Plank.Reading.Logical;
+using Plank.Schema;
+
+namespace Plank.Tests.Reading;
+
+internal sealed class ParquetReaderRobustnessTests
+{
+    static readonly ParquetSchema[] Schemas =
+    [
+        Schema(Col("c0", ParquetPhysicalType.Int32, EncodingKind.Plain)),
+        Schema(Col("c0", ParquetPhysicalType.ByteArray, EncodingKind.Plain)),
+        Schema(Col("c0", ParquetPhysicalType.Int32, EncodingKind.DeltaBinaryPacked),
+               Col("c1", ParquetPhysicalType.Boolean, EncodingKind.Plain)),
+        Schema(Col("c0", ParquetPhysicalType.Int64, EncodingKind.Plain),
+               Col("c1", ParquetPhysicalType.Double, EncodingKind.Plain)),
+        Schema(Col("c0", ParquetPhysicalType.Int32, EncodingKind.RleDictionary)),
+        Schema(Col("c0", ParquetPhysicalType.ByteArray, EncodingKind.DeltaLengthByteArray)),
+        Schema(Col("c0", ParquetPhysicalType.Boolean, EncodingKind.Plain),
+               Col("c1", ParquetPhysicalType.Int32, EncodingKind.Plain),
+               Col("c2", ParquetPhysicalType.Int64, EncodingKind.Plain),
+               Col("c3", ParquetPhysicalType.Double, EncodingKind.Plain),
+               Col("c4", ParquetPhysicalType.ByteArray, EncodingKind.Plain)),
+        Schema(Col("c0", ParquetPhysicalType.ByteArray, EncodingKind.DeltaByteArray)),
+    ];
+
+    [Test]
+    public void EmptyInput_DoesNotCrash()
+        => AssertDoesNotCrash([]);
+
+    [Test]
+    public void AllZeroInput_DoesNotCrash()
+        => AssertDoesNotCrash(new byte[64]);
+
+    [Test]
+    public void TruncatedMagic_DoesNotCrash()
+        => AssertDoesNotCrash([0x00, 0x50, 0x41, 0x52, 0x31]);
+
+    [Test]
+    [MethodDataSource(nameof(CorpusFiles))]
+    public void CorpusFile_DoesNotCrash(string filePath)
+        => PlankReaderFuzzTarget.Execute(File.ReadAllBytes(filePath));
+
+    public static string[] CorpusFiles()
+        => Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Reading", "Fixtures", "Corpus"), "*.bin");
+
+    [Test]
+    [Arguments("ByteStreamSplitInt32PayloadTooShort.parquet")]
+    [Arguments("ColumnCountExceedsRemainingInput.parquet")]
+    [Arguments("crash-001.parquet")]
+    [Arguments("DefinitionLevelLiteralByteCountExceedsPayload.parquet")]
+    [Arguments("DefinitionLevelLiteralGroupCountTooLarge.parquet")]
+    [Arguments("DictionaryIndexesNullsOutOfBounds.parquet")]
+    [Arguments("DictionaryLiteralRunBeforeRleRun.parquet")]
+    [Arguments("DictionaryPageValueCountExceedsPayload.parquet")]
+    [Arguments("NegativeCompressedPageSize.parquet")]
+    [Arguments("NegativeI64OffsetInFooter.parquet")]
+    [Arguments("PlainDoublePayloadTooShort.parquet")]
+    [Arguments("PlainInt32PayloadTooShort.parquet")]
+    [Arguments("PlainInt64PayloadTooShort.parquet")]
+    [Arguments("RleBitPackedHybridZeroBitWidth.parquet")]
+    [Arguments("RowGroupCountOverflow.parquet")]
+    [Arguments("SnappyDestinationTooSmall.parquet")]
+    [Arguments("ThriftNestingDepthExceedsMaximum.parquet")]
+    [Arguments("BrotliInvalidOperationException.parquet")]
+    public void Fixture_DoesNotCrash(string fileName)
+        => AssertDoesNotCrash(FixtureBytes(fileName));
+
+    static void AssertDoesNotCrash(byte[] data)
+    {
+        var schemaIndex = data.Length == 0 ? 0 : data[0] % Schemas.Length;
+        var fileBytes = data.Length == 0 ? [] : data[1..];
+        var schema = Schemas[schemaIndex];
+        var source = new MemoryReadSource(fileBytes);
+        try
+        {
+            using var reader = schema.CreateReader(source);
+            foreach (var rowGroup in reader.RowGroups)
+            {
+                foreach (var column in reader.Schema.LeafColumns)
+                    DrainColumn(rowGroup, column);
+            }
+        }
+        catch (Exception ex) when (ex is CorruptParquetException or NotSupportedException or InvalidOperationException) { }
+    }
+
+    static void DrainColumn(RowGroup rowGroup, LeafColumn column)
+    {
+        switch (column.PhysicalType)
+        {
+            case ParquetPhysicalType.Boolean:
+                DrainBuffers(rowGroup.Column<bool>(column)); break;
+            case ParquetPhysicalType.Int32:
+                DrainBuffers(rowGroup.Column<int>(column)); break;
+            case ParquetPhysicalType.Int64:
+                DrainBuffers(rowGroup.Column<long>(column)); break;
+            case ParquetPhysicalType.Double:
+                DrainBuffers(rowGroup.Column<double>(column)); break;
+            case ParquetPhysicalType.ByteArray:
+                DrainBuffers(rowGroup.Column<byte>(column)); break;
+        }
+    }
+
+    static void DrainBuffers<T>(RowGroupColumn<T> buffers)
+    {
+        foreach (var buffer in buffers)
+        {
+            var span = buffer.Values;
+            for (var i = 0; i < span.Length; i++)
+                _ = span[i];
+        }
+    }
+
+    static byte[] FixtureBytes(string fileName)
+        => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Reading", "Fixtures", fileName));
+
+    static ParquetSchema Schema(params ColumnDefinition[] columns)
+        => new(columns.ToImmutableArray());
+
+    static ColumnDefinition Col(string name, ParquetPhysicalType type, EncodingKind encoding)
+        => ColumnDefinition.Leaf(name, type, new ColumnOptions(encodings: ImmutableArray.Create(encoding)));
+}

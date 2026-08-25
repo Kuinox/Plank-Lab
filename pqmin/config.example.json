@@ -1,0 +1,13 @@
+{
+  "researchers": 12,
+  "timebox_seconds": 900,
+  "plateau_token_budget": 30000000,
+  "model": "openai-codex/gpt-5.6-luna",
+  "thinking": "high",
+  "dashboard_host": "127.0.0.1",
+  "dashboard_port": 8765,
+  "input": "/path/to/trade_timestamps.parquet",
+  "raw_values": "/tmp/plank-autoresearch-values.i64le",
+  "rows": 225000000,
+  "column": "TradeTimestamp"
+}

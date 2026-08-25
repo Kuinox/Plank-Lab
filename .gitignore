@@ -1,0 +1,32 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+/.vs
+/.idea/
+*.DotSettings.user
+/BenchmarkDotNet.Artifacts/
+/Plank.Benchmarks/BenchmarkDotNet.Artifacts/
+/Plank.Benchmarks/nyc-data/
+/Plank.Benchmarks/throughput-output/
+/parquetnet-*.parquet
+.dotnet
+/.claude
+/.tools/
+/artifacts/
+/benchmarks/report/
+/docs/_site/
+/docs/api/.manifest
+/docs/api/*.yml
+__pycache__
+/fuzz/findings/
+/fuzz/findings-noninstru/
+/fuzz/coverage/
+core.*
+
+# Derived from the parquet-testing submodule by fuzz/import-parquet-testing-seeds.sh.
+fuzz/reader-corpus/pqt-*.bin
+
+# Written by Plank.Fuzzing.Target --generate-corpus.
+fuzz/corpus/crosswriter-*

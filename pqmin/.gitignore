@@ -1,0 +1,31 @@
+# Machine-specific configuration.
+/config.json
+
+# Live orchestration state.
+/STOP
+/current.json
+/reference.json
+/status.json
+/NOTEBOOK.md
+/RESULTS.md
+/progress.jsonl
+/trials.jsonl
+/*.lock
+/*.pid
+/coordination/
+/logs/
+/work/
+/seed/
+/recovery/
+
+# Reproducible large artifacts and local probes.
+/best/best.parquet
+/best/reproducer/*.column
+/best/reproducer/*.i64le
+/best/reproducer/research/
+
+# Build and interpreter output.
+**/__pycache__/
+**/*.py[cod]
+/kit/**/bin/
+/kit/**/obj/

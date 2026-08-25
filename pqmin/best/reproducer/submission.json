@@ -1,0 +1,18 @@
+{
+  "kind": "candidate",
+  "hypothesis": "Using Parquet data page version 2 for five equal 45,000,000-row DELTA_BINARY_PACKED pages with the validated windowLog-19 Zstandard settings may reduce the gate-assembled page framing while preserving the same independently compressed timestamp streams.",
+  "tested_scope": "C candidate, exactly five equal 45,000,000-row pages over all 225,000,000 values; standard DELTA_BINARY_PACKED with 128-value blocks; Parquet data page version 2; Zstandard level 10, windowLog 19, hashLog 23, chainLog 25, searchLog 7, minMatch 6, targetLength 128, strategy 7, content-size flag disabled, target compressed block size 131072. A 32,000,000-row eight-page proxy emitted 65,787,610 bundle bytes; the complete candidate emitted 505,100,253 bundle bytes.",
+  "artifact": "submission/candidate.column",
+  "prepare_argv": ["make"],
+  "reproduce_argv": ["./candidate", "/input/values.i64le", "submission/candidate.column", "128", "45000000", "10", "19", "23", "25", "7", "6", "128", "7", "2"],
+  "output_path": "submission/candidate.column",
+  "metrics": {
+    "rows": 225000000,
+    "pages": 5,
+    "bundle_bytes": 505100253,
+    "proxy_rows": 32000000,
+    "proxy_pages": 8,
+    "proxy_bundle_bytes": 65787610
+  },
+  "notes": "The candidate changes the physical page version and equal reset cadence; schema, footer, metadata, and wrapper fields remain gate-controlled."
+}

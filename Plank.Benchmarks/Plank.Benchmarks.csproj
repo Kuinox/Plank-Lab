@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\library\Plank\Plank\Plank.csproj" />
+    <ProjectReference Include="..\library\Plank\Plank.SourceGen\Plank.SourceGen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.6" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.15.6" />
+    <PackageReference Include="Apache.Arrow" Version="18.0.0" />
+    <PackageReference Include="Parquet.Net" Version="6.0.3" />
+    <PackageReference Include="ParquetSharp" Version="24.0.0" />
+    <PackageReference Include="Snappier" Version="1.3.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

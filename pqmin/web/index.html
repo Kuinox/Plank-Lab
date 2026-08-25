@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="Live view of the pqmin parallel artifact research loop">
+    <title>pqmin · artifact research</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true"></div>
+    <main>
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="pqmin dashboard home">
+          <span class="brand-mark">p</span>
+          <span>pqmin</span>
+        </a>
+        <div class="live-state">
+          <span class="pulse" aria-hidden="true"></span>
+          <span id="system-status">Connecting</span>
+          <span class="divider">·</span>
+          <span id="updated">—</span>
+        </div>
+      </header>
+
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <p class="eyebrow">Compressed artifact leaderboard</p>
+          <h1 id="hero-title">Smallest valid file wins.</h1>
+          <p class="hero-copy">Twelve CPU-pinned searches, immediate slot refill, one serialized mechanical gate.</p>
+        </div>
+        <div class="cohort-chip"><span>Cohort</span><strong id="cohort">—</strong></div>
+      </section>
+
+      <section class="scoreboard" aria-label="Current result">
+        <article class="primary-score">
+          <p class="card-label">Current best</p>
+          <strong class="mega-number" id="best-size">Waiting</strong>
+          <p class="artifact-name" id="best-artifact">No promoted artifact yet</p>
+          <div class="change-row">
+            <span id="improvement" class="change neutral">No comparison yet</span>
+            <span id="candidate-id">—</span>
+          </div>
+        </article>
+        <article class="metric-card">
+          <p class="card-label">Fresh baseline</p>
+          <strong id="baseline-size">—</strong>
+          <span id="baseline-runtime">Awaiting bootstrap</span>
+        </article>
+        <article class="metric-card accent-card">
+          <p class="card-label">Hard runtime cap</p>
+          <strong id="runtime-cap">—</strong>
+          <span>Single core · exact 4× baseline</span>
+        </article>
+      </section>
+
+      <section class="section progress-section" aria-labelledby="progress-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Efficiency curve</p>
+            <h2 id="progress-title">All attempts by token count</h2>
+          </div>
+          <span id="progress-meta" class="section-note">Waiting for token telemetry</span>
+        </div>
+        <div id="progress-chart-wrap" class="progress-chart-wrap">
+          <svg id="progress-chart" role="img" aria-label="All sized attempts and validated best file size in mebibytes plotted against cumulative tracked model tokens"></svg>
+          <div id="progress-empty" class="chart-empty" hidden>No progress telemetry yet.</div>
+          <div id="chart-tooltip" class="chart-tooltip" role="tooltip" hidden></div>
+        </div>
+        <div class="chart-legend"><span class="legend-key">Every sized attempt</span><span class="legend-key best">Validated-best frontier</span></div>
+      </section>
+
+      <section class="section" aria-labelledby="slots-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Research floor</p>
+            <h2 id="slots-title">Pinned research slots</h2>
+          </div>
+          <span id="slot-count-note" class="section-note">15-minute maximum · immediate refill</span>
+        </div>
+        <div id="slots" class="slot-grid" aria-live="polite"></div>
+      </section>
+
+      <div class="two-column">
+        <section class="section panel" aria-labelledby="gate-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Mechanical gate</p>
+              <h2 id="gate-title">Submissions</h2>
+            </div>
+            <span id="gate-state" class="count">idle · 0</span>
+          </div>
+          <div id="submissions" class="submission-list" aria-live="polite"></div>
+        </section>
+
+        <section class="section panel" aria-labelledby="trials-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Neutral record</p>
+              <h2 id="trials-title">Recent trials</h2>
+            </div>
+            <span id="trial-count" class="count">0</span>
+          </div>
+          <div id="trials" class="trial-list" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <aside id="warning" class="warning" hidden></aside>
+      <footer>Artifact size is the objective. Encoding-level regressions are allowed when the complete compressed file gets smaller.</footer>
+    </main>
+
+    <template id="empty-template">
+      <div class="empty">
+        <span class="empty-orbit" aria-hidden="true"></span>
+        <p>Waiting for the research loop</p>
+      </div>
+    </template>
+  </body>
+</html>

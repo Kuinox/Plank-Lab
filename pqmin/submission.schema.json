@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["kind", "hypothesis", "tested_scope"],
+  "properties": {
+    "kind": {"enum": ["candidate", "observation"]},
+    "hypothesis": {"type": "string", "minLength": 1},
+    "tested_scope": {"type": "string", "minLength": 1},
+    "artifact": {"const": "submission/candidate.column"},
+    "prepare_argv": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "reproduce_argv": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "output_path": {"const": "submission/candidate.column"},
+    "metrics": {"type": "object"},
+    "notes": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "candidate"}}},
+      "then": {"required": ["artifact", "reproduce_argv", "output_path"]}
+    }
+  ],
+  "additionalProperties": false
+}

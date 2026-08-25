@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "defaultMachine": "ryzen-9-7900x",
+  "machines": [
+    {
+      "id": "ryzen-9-7900x",
+      "label": "AMD Ryzen 9 7900X",
+      "environment": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "logicalProcessors": 22,
+        "operatingSystem": "CachyOS",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "7c901010aa6d2edcb5c375bdef05f86c0ca7b416"
+      },
+      "generatedAt": "2026-08-25T08:05:06.58828+00:00",
+      "write": "write-ryzen-9-7900x-v1.json",
+      "read": "read-ryzen-9-7900x-v1.json"
+    },
+    {
+      "id": "xeon-e3-1230-v6",
+      "label": "Intel Xeon E3-1230 v6",
+      "environment": {
+        "cpu": "Intel(R) Xeon(R) CPU E3-1230 v6 @ 3.50GHz",
+        "logicalProcessors": 6,
+        "operatingSystem": "Debian GNU/Linux 12 (bookworm)",
+        "dotNetVersion": ".NET 10.0.7",
+        "commit": "7c901010aa6d2edcb5c375bdef05f86c0ca7b416"
+      },
+      "generatedAt": "2026-08-25T08:25:49.2003552+00:00",
+      "write": "write-xeon-e3-1230-v6-v1.json",
+      "read": "read-xeon-e3-1230-v6-v1.json"
+    },
+    {
+      "id": "xeon-e-2288g",
+      "label": "Intel Xeon E-2288G",
+      "environment": {
+        "cpu": "Intel(R) Xeon(R) E-2288G CPU @ 3.70GHz",
+        "logicalProcessors": 14,
+        "operatingSystem": "Debian GNU/Linux 12 (bookworm)",
+        "dotNetVersion": ".NET 10.0.3",
+        "commit": "7c901010aa6d2edcb5c375bdef05f86c0ca7b416"
+      },
+      "generatedAt": "2026-08-25T08:07:05.7625392+00:00",
+      "write": "write-xeon-e-2288g-v1.json",
+      "read": "read-xeon-e-2288g-v1.json"
+    },
+    {
+      "id": "s10e-exynos-9820",
+      "label": "Samsung Galaxy S10e \u00b7 Exynos 9820",
+      "environment": {
+        "cpu": "Arm64",
+        "logicalProcessors": 7,
+        "operatingSystem": "postmarketOS edge (Debian userspace chroot)",
+        "dotNetVersion": ".NET 10.0.11",
+        "commit": "a116908f5a3887981335d96a8d7e5be98a2bea1f-dirty"
+      },
+      "generatedAt": "2026-08-25T10:59:53.7275613+00:00",
+      "write": "write-s10e-exynos-9820-v1.json",
+      "read": "read-s10e-exynos-9820-v1.json"
+    },
+    {
+      "id": "scaleway-basic2-a8c",
+      "label": "Scaleway BASIC2-A8C \u00b7 Ampere Altra Max",
+      "environment": {
+        "cpu": "Arm64",
+        "logicalProcessors": 7,
+        "operatingSystem": "Ubuntu 24.04.4 LTS",
+        "dotNetVersion": ".NET 10.0.11",
+        "commit": "a116908f5a3887981335d96a8d7e5be98a2bea1f"
+      },
+      "generatedAt": "2026-08-25T10:29:32.1079264+00:00",
+      "write": "write-scaleway-basic2-a8c-v1.json",
+      "read": "read-scaleway-basic2-a8c-v1.json"
+    }
+  ]
+}

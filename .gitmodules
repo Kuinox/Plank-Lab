@@ -1,0 +1,6 @@
+[submodule "library/Plank"]
+	path = library/Plank
+	url = https://github.com/Kuinox/Plank.git
+[submodule "third_party/parquet-testing"]
+	path = third_party/parquet-testing
+	url = https://github.com/apache/parquet-testing.git
