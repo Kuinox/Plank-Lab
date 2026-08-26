@@ -283,7 +283,8 @@
     const multiThreads = suite.cases
       .flatMap(item => item.measurements)
       .find(isMultiThreaded)?.threads;
-    const selectorLabelText = `Data type × Encoding · Cell times: 1 thread / ${multiThreads ?? "all"} threads · Red means Plank lost`;
+    const selectorLabelText = `Data type × Encoding · Cell times: 1 thread / ${multiThreads ?? "all"} threads · ` +
+      "Green = Plank won; red = Plank lost · Margin: <10% light, 10–<50% normal, ≥50% strong";
     const encodings = encodingOrder;
     const rows = [];
     const cases = new Map();
@@ -326,8 +327,10 @@
           cell.textContent = "—";
         } else {
           const button = element("button", "benchmark-matrix-cell");
-          const singleWinner = fastestMeasurement(benchmarkCase.item.measurements.filter(isSingleThreaded));
-          const multiWinner = fastestMeasurement(benchmarkCase.item.measurements.filter(isMultiThreaded));
+          const singleMeasurements = benchmarkCase.item.measurements.filter(isSingleThreaded);
+          const multiMeasurements = benchmarkCase.item.measurements.filter(isMultiThreaded);
+          const singleWinner = fastestMeasurement(singleMeasurements);
+          const multiWinner = fastestMeasurement(multiMeasurements);
           button.type = "button";
           button.setAttribute("aria-pressed", benchmarkCase.index === 0 ? "true" : "false");
           button.setAttribute("aria-label",
@@ -335,9 +338,9 @@
             `1 thread ${matrixDuration(singleWinner)}, ` +
             `${multiThreadLabel(benchmarkCase.item.measurements)} ${matrixDuration(multiWinner)}`);
           button.append(
-            matrixResult(singleWinner, "plank-single"),
+            matrixResult(singleMeasurements, "plank-single"),
             document.createTextNode(" / "),
-            matrixResult(multiWinner, "plank-multi"));
+            matrixResult(multiMeasurements, "plank-multi"));
           button.addEventListener("click", () => showCase(benchmarkCase.index));
           buttons.push({ button, index: benchmarkCase.index });
           cell.append(button);
@@ -395,9 +398,9 @@
     const series = measurements.filter(measurement =>
       measurement.available &&
       Array.isArray(measurement.samplesMilliseconds) &&
-      measurement.samplesMilliseconds.some(Number.isFinite));
+      measurement.samplesMilliseconds.some(value => Number.isFinite(value) && value > 0));
     heading.textContent = "Measured iterations";
-    description.textContent = "Every point is one timed iteration. Lower is faster.";
+    description.textContent = "Every point is one timed iteration. The duration axis is logarithmic; lower is faster.";
     section.append(heading, description);
 
     if (series.length === 0) {
@@ -414,8 +417,9 @@
     const plotWidth = width - margin.left - margin.right;
     const plotHeight = height - margin.top - margin.bottom;
     const sampleCount = Math.max(...series.map(measurement => measurement.samplesMilliseconds.length));
-    const maximum = Math.max(...series.flatMap(measurement => measurement.samplesMilliseconds.filter(Number.isFinite)));
-    const scale = niceLinearScale(maximum, 5);
+    const samples = series.flatMap(measurement =>
+      measurement.samplesMilliseconds.filter(value => Number.isFinite(value) && value > 0));
+    const scale = logarithmicScale(samples);
     const xTicks = graphXTicks(sampleCount, 6);
     const svg = svgElement("svg", "benchmark-measurement-graph");
     const svgTitle = svgElement("title");
@@ -426,11 +430,11 @@
     svgTitle.id = `${graphId}-title`;
     svgTitle.textContent = `${caseLabel} measured iteration duration`;
     svgDescription.id = `${graphId}-description`;
-    svgDescription.textContent = `Line graph of ${sampleCount} measured iterations in milliseconds for ${series.map(item => item.label).join(", ")}. Lower is faster.`;
+    svgDescription.textContent = `Line graph of ${sampleCount} measured iterations for ${series.map(item => item.label).join(", ")}. Duration uses a logarithmic scale. Lower is faster.`;
     svg.append(svgTitle, svgDescription);
 
     scale.ticks.forEach(tick => {
-      const y = margin.top + plotHeight - tick / scale.maximum * plotHeight;
+      const y = margin.top + plotHeight - logarithmicPosition(tick, scale) * plotHeight;
       const line = svgElement("line", "benchmark-graph-gridline");
       line.setAttribute("x1", margin.left);
       line.setAttribute("x2", width - margin.right);
@@ -439,7 +443,7 @@
       const label = svgElement("text", "benchmark-graph-tick benchmark-graph-y-tick");
       label.setAttribute("x", margin.left - 10);
       label.setAttribute("y", y);
-      label.textContent = formatNumber(tick);
+      label.textContent = formatDuration(tick);
       svg.append(line, label);
     });
 
@@ -473,7 +477,7 @@
     yLabel.setAttribute("x", -(margin.top + plotHeight / 2));
     yLabel.setAttribute("y", 18);
     yLabel.setAttribute("transform", "rotate(-90)");
-    yLabel.textContent = "Milliseconds";
+    yLabel.textContent = "Duration · log scale";
     const xLabel = svgElement("text", "benchmark-graph-axis-label benchmark-graph-x-label");
     xLabel.setAttribute("x", margin.left + plotWidth / 2);
     xLabel.setAttribute("y", height - 8);
@@ -483,7 +487,7 @@
     series.forEach(measurement => {
       const finiteSamples = measurement.samplesMilliseconds
         .map((value, index) => ({ value, index }))
-        .filter(sample => Number.isFinite(sample.value));
+        .filter(sample => Number.isFinite(sample.value) && sample.value > 0);
       const group = svgElement("g", "benchmark-graph-series");
       group.style.setProperty("--series-color", seriesColors[measurement.implementationId] || "currentColor");
       const polyline = svgElement("polyline", "benchmark-graph-line");
@@ -491,7 +495,7 @@
         const x = sampleCount === 1
           ? margin.left + plotWidth / 2
           : margin.left + sample.index / (sampleCount - 1) * plotWidth;
-        const y = margin.top + plotHeight - sample.value / scale.maximum * plotHeight;
+        const y = margin.top + plotHeight - logarithmicPosition(sample.value, scale) * plotHeight;
         return `${x},${y}`;
       }).join(" "));
       group.append(polyline);
@@ -499,7 +503,7 @@
         const x = sampleCount === 1
           ? margin.left + plotWidth / 2
           : margin.left + sample.index / (sampleCount - 1) * plotWidth;
-        const y = margin.top + plotHeight - sample.value / scale.maximum * plotHeight;
+        const y = margin.top + plotHeight - logarithmicPosition(sample.value, scale) * plotHeight;
         const point = svgElement("circle", "benchmark-graph-point");
         const pointTitle = svgElement("title");
         point.setAttribute("cx", x);
@@ -526,20 +530,52 @@
     return section;
   }
 
-  function niceLinearScale(maximum, desiredTickCount) {
-    if (!Number.isFinite(maximum) || maximum <= 0)
-      return { maximum: 1, ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] };
-    const roughStep = maximum / desiredTickCount;
-    const magnitude = 10 ** Math.floor(Math.log10(roughStep));
-    const normalized = roughStep / magnitude;
-    const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-    const step = multiplier * magnitude;
-    const niceMaximum = Math.ceil(maximum / step) * step;
-    const tickCount = Math.round(niceMaximum / step);
-    return {
-      maximum: niceMaximum,
-      ticks: Array.from({ length: tickCount + 1 }, (_, index) => index * step)
-    };
+  function logarithmicScale(values) {
+    let smallest = Math.min(...values);
+    let largest = Math.max(...values);
+
+    if (smallest === largest) {
+      smallest /= 2;
+      largest *= 2;
+    }
+
+    const firstExponent = Math.floor(Math.log10(smallest));
+    const lastExponent = Math.ceil(Math.log10(largest));
+    const exponentSpan = lastExponent - firstExponent;
+    const multipliers = exponentSpan <= 1 ? [1, 2, 5] : exponentSpan <= 2 ? [1, 5] : [1];
+    const minimum = exponentSpan > 2 ? 10 ** firstExponent : logarithmicBoundary(smallest, false);
+    const maximum = exponentSpan > 2 ? 10 ** lastExponent : logarithmicBoundary(largest, true);
+    const ticks = [];
+
+    for (let exponent = Math.floor(Math.log10(minimum)) - 1;
+      exponent <= Math.ceil(Math.log10(maximum));
+      exponent++) {
+      for (const multiplier of multipliers) {
+        const value = multiplier * 10 ** exponent;
+        if (value >= minimum && value <= maximum)
+          ticks.push(value);
+      }
+    }
+
+    if (!ticks.includes(minimum)) ticks.unshift(minimum);
+    if (!ticks.includes(maximum)) ticks.push(maximum);
+
+    return { minimum, maximum, ticks: [...new Set(ticks)].sort((left, right) => left - right) };
+  }
+
+  function logarithmicBoundary(value, roundUp) {
+    const exponent = Math.floor(Math.log10(value));
+    const power = 10 ** exponent;
+    const normalized = value / power;
+    const multiplier = roundUp
+      ? normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10
+      : normalized < 2 ? 1 : normalized < 5 ? 2 : 5;
+    return multiplier * power;
+  }
+
+  function logarithmicPosition(value, scale) {
+    const minimum = Math.log10(scale.minimum);
+    return (Math.log10(value) - minimum) / (Math.log10(scale.maximum) - minimum);
   }
 
   function graphXTicks(sampleCount, desiredTickCount) {
@@ -560,10 +596,37 @@
       : formatDuration(measurement.medianMilliseconds);
   }
 
-  function matrixResult(measurement, plankImplementationId) {
+  function matrixResult(measurements, plankImplementationId) {
     const result = element("span", "benchmark-matrix-result");
-    result.dataset.lost = String(measurement?.implementationId !== plankImplementationId);
-    result.textContent = matrixDuration(measurement);
+    const winner = fastestMeasurement(measurements);
+    result.textContent = matrixDuration(winner);
+
+    if (winner?.implementationId === plankImplementationId) {
+      const competitor = fastestMeasurement(measurements.filter(
+        measurement => measurement.implementationId !== plankImplementationId));
+      if (competitor) {
+        const margin = (competitor.medianMilliseconds - winner.medianMilliseconds) /
+          competitor.medianMilliseconds * 100;
+        if (margin > 0) {
+          result.dataset.win = margin < 10 ? "light" : margin < 50 ? "normal" : "strong";
+          result.title = `Plank used ${formatNumber(margin)}% less time than ${competitor.label}`;
+        }
+      }
+    } else if (winner) {
+      const plank = measurements.find(measurement =>
+        measurement.implementationId === plankImplementationId &&
+        measurement.available &&
+        measurement.medianMilliseconds != null);
+      if (plank) {
+        const margin = (plank.medianMilliseconds - winner.medianMilliseconds) /
+          winner.medianMilliseconds * 100;
+        if (margin > 0) {
+          result.dataset.loss = margin < 10 ? "light" : margin < 50 ? "normal" : "strong";
+          result.title = `Plank used ${formatNumber(margin)}% more time than ${winner.label}`;
+        }
+      }
+    }
+
     return result;
   }
 

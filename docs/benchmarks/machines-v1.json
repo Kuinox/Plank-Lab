@@ -46,7 +46,7 @@
     },
     {
       "id": "s10e-exynos-9820",
-      "label": "Samsung Galaxy S10e \u00b7 Exynos 9820",
+      "label": "Exynos 9820",
       "environment": {
         "cpu": "Arm64",
         "logicalProcessors": 7,
@@ -60,7 +60,7 @@
     },
     {
       "id": "scaleway-basic2-a8c",
-      "label": "Scaleway BASIC2-A8C \u00b7 Ampere Altra Max",
+      "label": "Ampere Altra Max",
       "environment": {
         "cpu": "Arm64",
         "logicalProcessors": 7,
