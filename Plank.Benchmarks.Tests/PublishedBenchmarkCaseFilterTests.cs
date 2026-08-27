@@ -8,8 +8,11 @@ internal sealed class PublishedBenchmarkCaseFilterTests
     public async Task PublishedRunsWarmPastTieredCompilationByDefault()
     {
         await Assert.That(PublishedBenchmarkCommand.CreateOptions([]).Warmups).IsEqualTo(8);
+        await Assert.That(PublishedBenchmarkCommand.CreateOptions([]).Iterations).IsEqualTo(100);
         await Assert.That(PublishedBenchmarkCommand.CreateOptions(["--quick"]).Warmups).IsEqualTo(1);
+        await Assert.That(PublishedBenchmarkCommand.CreateOptions(["--quick"]).Iterations).IsEqualTo(1);
         await Assert.That(PublishedBenchmarkCommand.CreateOptions(["--warmups", "3"]).Warmups).IsEqualTo(3);
+        await Assert.That(PublishedBenchmarkCommand.CreateOptions(["--iterations", "30"]).Iterations).IsEqualTo(30);
     }
 
     [Test]

@@ -45,7 +45,7 @@ dotnet run -c Release --project Plank.Benchmarks -- --published-write --quick
 
 It covers both suites and every writer, and writes `artifacts/benchmarks/write-quick-v1.json`.
 
-Publish the full 2-warmup, 7-iteration suite:
+Publish the full 8-warmup, 100-iteration suite:
 
 ```bash
 dotnet run -c Release --project Plank.Benchmarks -- --published-write

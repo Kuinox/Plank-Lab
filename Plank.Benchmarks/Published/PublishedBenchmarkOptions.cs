@@ -4,7 +4,7 @@ public sealed class PublishedBenchmarkOptions
 {
     public int Warmups { get; init; } = 8;
 
-    public int Iterations { get; init; } = 7;
+    public int Iterations { get; init; } = 100;
 
     public bool Quick { get; init; }
 
