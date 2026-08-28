@@ -47,10 +47,13 @@ internal sealed class PublishedReadBenchmarkQuickSmokeTests
             await Assert.That(benchmarkCase.Measurements.Count(static result => result.Available))
                 .IsGreaterThanOrEqualTo(4);
         }
-        var rle = report.Suites.Single(static suite => suite.Id == "synthetic").Cases
-            .Single(static benchmarkCase => benchmarkCase.Encoding == "rle");
-        await Assert.That(rle.Measurements.Single(static result =>
-            result.ImplementationId == "parquetnet-single").Available).IsFalse();
+        var rleCases = report.Suites.Single(static suite => suite.Id == "synthetic").Cases
+            .Where(static benchmarkCase => benchmarkCase.Encoding == "rle")
+            .ToArray();
+        await Assert.That(rleCases.Length).IsEqualTo(3);
+        foreach (var rleCase in rleCases)
+            await Assert.That(rleCase.Measurements.Single(static result =>
+                result.ImplementationId == "parquetnet-single").Available).IsFalse();
     }
 
     [Test]
