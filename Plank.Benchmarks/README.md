@@ -73,8 +73,7 @@ snapshots.
 
 Use `--data-dir`, `--output`, `--warmups`, `--iterations`, `--workers`, `--synthetic-rows`, or `--synthetic-width` to override the defaults. Pass `--case <id>` to run only the matching case in each suite where that ID exists; filtered runs default to `artifacts/benchmarks/{write,read}-case-v1.json` so they cannot replace a published snapshot.
 
-For a publishable Linux run, reserve one physical core (including its SMT sibling) for the rest of
-the machine and run the benchmark on every remaining CPU:
+For a publishable Linux run, isolate the benchmark from the rest of the machine:
 
 ```bash
 dotnet build -c Release Plank.Benchmarks/Plank.Benchmarks.csproj
@@ -84,9 +83,19 @@ sudo python3 Plank.Benchmarks/scripts/run_cpu_isolated.py -- \
 
 The isolation runner snapshots every thread and IRQ affinity before changing anything, restores the
 exact masks on normal exit or interruption, and starts a detached watchdog that restores them even if
-the runner is killed. It also exports the benchmark CPU list to the child. Plank uses its
-`OnWorkerStarted` hook to bind each benchmark worker to a distinct logical CPU; libraries without a
-per-worker hook remain confined to the same benchmark-only CPU set.
+the runner is killed. On homogeneous CPUs it preserves the original behavior: one physical core,
+including all of its SMT siblings, is reserved for housekeeping and every other allowed CPU runs the
+benchmark. On asymmetric CPUs it reads Linux's per-CPU `cpu_capacity`, falling back to
+`cpufreq/cpuinfo_max_freq`, and assigns CPUs more than 10% below the highest class to housekeeping.
+This keeps efficiency cores out of an index-pinned worker pool while retaining every logical thread
+of the selected performance cores. Small boost-bin differences remain one homogeneous class.
+
+The runner prints both CPU sets and the sysfs metric used, then exports the benchmark CPU list to the
+child. Plank uses its `OnWorkerStarted` hook to bind each benchmark worker to a distinct logical CPU;
+libraries without a per-worker hook remain confined to the same benchmark-only CPU set. Use
+`--housekeeping-cpu N` to reserve a specific physical core as well. On an asymmetric CPU all detected
+lower-capacity CPUs still remain housekeeping; selecting a performance CPU reserves that full core in
+addition to them.
 
 ## One snapshot per CPU
 

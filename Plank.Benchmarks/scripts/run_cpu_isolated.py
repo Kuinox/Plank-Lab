@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Run a command with one physical core reserved for everything else.
+"""Run a command on isolated, topology-appropriate benchmark CPUs.
 
 Linux CPU affinity is inherited by new threads and processes.  This runner uses
 that property in both directions:
 
-* every existing thread and every IRQ is moved onto one housekeeping core;
-* the child command is launched on all remaining logical CPUs;
+* every existing thread and every IRQ is moved onto housekeeping CPUs;
+* on asymmetric systems, the child runs only on the highest-capacity CPUs;
+* on homogeneous systems, one physical core remains reserved for housekeeping;
 * exact pre-run affinities are restored when the child exits.
 
 A detached watchdog owns the same snapshot.  If the runner is killed (including
@@ -32,6 +33,12 @@ from typing import Any, Iterable
 
 STATE_ROOT = Path("/var/tmp/plank-benchmark-affinity")
 PROC = Path("/proc")
+SYS_CPU = Path("/sys/devices/system/cpu")
+
+# Treat small per-core boost-bin differences as one performance class.  Actual
+# hybrid/big.LITTLE classes have a substantially larger capacity or maximum-
+# frequency split; for example, the M2 Pro reports 756 versus 1024 capacity.
+PERFORMANCE_CLASS_PERCENT = 90
 
 
 def parse_cpu_list(value: str) -> set[int]:
@@ -73,26 +80,79 @@ def cpu_mask(cpus: Iterable[int]) -> str:
     return ",".join(reversed(groups or ["00000000"]))
 
 
-def thread_siblings(cpu: int, allowed: set[int]) -> set[int]:
-    path = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology/thread_siblings_list")
+def thread_siblings(cpu: int, allowed: set[int], sys_cpu: Path = SYS_CPU) -> set[int]:
+    path = sys_cpu / f"cpu{cpu}" / "topology" / "thread_siblings_list"
     siblings = parse_cpu_list(path.read_text(encoding="ascii")) if path.exists() else {cpu}
     return siblings & allowed
 
 
-def choose_layout(housekeeping_cpu: int | None) -> tuple[set[int], set[int], set[int]]:
-    allowed = set(os.sched_getaffinity(0))
+def read_cpu_values(allowed: set[int], relative_path: str,
+                    sys_cpu: Path = SYS_CPU) -> dict[int, int] | None:
+    values: dict[int, int] = {}
+    for cpu in allowed:
+        path = sys_cpu / f"cpu{cpu}" / relative_path
+        try:
+            value = int(path.read_text(encoding="ascii").strip())
+        except (FileNotFoundError, PermissionError, OSError, ValueError):
+            return None
+        if value <= 0:
+            return None
+        values[cpu] = value
+    return values
+
+
+def highest_performance_cpus(allowed: set[int], sys_cpu: Path = SYS_CPU) \
+        -> tuple[set[int], str | None]:
+    metrics = (
+        ("cpu_capacity", "cpu_capacity"),
+        ("cpuinfo_max_freq", "cpufreq/cpuinfo_max_freq"),
+    )
+    for source, relative_path in metrics:
+        values = read_cpu_values(allowed, relative_path, sys_cpu)
+        if values is None:
+            continue
+        maximum = max(values.values())
+        performance = {
+            cpu for cpu, value in values.items()
+            if value * 100 >= maximum * PERFORMANCE_CLASS_PERCENT
+        }
+        if performance != allowed:
+            # Never split the logical threads of one physical core between the
+            # benchmark and housekeeping sets, even if sysfs data is unusual.
+            lower_capacity = allowed - performance
+            housekeeping_cores = set().union(*(
+                thread_siblings(cpu, allowed, sys_cpu) for cpu in lower_capacity
+            ))
+            return allowed - housekeeping_cores, source
+    return set(allowed), None
+
+
+def choose_layout(housekeeping_cpu: int | None, allowed: set[int] | None = None,
+                  sys_cpu: Path = SYS_CPU) -> tuple[set[int], set[int], set[int], str | None]:
+    allowed = set(os.sched_getaffinity(0) if allowed is None else allowed)
     if len(allowed) < 2:
         raise SystemExit("CPU isolation needs at least two allowed logical CPUs.")
-    selected = min(allowed) if housekeeping_cpu is None else housekeeping_cpu
-    if selected not in allowed:
+    if housekeeping_cpu is not None and housekeeping_cpu not in allowed:
         raise SystemExit(
-            f"housekeeping CPU {selected} is outside this process's allowed set "
+            f"housekeeping CPU {housekeeping_cpu} is outside this process's allowed set "
             f"({format_cpu_list(allowed)}).")
-    housekeeping = thread_siblings(selected, allowed)
-    benchmark = allowed - housekeeping
+
+    performance, topology_source = highest_performance_cpus(allowed, sys_cpu)
+    if topology_source is None:
+        selected = min(allowed) if housekeeping_cpu is None else housekeeping_cpu
+        housekeeping = thread_siblings(selected, allowed, sys_cpu)
+        benchmark = allowed - housekeeping
+    else:
+        # Lower-capacity cores are ideal housekeeping capacity and must not be
+        # handed to index-pinned benchmark workers.  An explicit performance
+        # CPU additionally reserves that whole physical core.
+        housekeeping = allowed - performance
+        if housekeeping_cpu is not None:
+            housekeeping |= thread_siblings(housekeeping_cpu, allowed, sys_cpu)
+        benchmark = allowed - housekeeping
     if not benchmark:
-        raise SystemExit("The housekeeping physical core leaves no CPU for the benchmark.")
-    return allowed, housekeeping, benchmark
+        raise SystemExit("The housekeeping CPU selection leaves no CPU for the benchmark.")
+    return allowed, housekeeping, benchmark, topology_source
 
 
 def read_thread_identity(tid: int) -> dict[str, Any] | None:
@@ -366,7 +426,11 @@ def child_setup(benchmark: set[int], user: pwd.struct_passwd | None) -> None:
 def run(args: argparse.Namespace) -> int:
     if os.geteuid() != 0:
         raise SystemExit("run_cpu_isolated.py must run as root (normally through sudo).")
-    allowed, housekeeping, benchmark = choose_layout(args.housekeeping_cpu)
+    allowed, housekeeping, benchmark, topology_source = choose_layout(args.housekeeping_cpu)
+    if topology_source is None:
+        print("CPU topology:       homogeneous or unavailable; reserved one physical core", flush=True)
+    else:
+        print(f"CPU topology:       asymmetric via {topology_source}; using highest-capacity CPUs", flush=True)
     print(f"housekeeping CPUs: {format_cpu_list(housekeeping)}", flush=True)
     print(f"benchmark CPUs:    {format_cpu_list(benchmark)}", flush=True)
     print(f"benchmark command: {' '.join(args.command)}", flush=True)
@@ -382,6 +446,7 @@ def run(args: argparse.Namespace) -> int:
         "allowedCpus": sorted(allowed),
         "housekeepingCpus": sorted(housekeeping),
         "benchmarkCpus": sorted(benchmark),
+        "topologySource": topology_source,
         "threads": snapshot_threads(),
         "changedThreads": [],
         "irqs": {} if args.no_irqs else snapshot_irqs(),
@@ -471,7 +536,9 @@ def parse_args() -> argparse.Namespace:
             watchdog=(Path(sys.argv[2]), int(sys.argv[3]), Path(sys.argv[4])))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--housekeeping-cpu", type=int,
-                        help="One logical CPU identifying the physical housekeeping core (default: first allowed).")
+                        help="Logical CPU whose physical core must be housekeeping. On asymmetric systems all "
+                             "lower-capacity CPUs are housekeeping automatically; selecting a performance CPU "
+                             "reserves that core too. On homogeneous systems the default is the first allowed CPU.")
     parser.add_argument("--settle-seconds", type=float, default=5,
                         help="Pause after isolation before starting the command (default: 5).")
     parser.add_argument("--no-irqs", action="store_true",

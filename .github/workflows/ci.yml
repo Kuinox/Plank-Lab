@@ -10,6 +10,12 @@ permissions:
   contents: read
 
 jobs:
+  benchmark-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s Plank.Benchmarks/scripts/tests -p 'test_*.py'
+
   dotnet:
     runs-on: ubuntu-latest
     steps:
