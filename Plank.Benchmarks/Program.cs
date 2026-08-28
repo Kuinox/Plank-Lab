@@ -14,13 +14,19 @@ if (args is ["--encoding-regression-compare", ..])
 
 if (args is ["--published-write", ..])
 {
-    await PublishedBenchmarkCommand.RunAsync(args[1..]);
+    PublishedBenchmarkCommand.Run(args[1..], "Write");
     return 0;
 }
 
 if (args is ["--published-read", ..])
 {
-    await PublishedReadBenchmarkCommand.RunAsync(args[1..]);
+    PublishedBenchmarkCommand.Run(args[1..], "Read");
+    return 0;
+}
+
+if (args is ["--published", ..])
+{
+    PublishedBenchmarkCommand.Run(args[1..]);
     return 0;
 }
 

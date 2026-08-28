@@ -1,137 +1,71 @@
-# Encoding regression suite
+# Benchmarks
 
-`--encoding-regression` measures every encoder path in `Plank.Writing.Encoding` — each supported
-(physical type × encoding × repetition) combination, required, optional and repeated — and records a
+## Encoding regression suite
+
+`--encoding-regression` measures every encoder path in `Plank.Writing.Encoding` and records a
 SHA-256 of each encoded file alongside the timings.
 
 ```bash
-git checkout master
 dotnet run -c Release --project Plank.Benchmarks -- --encoding-regression --label baseline
-git checkout my-branch
 dotnet run -c Release --project Plank.Benchmarks -- --encoding-regression --label current
 dotnet run -c Release --project Plank.Benchmarks -- --encoding-regression-compare \
   artifacts/benchmarks/encoding-regression-baseline.json \
   artifacts/benchmarks/encoding-regression-current.json
 ```
 
-The compare step exits non-zero when a case flips between `ok` and `failed`, when a case gets slower
-than the tolerance, or — most usefully for refactors — when the encoded bytes change at all. A
-refactor that is meant to preserve behaviour should report every case as `same`.
+The encoded-byte comparison is the exact signal; timings are a coarse regression net. Override the
+defaults with `--rows`, `--warmups`, `--iterations`, or `--output`.
 
-**The encoded-bytes check is the exact signal; the timings are a coarse net.** Cases are measured
-round-robin (one sample per case per round, 30 rounds) and compared on the fastest observed
-iteration, because contention and GC only ever add time. Even so, two *identical* runs on a shared
-runner disagree by a median of 2.6% and a p90 of 9%, so the tolerance defaults to 10% and cases whose
-baseline is under 100 us are printed but not failed — `bool/plain/required` encodes 200k values in
-~30 us, where a few microseconds of jitter reads as tens of percent. Expect the occasional false
-positive on a busy machine and re-run before believing a lone timing regression. Tune with
-`--tolerance 1.20` and `--significance-floor 500`.
+## Published direct benchmarks
 
-Only `SerializedColumn.Serialize` is timed. That covers level writing, dictionary construction, value
-encoding and page splitting, but also the column statistics pass, so encoder-only deltas are damped
-rather than shown at full size.
+The homepage results come from the BenchmarkDotNet cases in `Published/Cases`. Every data type and
+encoding has a separate source file, and every library has its own direct `Write` and `Read` benchmark
+methods. The timed paths do not pass through the old generic adapters, per-cell type switches, or a
+shared row helper.
 
-Override the defaults with `--rows` (200,000), `--warmups` (3), `--iterations` (30) or `--output`.
-
-# Published benchmarks
-
-The homepage benchmark is generated manually. DocFX only copies the reviewed JSON snapshot and never runs a benchmark.
-
-Run the small smoke suite first:
-
-```bash
-dotnet run -c Release --project Plank.Benchmarks -- --published-write --quick
-```
-
-It covers both suites and every writer, and writes `artifacts/benchmarks/write-quick-v1.json`.
-
-Publish the full 8-warmup, 100-iteration suite:
-
-```bash
-dotnet run -c Release --project Plank.Benchmarks -- --published-write
-```
-
-This preloads January 2024 NYC Yellow Taxi data, validates each output separately, and writes the versioned snapshot to `docs/benchmarks/write-v1.json`.
-
-Run the equivalent read suite with:
-
-```bash
-dotnet run -c Release --project Plank.Benchmarks -- --published-read
-```
-
-It generates one audited in-memory file per case, then writes `docs/benchmarks/read-v1.json`.
-Every timed reader traverses every decoded logical value into a cheap additive checksum. Numeric values
-contribute their value, nulls contribute a sentinel, and variable-length values contribute their UTF-8
-byte length. The checksum is validated after the timer, so the JIT cannot discard decoded buffers that
-a real consumer would observe. Multithreaded readers consume independent columns in parallel and
-combine their checksums in schema order.
-
-The checksum is intentionally not collision-resistant and is not a substitute for correctness tests.
-It exists only to keep decoded results observable without making a serial hash chain part of the
-benchmark. Published read timings generated before this change cannot be compared directly with newer
-snapshots.
-
-Use `--data-dir`, `--output`, `--warmups`, `--iterations`, `--workers`, `--synthetic-rows`, or `--synthetic-width` to override the defaults. Pass `--case <id>` to run only the matching case in each suite where that ID exists; filtered runs default to `artifacts/benchmarks/{write,read}-case-v1.json` so they cannot replace a published snapshot.
-
-The Boolean RLE cases cover distinct hybrid-encoding paths: `boolean-rle` retains the alternating,
-literal-only input used by the published matrix, `boolean-rle-runs` uses 128-value runs, and
-`boolean-rle-mixed` alternates literal regions with long runs.
-
-For a publishable Linux run, isolate the benchmark from the rest of the machine:
+The full run uses 80 warmups and 100 measured iterations:
 
 ```bash
 dotnet build -c Release Plank.Benchmarks/Plank.Benchmarks.csproj
 sudo python3 Plank.Benchmarks/scripts/run_cpu_isolated.py -- \
-  dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll --published-write
+  dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll --published
 ```
 
-The isolation runner snapshots every thread and IRQ affinity before changing anything, restores the
-exact masks on normal exit or interruption, and starts a detached watchdog that restores them even if
-the runner is killed. On homogeneous CPUs it preserves the original behavior: one physical core,
-including all of its SMT siblings, is reserved for housekeeping and every other allowed CPU runs the
-benchmark. On asymmetric CPUs it reads Linux's per-CPU `cpu_capacity`, falling back to
-`cpufreq/cpuinfo_max_freq`, and assigns CPUs more than 10% below the highest class to housekeeping.
-This keeps efficiency cores out of an index-pinned worker pool while retaining every logical thread
-of the selected performance cores. Small boost-bin differences remain one homogeneous class.
-
-The runner prints both CPU sets and the sysfs metric used, then exports the benchmark CPU list to the
-child. Plank uses its `OnWorkerStarted` hook to bind each benchmark worker to a distinct logical CPU;
-libraries without a per-worker hook remain confined to the same benchmark-only CPU set. Use
-`--housekeeping-cpu N` to reserve a specific physical core as well. On an asymmetric CPU all detected
-lower-capacity CPUs still remain housekeeping; selecting a performance CPU reserves that full core in
-addition to them.
-
-## One snapshot per CPU
-
-A run measures one machine. Publishing a single machine's numbers hides the cases where the ranking
-depends on the hardware — vector width, core count and memory bandwidth all move the results, and a
-24-thread desktop says nothing about how the multithreaded rows behave on 8 cores. So the homepage
-carries one snapshot pair per CPU and lets the reader pick.
-
-Run both suites on each machine, collect the six files, then publish them together:
+Use a focused quick run while changing the harness:
 
 ```bash
-python3 Plank.Benchmarks/scripts/publish_matrix.py \
-  --machine "ryzen-9-7900x:AMD Ryzen 9 7900X:desktop-write.json:desktop-read.json" \
-  --machine "xeon-e3-1230-v6:Intel Xeon E3-1230 v6:server-a-write.json:server-a-read.json" \
-  --default ryzen-9-7900x
+dotnet run -c Release --project Plank.Benchmarks -- \
+  --published --quick --filter '*SyntheticInt32Plain*'
 ```
 
-That copies each pair to `docs/benchmarks/{write,read}-<id>-v1.json` and writes the
-`docs/benchmarks/machines-v1.json` index the page reads. It refuses a machine whose write and read
-halves came from different commits or different CPUs, and warns when the machines are not all at the
-same commit — either one makes the matrix compare things that were never comparable.
+`--published-write` and `--published-read` remain aliases for running only that direct method across
+the suite. Use `--rows`, `--taxi-rows`, or `--data-file` to override input. The default taxi path is
+`Plank.Benchmarks/nyc-data/yellow_tripdata_2024-01.parquet`.
 
-Without the isolation runner, **idle the machine first.** Stop anything else that runs on it, including
-the fuzz fleet (`pkill -9 -f afl-fuzz`), and check with `ps -eo pcpu,args --sort=-pcpu | head`. A
-background service taking a few cores does not show up as high in-run variation; it just makes that
-CPU look slow.
+Synthetic cases use 1,000,000 flat rows and 22 columns and produce 22 row groups. Taxi-derived cases
+use all 2,964,624 rows and produce three row groups. Inputs are not pre-split into library-specific
+column buffers. Streams, capacities, reusable Plank writer/reader setup, worker startup, and pinning
+stay outside the timed method. Each library otherwise uses its public API and default worker count.
 
-## How much these numbers move
+The isolation runner reserves housekeeping CPUs, moves movable threads and IRQs away from the
+benchmark CPUs, and restores the exact original affinity state when the command exits or is killed.
+On asymmetric CPUs it keeps lower-capacity cores in the housekeeping set.
 
-Intra-run `variationPercent` understates reproducibility, because it only sees jitter within one run.
-Across separate runs on the same idle machine and the same commit, read cases drift by a median of
-1.5%, but write cases drift 12–30%. The suite uses eight warmups because two warmups left tiered-JIT
-transitions inside the measured samples: for example, real-world nullable timestamps on Ryzen moved
-from 31–99 ms during compilation to 10–11 ms at steady state. Treat a single write row moving by less
-than ~30% as noise, and re-run before believing it.
+Convert one complete isolated log into a write/read snapshot pair:
+
+```bash
+python3 Plank.Benchmarks/scripts/publish_results.py \
+  --log artifacts/benchmarks/full.log \
+  --matrix Plank.Benchmarks/Published/Cases/matrix.json \
+  --generated Plank.Benchmarks/Published/Cases \
+  --cpu 'AMD Ryzen 9 7900X' \
+  --operating-system 'Linux' \
+  --commit "$(git rev-parse HEAD)" \
+  --write-output artifacts/benchmarks/write.json \
+  --read-output artifacts/benchmarks/read.json
+```
+
+The publisher rejects incomplete logs, including any supported method without exactly 100 samples,
+missing allocation data, or a Plank write that allocates inside the timed method. Publish multiple
+machines with `scripts/publish_matrix.py`; it checks that each write/read pair came from the same CPU
+and commit before copying it to `docs/benchmarks`.

@@ -1,0 +1,682 @@
+[
+  {
+    "suite": "synthetic",
+    "id": "boolean-plain",
+    "stem": "SyntheticBooleanPlain",
+    "label": "boolean \u00b7 plain",
+    "encoding": "plain",
+    "dataTypes": [
+      "bool"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "boolean-rle",
+    "stem": "SyntheticBooleanRle",
+    "label": "boolean \u00b7 rle",
+    "encoding": "rle",
+    "dataTypes": [
+      "bool"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": false
+  },
+  {
+    "suite": "synthetic",
+    "id": "int32-plain",
+    "stem": "SyntheticInt32Plain",
+    "label": "int32 \u00b7 plain",
+    "encoding": "plain",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int32-dictionary",
+    "stem": "SyntheticInt32Dictionary",
+    "label": "int32 \u00b7 dictionary",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int32-delta-binary-packed",
+    "stem": "SyntheticInt32DeltaBinaryPacked",
+    "label": "int32 \u00b7 delta binary packed",
+    "encoding": "delta_binary_packed",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int32-byte-stream-split",
+    "stem": "SyntheticInt32ByteStreamSplit",
+    "label": "int32 \u00b7 byte stream split",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int64-plain",
+    "stem": "SyntheticInt64Plain",
+    "label": "int64 \u00b7 plain",
+    "encoding": "plain",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int64-dictionary",
+    "stem": "SyntheticInt64Dictionary",
+    "label": "int64 \u00b7 dictionary",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int64-delta-binary-packed",
+    "stem": "SyntheticInt64DeltaBinaryPacked",
+    "label": "int64 \u00b7 delta binary packed",
+    "encoding": "delta_binary_packed",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "int64-byte-stream-split",
+    "stem": "SyntheticInt64ByteStreamSplit",
+    "label": "int64 \u00b7 byte stream split",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "timestamp-plain",
+    "stem": "SyntheticTimestampPlain",
+    "label": "timestamp \u00b7 plain",
+    "encoding": "plain",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "timestamp-dictionary",
+    "stem": "SyntheticTimestampDictionary",
+    "label": "timestamp \u00b7 dictionary",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "timestamp-delta-binary-packed",
+    "stem": "SyntheticTimestampDeltaBinaryPacked",
+    "label": "timestamp \u00b7 delta binary packed",
+    "encoding": "delta_binary_packed",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": false
+  },
+  {
+    "suite": "synthetic",
+    "id": "timestamp-byte-stream-split",
+    "stem": "SyntheticTimestampByteStreamSplit",
+    "label": "timestamp \u00b7 byte stream split",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": false
+  },
+  {
+    "suite": "synthetic",
+    "id": "double-plain",
+    "stem": "SyntheticDoublePlain",
+    "label": "double \u00b7 plain",
+    "encoding": "plain",
+    "dataTypes": [
+      "double"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "double-dictionary",
+    "stem": "SyntheticDoubleDictionary",
+    "label": "double \u00b7 dictionary",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "double"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "double-byte-stream-split",
+    "stem": "SyntheticDoubleByteStreamSplit",
+    "label": "double \u00b7 byte stream split",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "double"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "string-plain",
+    "stem": "SyntheticStringPlain",
+    "label": "string \u00b7 plain",
+    "encoding": "plain",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "string-dictionary",
+    "stem": "SyntheticStringDictionary",
+    "label": "string \u00b7 dictionary",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "string-delta-length-byte-array",
+    "stem": "SyntheticStringDeltaLengthByteArray",
+    "label": "string \u00b7 delta length byte array",
+    "encoding": "delta_length_byte_array",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "synthetic",
+    "id": "string-delta-byte-array",
+    "stem": "SyntheticStringDeltaByteArray",
+    "label": "string \u00b7 delta byte array",
+    "encoding": "delta_byte_array",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 1000000,
+    "valueCount": 22000000,
+    "columnCount": 22,
+    "expectedRowGroupCount": 22,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "taxi-plain",
+    "stem": "RealTaxiPlain",
+    "label": "Complete taxi file",
+    "encoding": "plain",
+    "dataTypes": [
+      "int32",
+      "timestamp",
+      "int64",
+      "double",
+      "string"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 56327856,
+    "columnCount": 19,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "taxi-dictionary",
+    "stem": "RealTaxiDictionary",
+    "label": "Complete taxi file",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "int32",
+      "timestamp",
+      "int64",
+      "double",
+      "string"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 56327856,
+    "columnCount": 19,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int32-plain",
+    "stem": "RealInt32Plain",
+    "label": "int32",
+    "encoding": "plain",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int32-dictionary",
+    "stem": "RealInt32Dictionary",
+    "label": "int32",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int32-delta-binary-packed",
+    "stem": "RealInt32DeltaBinaryPacked",
+    "label": "int32",
+    "encoding": "delta_binary_packed",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int32-byte-stream-split",
+    "stem": "RealInt32ByteStreamSplit",
+    "label": "int32",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "int32"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int64-plain",
+    "stem": "RealInt64Plain",
+    "label": "int64",
+    "encoding": "plain",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int64-dictionary",
+    "stem": "RealInt64Dictionary",
+    "label": "int64",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int64-delta-binary-packed",
+    "stem": "RealInt64DeltaBinaryPacked",
+    "label": "int64",
+    "encoding": "delta_binary_packed",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "int64-byte-stream-split",
+    "stem": "RealInt64ByteStreamSplit",
+    "label": "int64",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "int64"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 8893872,
+    "columnCount": 3,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "timestamps-plain",
+    "stem": "RealTimestampsPlain",
+    "label": "Timestamps",
+    "encoding": "plain",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 5929248,
+    "columnCount": 2,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "timestamps-dictionary",
+    "stem": "RealTimestampsDictionary",
+    "label": "Timestamps",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 5929248,
+    "columnCount": 2,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "timestamps-delta-binary-packed",
+    "stem": "RealTimestampsDeltaBinaryPacked",
+    "label": "Timestamps",
+    "encoding": "delta_binary_packed",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 5929248,
+    "columnCount": 2,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": false
+  },
+  {
+    "suite": "real-world",
+    "id": "timestamps-byte-stream-split",
+    "stem": "RealTimestampsByteStreamSplit",
+    "label": "Timestamps",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "timestamp"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 5929248,
+    "columnCount": 2,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": false
+  },
+  {
+    "suite": "real-world",
+    "id": "doubles-plain",
+    "stem": "RealDoublesPlain",
+    "label": "Doubles",
+    "encoding": "plain",
+    "dataTypes": [
+      "double"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 29646240,
+    "columnCount": 10,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "doubles-dictionary",
+    "stem": "RealDoublesDictionary",
+    "label": "Doubles",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "double"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 29646240,
+    "columnCount": 10,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "doubles-byte-stream-split",
+    "stem": "RealDoublesByteStreamSplit",
+    "label": "Doubles",
+    "encoding": "byte_stream_split",
+    "dataTypes": [
+      "double"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 29646240,
+    "columnCount": 10,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "strings-plain",
+    "stem": "RealStringsPlain",
+    "label": "Strings",
+    "encoding": "plain",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 2964624,
+    "columnCount": 1,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "strings-dictionary",
+    "stem": "RealStringsDictionary",
+    "label": "Strings",
+    "encoding": "dictionary",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 2964624,
+    "columnCount": 1,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": true,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "strings-delta-length-byte-array",
+    "stem": "RealStringsDeltaLengthByteArray",
+    "label": "Strings",
+    "encoding": "delta_length_byte_array",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 2964624,
+    "columnCount": 1,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  },
+  {
+    "suite": "real-world",
+    "id": "strings-delta-byte-array",
+    "stem": "RealStringsDeltaByteArray",
+    "label": "Strings",
+    "encoding": "delta_byte_array",
+    "dataTypes": [
+      "string"
+    ],
+    "rowCount": 2964624,
+    "valueCount": 2964624,
+    "columnCount": 1,
+    "expectedRowGroupCount": 3,
+    "parquetNetWrite": false,
+    "parquetNetRead": true
+  }
+]

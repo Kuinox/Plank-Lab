@@ -695,15 +695,20 @@
     summary.textContent = "Methodology and machine";
     const metadata = element("dl", "benchmark-metadata");
     const libraries = Object.entries(report.environment.libraries).map(([name, version]) => `${name} ${version}`).join(", ");
+    const parquetNetIterations = report.configuration.parquetNetIterations ?? report.configuration.iterations;
+    const runs = parquetNetIterations < report.configuration.iterations
+      ? `${report.configuration.warmups} warmups, ${report.configuration.iterations} measured iterations (${parquetNetIterations} for Parquet.Net); median with interquartile variation`
+      : `${report.configuration.warmups} warmups, ${report.configuration.iterations} measured iterations; median with interquartile variation`;
     const entries = [
       ["CPU", `${report.environment.cpu} · ${report.environment.logicalProcessors} logical processors`],
       ["Runtime", `${report.environment.operatingSystem} · ${report.environment.dotNetVersion}`],
       ["Libraries", libraries],
       ["Commit", report.environment.commit],
-      ["Runs", `${report.configuration.warmups} warmups, ${report.configuration.iterations} measured iterations; median with interquartile variation`],
-      ["Format", `Data Page ${report.configuration.dataPageVersion}, ${report.configuration.compression} compression, no page indexes or Bloom filters`],
+      ["Runs", runs],
+      ["Format", report.configuration.format ??
+        `Data Page ${report.configuration.dataPageVersion}, ${report.configuration.compression} compression`],
       ["Timing", report.configuration.timingBoundary],
-      ["Data", "January 2024 NYC Yellow Taxi data and deterministic synthetic columns"]
+      ["Data", report.configuration.data ?? "January 2024 NYC Yellow Taxi data and deterministic synthetic columns"]
     ];
     entries.forEach(([term, description]) => {
       const wrapper = document.createElement("div");
@@ -715,6 +720,22 @@
       metadata.append(wrapper);
     });
     details.append(summary, metadata);
+    if (Array.isArray(report.benchmarkCode) && report.benchmarkCode.length !== 0) {
+      const methods = element("section", "benchmark-code");
+      const heading = document.createElement("h4");
+      heading.textContent = "Timed methods";
+      methods.append(heading);
+      report.benchmarkCode.forEach(snippet => {
+        const title = document.createElement("h5");
+        const pre = document.createElement("pre");
+        const code = document.createElement("code");
+        title.textContent = snippet.label;
+        code.textContent = snippet.source;
+        pre.append(code);
+        methods.append(title, pre);
+      });
+      details.append(methods);
+    }
     return details;
   }
 

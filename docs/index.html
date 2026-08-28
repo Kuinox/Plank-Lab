@@ -8,7 +8,7 @@
     if (new URLSearchParams(location.search).get("embed") === "docs")
       document.documentElement.dataset.embedded = "true";
   </script>
-  <link rel="stylesheet" href="benchmarks/write-benchmarks-v16.css">
+  <link rel="stylesheet" href="benchmarks/write-benchmarks-v16.css?v=2">
 </head>
 <body>
   <main>
@@ -20,7 +20,7 @@
       <p class="benchmark-loading" role="status">Loading benchmark results…</p>
     </div>
   </main>
-  <script src="benchmarks/write-benchmarks-v16.js" defer></script>
+  <script src="benchmarks/write-benchmarks-v16.js?v=2" defer></script>
   <script>
     if (document.documentElement.dataset.embedded === "true") {
       const root = document.documentElement;
