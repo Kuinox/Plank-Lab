@@ -52,14 +52,22 @@ internal sealed class SyntheticBenchmarkDataTests
     [Test]
     public async Task BooleanRleCasesCoverRunHeavyLiteralAndMixedInputs()
     {
-        var runHeavy = BooleanValues("boolean-rle");
-        var alternating = BooleanValues("boolean-rle-alternating");
+        var alternating = BooleanValues("boolean-rle");
+        var runHeavy = BooleanValues("boolean-rle-runs");
         var mixed = BooleanValues("boolean-rle-mixed");
 
-        await Assert.That(RunLengths(runHeavy).All(static length => length == 128)).IsTrue();
         await Assert.That(RunLengths(alternating).All(static length => length == 1)).IsTrue();
+        await Assert.That(RunLengths(runHeavy).All(static length => length == 128)).IsTrue();
         await Assert.That(RunLengths(mixed).Any(static length => length < 8)).IsTrue();
         await Assert.That(RunLengths(mixed).Any(static length => length >= 8)).IsTrue();
+
+        var replay = SyntheticBenchmarkData.Create(32, 3, "boolean-rle").Single();
+        for (var column = 0; column < replay.Columns.Count; column++)
+        {
+            var values = (bool[])replay.Columns[column].Values[0];
+            await Assert.That(values.SequenceEqual(
+                Enumerable.Range(0, values.Length).Select(row => ((row + column) & 1) == 0))).IsTrue();
+        }
     }
 
     [Test]

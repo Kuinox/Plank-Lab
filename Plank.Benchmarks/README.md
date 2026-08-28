@@ -73,9 +73,9 @@ snapshots.
 
 Use `--data-dir`, `--output`, `--warmups`, `--iterations`, `--workers`, `--synthetic-rows`, or `--synthetic-width` to override the defaults. Pass `--case <id>` to run only the matching case in each suite where that ID exists; filtered runs default to `artifacts/benchmarks/{write,read}-case-v1.json` so they cannot replace a published snapshot.
 
-The Boolean RLE cases cover distinct hybrid-encoding paths: `boolean-rle` retains the original
-128-value runs for snapshot and case-ID compatibility, `boolean-rle-alternating` is the literal-only
-worst case, and `boolean-rle-mixed` alternates literal regions with long runs.
+The Boolean RLE cases cover distinct hybrid-encoding paths: `boolean-rle` retains the alternating,
+literal-only input used by the published matrix, `boolean-rle-runs` uses 128-value runs, and
+`boolean-rle-mixed` alternates literal regions with long runs.
 
 For a publishable Linux run, reserve one physical core (including its SMT sibling) for the rest of
 the machine and run the benchmark on every remaining CPU:
