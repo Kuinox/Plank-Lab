@@ -48,6 +48,6 @@ internal sealed class PublishedBenchmarkQuickSmokeTests
             .SelectMany(static benchmarkCase => benchmarkCase.Measurements)
             .Where(static result => result.ImplementationId == "parquetnet-single" && !result.Available)
             .ToArray();
-        await Assert.That(unsupported.Length).IsEqualTo(9);
+        await Assert.That(unsupported.Length).IsEqualTo(11);
     }
 }

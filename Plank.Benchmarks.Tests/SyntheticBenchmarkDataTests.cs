@@ -10,11 +10,13 @@ internal sealed class SyntheticBenchmarkDataTests
         var first = SyntheticBenchmarkData.Create(64, 3);
         var second = SyntheticBenchmarkData.Create(64, 3);
 
-        await Assert.That(first.Count).IsEqualTo(21);
+        await Assert.That(first.Count).IsEqualTo(23);
         await Assert.That(first.Select(static dataSet => (dataSet.DataTypes.Single(), dataSet.Encoding)))
             .IsEquivalentTo(
             [
                 ("boolean", "plain"),
+                ("boolean", "rle"),
+                ("boolean", "rle"),
                 ("boolean", "rle"),
                 ("int32", "plain"),
                 ("int32", "dictionary"),
@@ -48,6 +50,19 @@ internal sealed class SyntheticBenchmarkDataTests
     }
 
     [Test]
+    public async Task BooleanRleCasesCoverRunHeavyLiteralAndMixedInputs()
+    {
+        var runHeavy = BooleanValues("boolean-rle");
+        var alternating = BooleanValues("boolean-rle-alternating");
+        var mixed = BooleanValues("boolean-rle-mixed");
+
+        await Assert.That(RunLengths(runHeavy).All(static length => length == 128)).IsTrue();
+        await Assert.That(RunLengths(alternating).All(static length => length == 1)).IsTrue();
+        await Assert.That(RunLengths(mixed).Any(static length => length < 8)).IsTrue();
+        await Assert.That(RunLengths(mixed).Any(static length => length >= 8)).IsTrue();
+    }
+
+    [Test]
     public async Task DictionaryStringsReusePreparedLogicalValues()
     {
         var dataSet = SyntheticBenchmarkData.Create(2_049, 1, "string-dictionary").Single();
@@ -61,4 +76,20 @@ internal sealed class SyntheticBenchmarkDataTests
 
     static bool ArraysEqual(Array left, Array right)
         => left.Cast<object?>().SequenceEqual(right.Cast<object?>());
+
+    static bool[] BooleanValues(string caseId)
+        => (bool[])SyntheticBenchmarkData.Create(1_024, 1, caseId).Single().Columns[0].Values[0];
+
+    static IEnumerable<int> RunLengths(bool[] values)
+    {
+        var start = 0;
+        for (var index = 1; index <= values.Length; index++)
+        {
+            if (index < values.Length && values[index] == values[start])
+                continue;
+
+            yield return index - start;
+            start = index;
+        }
+    }
 }

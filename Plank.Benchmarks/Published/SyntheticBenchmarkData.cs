@@ -10,8 +10,16 @@ public static class SyntheticBenchmarkData
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         (string Id, Func<PublishedBenchmarkDataSet> Create)[] cases =
         [
-            ("boolean-plain", () => CreateBoolean("boolean-plain", "boolean · Plain", "plain", rows, width)),
-            ("boolean-rle", () => CreateBoolean("boolean-rle", "boolean · RLE", "rle", rows, width)),
+            ("boolean-plain", () => CreateBoolean("boolean-plain", "boolean · Plain", "plain", rows, width,
+                BooleanDistribution.RunHeavy)),
+            ("boolean-rle", () => CreateBoolean("boolean-rle", "boolean · RLE", "rle", rows, width,
+                BooleanDistribution.RunHeavy)),
+            ("boolean-rle-alternating", () => CreateBoolean("boolean-rle-alternating",
+                "boolean · RLE · Alternating literals", "rle", rows, width,
+                BooleanDistribution.Alternating)),
+            ("boolean-rle-mixed", () => CreateBoolean("boolean-rle-mixed",
+                "boolean · RLE · Mixed literals and runs", "rle", rows, width,
+                BooleanDistribution.Mixed)),
             ("int32-plain", () => CreateInt32("int32-plain", "int32 · Plain", "plain", rows, width,
                 static i => unchecked((int)CreateHighEntropy(i)))),
             ("int32-dictionary", () => CreateInt32("int32-dictionary", "int32 · Dictionary", "dictionary", rows,
@@ -60,17 +68,36 @@ public static class SyntheticBenchmarkData
         return cases.Where(item => caseId is null || item.Id == caseId).Select(item => item.Create()).ToArray();
     }
 
-    static PublishedBenchmarkDataSet CreateBoolean(string id, string label, string encoding, int rows, int width)
+    static PublishedBenchmarkDataSet CreateBoolean(string id, string label, string encoding, int rows, int width,
+        BooleanDistribution distribution)
     {
         var columns = new PublishedBenchmarkDataSet.Column[width];
         for (var column = 0; column < width; column++)
         {
             var values = new bool[rows];
             for (var row = 0; row < rows; row++)
-                values[row] = ((row + column * 17) / 128 & 1) == 0;
+            {
+                var index = row + column * 17;
+                values[row] = distribution switch
+                {
+                    BooleanDistribution.RunHeavy => (index / 128 & 1) == 0,
+                    BooleanDistribution.Alternating => (index & 1) == 0,
+                    BooleanDistribution.Mixed => (index & 255) < 64
+                        ? (index & 1) == 0
+                        : (index / 256 & 1) == 0,
+                    _ => throw new ArgumentOutOfRangeException(nameof(distribution))
+                };
+            }
             columns[column] = RequiredColumn($"value_{column}", BenchmarkColumnKind.Boolean, values);
         }
         return CreateDataSet(id, label, encoding, columns);
+    }
+
+    enum BooleanDistribution
+    {
+        RunHeavy,
+        Alternating,
+        Mixed
     }
 
     static PublishedBenchmarkDataSet CreateInt64(string id, string label, string encoding, int rows, int width,
