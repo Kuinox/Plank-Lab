@@ -43,7 +43,6 @@ sealed partial class RealStringsPlainPlankRow
         {
             var row = writer.GetRow();
             row.StoreAndForwardFlag = value.StoreAndForwardFlag;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -158,7 +157,6 @@ public class RealStringsPlainPlankBenchmarks
         {
             var row = _writer.GetRow();
             row.StoreAndForwardFlag = value.StoreAndForwardFlag;
-            _writer.Next();
         }
         _writer.Complete();
     }

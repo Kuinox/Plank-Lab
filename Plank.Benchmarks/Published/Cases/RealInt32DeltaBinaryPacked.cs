@@ -51,7 +51,6 @@ sealed partial class RealInt32DeltaBinaryPackedRow
             row.VendorId = value.VendorId;
             row.PickupLocationId = value.PickupLocationId;
             row.DropoffLocationId = value.DropoffLocationId;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -130,7 +129,6 @@ public class RealInt32DeltaBinaryPackedPlankBenchmarks
             row.VendorId = value.VendorId;
             row.PickupLocationId = value.PickupLocationId;
             row.DropoffLocationId = value.DropoffLocationId;
-            _writer.Next();
         }
         _writer.Complete();
     }

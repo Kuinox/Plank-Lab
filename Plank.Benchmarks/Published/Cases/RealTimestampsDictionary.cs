@@ -47,7 +47,6 @@ sealed partial class RealTimestampsDictionaryRow
             var row = writer.GetRow();
             row.Pickup = value.Pickup.HasValue ? DateTime.SpecifyKind(value.Pickup.GetValueOrDefault(), DateTimeKind.Utc) : null;
             row.Dropoff = value.Dropoff.HasValue ? DateTime.SpecifyKind(value.Dropoff.GetValueOrDefault(), DateTimeKind.Utc) : null;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -130,7 +129,6 @@ public class RealTimestampsDictionaryPlankBenchmarks
             var row = _writer.GetRow();
             row.Pickup = value.Pickup;
             row.Dropoff = value.Dropoff;
-            _writer.Next();
         }
         _writer.Complete();
     }

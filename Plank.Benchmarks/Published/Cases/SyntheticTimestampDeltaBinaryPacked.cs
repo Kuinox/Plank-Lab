@@ -158,7 +158,6 @@ sealed partial class SyntheticTimestampDeltaBinaryPackedRow
             row.Value19 = DateTime.SpecifyKind(value.Value19, DateTimeKind.Utc);
             row.Value20 = DateTime.SpecifyKind(value.Value20, DateTimeKind.Utc);
             row.Value21 = DateTime.SpecifyKind(value.Value21, DateTimeKind.Utc);
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -256,7 +255,6 @@ public class SyntheticTimestampDeltaBinaryPackedPlankBenchmarks
             row.Value19 = value.Value19;
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
-            _writer.Next();
         }
         _writer.Complete();
     }

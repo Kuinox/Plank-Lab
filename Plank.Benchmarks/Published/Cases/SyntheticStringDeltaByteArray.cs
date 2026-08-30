@@ -158,7 +158,6 @@ sealed partial class SyntheticStringDeltaByteArrayPlankRow
             row.Value19 = value.Value19;
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -524,7 +523,6 @@ public class SyntheticStringDeltaByteArrayPlankBenchmarks
             row.Value19 = value.Value19;
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
-            _writer.Next();
         }
         _writer.Complete();
     }
