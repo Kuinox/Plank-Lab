@@ -158,7 +158,6 @@ sealed partial class SyntheticBooleanRleRow
             row.Value19 = value.Value19;
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -256,7 +255,6 @@ public class SyntheticBooleanRlePlankBenchmarks
             row.Value19 = value.Value19;
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
-            _writer.Next();
         }
         _writer.Complete();
     }

@@ -79,7 +79,6 @@ sealed partial class RealDoublesPlainRow
             row.TotalAmount = value.TotalAmount;
             row.CongestionSurcharge = value.CongestionSurcharge;
             row.AirportFee = value.AirportFee;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -165,7 +164,6 @@ public class RealDoublesPlainPlankBenchmarks
             row.TotalAmount = value.TotalAmount;
             row.CongestionSurcharge = value.CongestionSurcharge;
             row.AirportFee = value.AirportFee;
-            _writer.Next();
         }
         _writer.Complete();
     }

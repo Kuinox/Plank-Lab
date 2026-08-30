@@ -51,7 +51,6 @@ sealed partial class RealInt64DictionaryRow
             row.PassengerCount = value.PassengerCount;
             row.RatecodeId = value.RatecodeId;
             row.PaymentType = value.PaymentType;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -130,7 +129,6 @@ public class RealInt64DictionaryPlankBenchmarks
             row.PassengerCount = value.PassengerCount;
             row.RatecodeId = value.RatecodeId;
             row.PaymentType = value.PaymentType;
-            _writer.Next();
         }
         _writer.Complete();
     }

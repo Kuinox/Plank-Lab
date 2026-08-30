@@ -66,7 +66,6 @@ public static class PlankRowApiFuzzTarget
             row.Id = id;
             row.Sequence = sequence;
             row.Measure = measure;
-            writer.Next();
         }
 
         writer.Complete();
@@ -109,7 +108,6 @@ public static class PlankRowApiFuzzTarget
             row.Sequence = sequence;
             row.Measure = measure;
             row.Flag = flag;
-            writer.Next();
         }
 
         writer.Complete();
@@ -145,7 +143,6 @@ public static class PlankRowApiFuzzTarget
             row.Id = id;
             row.Payload = payload;
             row.Label = label;
-            writer.Next();
         }
 
         writer.Complete();

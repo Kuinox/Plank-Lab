@@ -115,7 +115,6 @@ sealed partial class RealTaxiDictionaryPlankRow
             row.TotalAmount = value.TotalAmount;
             row.CongestionSurcharge = value.CongestionSurcharge;
             row.AirportFee = value.AirportFee;
-            writer.Next();
         }
         writer.Complete();
         return output.ToArray();
@@ -397,7 +396,6 @@ public class RealTaxiDictionaryPlankBenchmarks
             row.TotalAmount = value.TotalAmount;
             row.CongestionSurcharge = value.CongestionSurcharge;
             row.AirportFee = value.AirportFee;
-            _writer.Next();
         }
         _writer.Complete();
     }
