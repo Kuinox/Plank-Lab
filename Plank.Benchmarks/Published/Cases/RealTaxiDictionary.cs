@@ -345,9 +345,7 @@ public class RealTaxiDictionaryPlankBenchmarks
         };
 
         _output = new MemoryStream();
-        _pinning.Reset();
         _writer = RealTaxiDictionaryPlankRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealTaxiDictionary|Plank|" + file.Length);
@@ -363,9 +361,7 @@ public class RealTaxiDictionaryPlankBenchmarks
     public void SetupWrite()
     {
         _output = new MemoryStream(_outputCapacity);
-        _pinning.Reset();
         _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]

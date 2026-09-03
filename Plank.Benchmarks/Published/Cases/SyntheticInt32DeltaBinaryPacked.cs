@@ -201,9 +201,7 @@ public class SyntheticInt32DeltaBinaryPackedPlankBenchmarks
         };
 
         _output = new MemoryStream();
-        _pinning.Reset();
         _writer = SyntheticInt32DeltaBinaryPackedRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|SyntheticInt32DeltaBinaryPacked|Plank|" + file.Length);
@@ -219,9 +217,7 @@ public class SyntheticInt32DeltaBinaryPackedPlankBenchmarks
     public void SetupWrite()
     {
         _output = new MemoryStream(_outputCapacity);
-        _pinning.Reset();
         _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]

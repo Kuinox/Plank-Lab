@@ -41,38 +41,13 @@ static class BenchmarkAffinity
 sealed class PlankWorkerPinning
 {
     readonly int[] _benchmarkCpus = BenchmarkAffinity.GetBenchmarkCpus();
-    int _expectedWorkers;
-    int _startedWorkers;
-
-    public void Reset()
-    {
-        Volatile.Write(ref _expectedWorkers, 0);
-        Volatile.Write(ref _startedWorkers, 0);
-    }
 
     public void OnWorkerStarted(ParquetWorkerContext context)
     {
-        Volatile.Write(ref _expectedWorkers, context.WorkerCount);
-        try
-        {
-            if (_benchmarkCpus.Length == 0) return;
-            if (context.WorkerCount > _benchmarkCpus.Length)
-                throw new InvalidOperationException(
-                    $"Plank started {context.WorkerCount} workers for {_benchmarkCpus.Length} benchmark CPUs.");
-            BenchmarkAffinity.PinCurrentThread(_benchmarkCpus[context.WorkerIndex]);
-        }
-        finally
-        {
-            Interlocked.Increment(ref _startedWorkers);
-        }
-    }
-
-    public void Wait()
-    {
-        if (!SpinWait.SpinUntil(
-                () => Volatile.Read(ref _expectedWorkers) > 0 &&
-                      Volatile.Read(ref _startedWorkers) == Volatile.Read(ref _expectedWorkers),
-                TimeSpan.FromSeconds(10)))
-            throw new TimeoutException("Plank workers did not finish starting before the benchmark iteration.");
+        if (_benchmarkCpus.Length == 0) return;
+        if (context.WorkerCount > _benchmarkCpus.Length)
+            throw new InvalidOperationException(
+                $"Plank started {context.WorkerCount} workers for {_benchmarkCpus.Length} benchmark CPUs.");
+        BenchmarkAffinity.PinCurrentThread(_benchmarkCpus[context.WorkerIndex]);
     }
 }

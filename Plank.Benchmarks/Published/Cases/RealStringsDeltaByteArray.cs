@@ -124,9 +124,7 @@ public class RealStringsDeltaByteArrayPlankBenchmarks
         };
 
         _output = new MemoryStream();
-        _pinning.Reset();
         _writer = RealStringsDeltaByteArrayPlankRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealStringsDeltaByteArray|Plank|" + file.Length);
@@ -142,9 +140,7 @@ public class RealStringsDeltaByteArrayPlankBenchmarks
     public void SetupWrite()
     {
         _output = new MemoryStream(_outputCapacity);
-        _pinning.Reset();
         _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
