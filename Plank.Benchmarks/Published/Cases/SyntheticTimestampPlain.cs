@@ -201,9 +201,7 @@ public class SyntheticTimestampPlainPlankBenchmarks
         };
 
         _output = new MemoryStream();
-        _pinning.Reset();
         _writer = SyntheticTimestampPlainRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|SyntheticTimestampPlain|Plank|" + file.Length);
@@ -219,9 +217,7 @@ public class SyntheticTimestampPlainPlankBenchmarks
     public void SetupWrite()
     {
         _output = new MemoryStream(_outputCapacity);
-        _pinning.Reset();
         _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]

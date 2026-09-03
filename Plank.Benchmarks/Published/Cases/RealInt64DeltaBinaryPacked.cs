@@ -94,9 +94,7 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
         };
 
         _output = new MemoryStream();
-        _pinning.Reset();
         _writer = RealInt64DeltaBinaryPackedRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealInt64DeltaBinaryPacked|Plank|" + file.Length);
@@ -112,9 +110,7 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
     public void SetupWrite()
     {
         _output = new MemoryStream(_outputCapacity);
-        _pinning.Reset();
         _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
