@@ -170,7 +170,6 @@ public class SyntheticInt32ByteStreamSplitPlankBenchmarks
     SyntheticInt32ByteStreamSplitRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
-    SyntheticInt32ByteStreamSplitRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -202,8 +201,6 @@ public class SyntheticInt32ByteStreamSplitPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
-        _writer = SyntheticInt32ByteStreamSplitRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|SyntheticInt32ByteStreamSplit|Plank|" + file.Length);
@@ -220,8 +217,6 @@ public class SyntheticInt32ByteStreamSplitPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -230,9 +225,11 @@ public class SyntheticInt32ByteStreamSplitPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+        using var writer = SyntheticInt32ByteStreamSplitRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = _writer.GetRow();
+            var row = writer.GetRow();
             row.Value0 = value.Value0;
             row.Value1 = value.Value1;
             row.Value2 = value.Value2;
@@ -256,7 +253,7 @@ public class SyntheticInt32ByteStreamSplitPlankBenchmarks
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
         }
-        _writer.Complete();
+        writer.Complete();
     }
 
     [Benchmark]
@@ -297,7 +294,6 @@ public class SyntheticInt32ByteStreamSplitPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

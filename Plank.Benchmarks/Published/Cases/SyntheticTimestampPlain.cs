@@ -170,7 +170,6 @@ public class SyntheticTimestampPlainPlankBenchmarks
     SyntheticTimestampPlainRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
-    SyntheticTimestampPlainRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -202,8 +201,6 @@ public class SyntheticTimestampPlainPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
-        _writer = SyntheticTimestampPlainRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|SyntheticTimestampPlain|Plank|" + file.Length);
@@ -220,8 +217,6 @@ public class SyntheticTimestampPlainPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -230,9 +225,11 @@ public class SyntheticTimestampPlainPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+        using var writer = SyntheticTimestampPlainRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = _writer.GetRow();
+            var row = writer.GetRow();
             row.Value0 = value.Value0;
             row.Value1 = value.Value1;
             row.Value2 = value.Value2;
@@ -256,7 +253,7 @@ public class SyntheticTimestampPlainPlankBenchmarks
             row.Value20 = value.Value20;
             row.Value21 = value.Value21;
         }
-        _writer.Complete();
+        writer.Complete();
     }
 
     [Benchmark]
@@ -297,7 +294,6 @@ public class SyntheticTimestampPlainPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

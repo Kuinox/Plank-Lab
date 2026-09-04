@@ -59,7 +59,6 @@ public class RealTimestampsDeltaBinaryPackedPlankBenchmarks
     RealTimestampsDeltaBinaryPackedRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
-    RealTimestampsDeltaBinaryPackedRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -96,8 +95,6 @@ public class RealTimestampsDeltaBinaryPackedPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
-        _writer = RealTimestampsDeltaBinaryPackedRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealTimestampsDeltaBinaryPacked|Plank|" + file.Length);
@@ -114,8 +111,6 @@ public class RealTimestampsDeltaBinaryPackedPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -124,13 +119,15 @@ public class RealTimestampsDeltaBinaryPackedPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+        using var writer = RealTimestampsDeltaBinaryPackedRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = _writer.GetRow();
+            var row = writer.GetRow();
             row.Pickup = value.Pickup;
             row.Dropoff = value.Dropoff;
         }
-        _writer.Complete();
+        writer.Complete();
     }
 
     [Benchmark]
@@ -151,7 +148,6 @@ public class RealTimestampsDeltaBinaryPackedPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

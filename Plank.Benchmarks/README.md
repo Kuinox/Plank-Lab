@@ -44,8 +44,9 @@ the suite. Use `--rows`, `--taxi-rows`, or `--data-file` to override input. The 
 
 Synthetic cases use 1,000,000 flat rows and 22 columns and produce 22 row groups. Taxi-derived cases
 use all 2,964,624 rows and produce three row groups. Inputs are not pre-split into library-specific
-column buffers. Streams, capacities, reusable Plank writer/reader setup, worker startup, and pinning
-stay outside the timed method. Each library otherwise uses its public API and default worker count.
+column buffers. Streams, capacities, and reusable reader setup stay outside the timed method. Plank's
+generated writer is stack-bound, so writer construction, worker startup, and pinning are included in
+its write measurement. Each library otherwise uses its public API and default worker count.
 
 The isolation runner reserves housekeeping CPUs, moves movable threads and IRQs away from the
 benchmark CPUs, and restores the exact original affinity state when the command exits or is killed.
