@@ -63,7 +63,6 @@ public class RealInt64PlainPlankBenchmarks
     RealInt64PlainRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
-    RealInt64PlainRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -95,8 +94,6 @@ public class RealInt64PlainPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
-        _writer = RealInt64PlainRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealInt64Plain|Plank|" + file.Length);
@@ -113,8 +110,6 @@ public class RealInt64PlainPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -123,14 +118,16 @@ public class RealInt64PlainPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+        using var writer = RealInt64PlainRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = _writer.GetRow();
+            var row = writer.GetRow();
             row.PassengerCount = value.PassengerCount;
             row.RatecodeId = value.RatecodeId;
             row.PaymentType = value.PaymentType;
         }
-        _writer.Complete();
+        writer.Complete();
     }
 
     [Benchmark]
@@ -152,7 +149,6 @@ public class RealInt64PlainPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

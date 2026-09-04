@@ -91,7 +91,6 @@ public class RealDoublesDictionaryPlankBenchmarks
     RealDoublesDictionaryRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
-    RealDoublesDictionaryRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -123,8 +122,6 @@ public class RealDoublesDictionaryPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
-        _writer = RealDoublesDictionaryRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealDoublesDictionary|Plank|" + file.Length);
@@ -141,8 +138,6 @@ public class RealDoublesDictionaryPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
-        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -151,9 +146,11 @@ public class RealDoublesDictionaryPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+        using var writer = RealDoublesDictionaryRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = _writer.GetRow();
+            var row = writer.GetRow();
             row.TripDistance = value.TripDistance;
             row.FareAmount = value.FareAmount;
             row.Extra = value.Extra;
@@ -165,7 +162,7 @@ public class RealDoublesDictionaryPlankBenchmarks
             row.CongestionSurcharge = value.CongestionSurcharge;
             row.AirportFee = value.AirportFee;
         }
-        _writer.Complete();
+        writer.Complete();
     }
 
     [Benchmark]
@@ -194,7 +191,6 @@ public class RealDoublesDictionaryPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();
