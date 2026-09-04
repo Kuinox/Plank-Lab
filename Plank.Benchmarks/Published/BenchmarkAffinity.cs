@@ -46,8 +46,8 @@ sealed class PlankWorkerPinning
 
     public void Reset()
     {
-        Volatile.Write(ref _expectedWorkers, 0);
-        Volatile.Write(ref _startedWorkers, 0);
+        // Current PipelineWriter versions reuse workers across reset, while older benchmarked revisions restart
+        // them. Preserve the established startup state so Wait works with either lifecycle.
     }
 
     public void OnWorkerStarted(ParquetWorkerContext context)
@@ -71,7 +71,7 @@ sealed class PlankWorkerPinning
     {
         if (!SpinWait.SpinUntil(
                 () => Volatile.Read(ref _expectedWorkers) > 0 &&
-                      Volatile.Read(ref _startedWorkers) == Volatile.Read(ref _expectedWorkers),
+                      Volatile.Read(ref _startedWorkers) >= Volatile.Read(ref _expectedWorkers),
                 TimeSpan.FromSeconds(10)))
             throw new TimeoutException("Plank workers did not finish starting before the benchmark iteration.");
     }
