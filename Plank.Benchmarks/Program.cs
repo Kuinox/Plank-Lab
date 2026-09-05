@@ -3,6 +3,12 @@ using Plank.Benchmarks;
 using Plank.Benchmarks.EncodingRegression;
 using Plank.Benchmarks.Published;
 
+if (args is ["--prepare-published-fixture", var stem, var read, .. var writers])
+{
+    await BenchmarkFixtures.Prepare(stem, bool.Parse(read), writers);
+    return 0;
+}
+
 if (args is ["--encoding-regression", ..])
 {
     await EncodingRegressionCommand.RunAsync(args[1..]);

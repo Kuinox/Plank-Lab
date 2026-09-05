@@ -66,6 +66,7 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
     RealInt64DeltaBinaryPackedRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     RealInt64DeltaBinaryPackedRow.RowReader _reader = null!;
     PlankWorkerPinning _pinning = null!;
@@ -75,10 +76,10 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = BenchmarkData.LoadTaxiRows<RealInt64DeltaBinaryPackedRow>();
+        _rows ??= BenchmarkData.LoadTaxiRows<RealInt64DeltaBinaryPackedRow>();
         _pool = new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation);
         _pinning = new PlankWorkerPinning();
         _options = new ParquetWriterOptions
@@ -93,19 +94,16 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _output = new MemoryStream();
-        _pinning.Reset();
-        _writer = RealInt64DeltaBinaryPackedRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
-        Write();
-        var file = _output.ToArray();
-        Console.WriteLine("BENCHMARK_FILE|RealInt64DeltaBinaryPacked|Plank|" + file.Length);
-        _outputCapacity = BenchmarkData.OutputCapacity(file.Length);
-        _output.Dispose();
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealInt64DeltaBinaryPacked", "Plank", out _expectedOutputBytes);
+    }
 
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead()
+    {
+        _pool = new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation);
+        var file = BenchmarkFixtures.LoadReadFile("RealInt64DeltaBinaryPacked");
         _source = new MemoryReadSource(file);
         _reader = RealInt64DeltaBinaryPackedRow.CreateRowReader(_source, options: new RowReaderOptions { BufferPool = _pool });
-        _ = Read();
     }
 
     [IterationSetup(Target = nameof(Write))]
@@ -113,7 +111,10 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
+        if (_writer is null)
+            _writer = RealInt64DeltaBinaryPackedRow.CreateRowWriter(_output, _options);
+        else
+            _writer.Reset(_output);
         _pinning.Wait();
     }
 
@@ -154,16 +155,20 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
     }
 
     [IterationCleanup(Target = nameof(Write))]
-    public void CleanupWrite() => _output.Dispose();
+    public void CleanupWrite()
+    {
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _output?.Dispose();
+    }
 
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
-        _reader.Dispose();
-        _source.Dispose();
-        _pool.Dispose();
-        _output.Dispose();
+        _writer?.Dispose();
+        _reader?.Dispose();
+        _source?.Dispose();
+        _pool?.Dispose();
+        _output?.Dispose();
     }
 }
 
@@ -179,6 +184,7 @@ public class RealInt64DeltaBinaryPackedParquetSharpBenchmarks
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<RealInt64DeltaBinaryPackedRow> _writer = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
     BufferReader _source = null!;
@@ -189,10 +195,10 @@ public class RealInt64DeltaBinaryPackedParquetSharpBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = BenchmarkData.LoadTaxiRows<RealInt64DeltaBinaryPackedRow>();
+        _rows ??= BenchmarkData.LoadTaxiRows<RealInt64DeltaBinaryPackedRow>();
         _schema =
         [
             new ParquetSharp.Column<long?>("passenger_count"),
@@ -207,17 +213,13 @@ public class RealInt64DeltaBinaryPackedParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.DeltaBinaryPacked).Build();
 
-        _output = new MemoryStream();
-        _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
-        _writer = ParquetFile.CreateRowWriter<RealInt64DeltaBinaryPackedRow>(_managedOutput, _properties, _schema);
-        Write();
-        _outputCapacity = BenchmarkData.OutputCapacity(checked((int)_output.Length));
-        Console.WriteLine("BENCHMARK_FILE|RealInt64DeltaBinaryPacked|ParquetSharp|" + _output.Length);
-        _writer.Dispose();
-        _managedOutput.Dispose();
-        _output.Dispose();
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealInt64DeltaBinaryPacked", "ParquetSharp", out _expectedOutputBytes);
+    }
 
-        var file = RealInt64DeltaBinaryPackedRow.CreateReadFile(_rows);
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead()
+    {
+        var file = BenchmarkFixtures.LoadReadFile("RealInt64DeltaBinaryPacked");
         _pinned = GCHandle.Alloc(file, GCHandleType.Pinned);
         _buffer = new NativeBuffer(_pinned.AddrOfPinnedObject(), file.LongLength);
         _source = new BufferReader(_buffer);
@@ -266,19 +268,20 @@ public class RealInt64DeltaBinaryPackedParquetSharpBenchmarks
     [IterationCleanup(Target = nameof(Write))]
     public void CleanupWrite()
     {
-        _writer.Dispose();
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _writer?.Dispose();
         _managedOutput.Dispose();
-        _output.Dispose();
+        _output?.Dispose();
     }
 
     [GlobalCleanup]
     public void Cleanup()
     {
         _reader?.Dispose();
-        _source.Dispose();
-        _buffer.Dispose();
+        _source?.Dispose();
+        _buffer?.Dispose();
         if (_pinned.IsAllocated) _pinned.Free();
-        _properties.Dispose();
+        _properties?.Dispose();
     }
 }
 
@@ -289,6 +292,7 @@ public class RealInt64DeltaBinaryPackedParquetNetBenchmarks
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
 
@@ -297,10 +301,10 @@ public class RealInt64DeltaBinaryPackedParquetNetBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = BenchmarkData.LoadTaxiRows<RealInt64DeltaBinaryPackedRow>();
+        _rows ??= BenchmarkData.LoadTaxiRows<RealInt64DeltaBinaryPackedRow>();
         _options = new ParquetOptions
         {
             CompressionMethod = CompressionMethod.None,
@@ -311,14 +315,11 @@ public class RealInt64DeltaBinaryPackedParquetNetBenchmarks
         _options.ColumnEncodingHints["RatecodeID"] = EncodingHint.DeltaBinaryPacked;
         _options.ColumnEncodingHints["payment_type"] = EncodingHint.DeltaBinaryPacked;
 
-        _output = new MemoryStream();
-        Write().GetAwaiter().GetResult();
-        _outputCapacity = BenchmarkData.OutputCapacity(checked((int)_output.Length));
-        Console.WriteLine("BENCHMARK_FILE|RealInt64DeltaBinaryPacked|Parquet.Net|" + _output.Length);
-        _output.Dispose();
-
-        _file = RealInt64DeltaBinaryPackedRow.CreateReadFile(_rows);
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealInt64DeltaBinaryPacked", "Parquet.Net", out _expectedOutputBytes);
     }
+
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("RealInt64DeltaBinaryPacked");
 
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
@@ -347,7 +348,11 @@ public class RealInt64DeltaBinaryPackedParquetNetBenchmarks
     }
 
     [IterationCleanup(Target = nameof(Write))]
-    public void CleanupWrite() => _output.Dispose();
+    public void CleanupWrite()
+    {
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _output?.Dispose();
+    }
     [GlobalCleanup]
     public void Cleanup() => _stream?.Dispose();
 }

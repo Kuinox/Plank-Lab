@@ -312,6 +312,7 @@ public class RealTaxiDictionaryPlankBenchmarks
     RealTaxiDictionaryPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     RealTaxiDictionaryPlankRow.RowReader _reader = null!;
     PlankWorkerPinning _pinning = null!;
@@ -321,10 +322,10 @@ public class RealTaxiDictionaryPlankBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = RealTaxiDictionaryPlankRow.FromSharp(BenchmarkData.LoadTaxiRows<RealTaxiDictionarySharpRow>());
+        _rows ??= RealTaxiDictionaryPlankRow.FromSharp(BenchmarkData.LoadTaxiRows<RealTaxiDictionarySharpRow>());
         foreach (var value in _rows)
         {
             value.Pickup = value.Pickup.HasValue ? DateTime.SpecifyKind(value.Pickup.GetValueOrDefault(), DateTimeKind.Utc) : null;
@@ -344,19 +345,16 @@ public class RealTaxiDictionaryPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _output = new MemoryStream();
-        _pinning.Reset();
-        _writer = RealTaxiDictionaryPlankRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
-        Write();
-        var file = _output.ToArray();
-        Console.WriteLine("BENCHMARK_FILE|RealTaxiDictionary|Plank|" + file.Length);
-        _outputCapacity = BenchmarkData.OutputCapacity(file.Length);
-        _output.Dispose();
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealTaxiDictionary", "Plank", out _expectedOutputBytes);
+    }
 
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead()
+    {
+        _pool = new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation);
+        var file = BenchmarkFixtures.LoadReadFile("RealTaxiDictionary");
         _source = new MemoryReadSource(file);
         _reader = RealTaxiDictionaryPlankRow.CreateRowReader(_source, options: new RowReaderOptions { BufferPool = _pool });
-        _ = Read();
     }
 
     [IterationSetup(Target = nameof(Write))]
@@ -364,7 +362,10 @@ public class RealTaxiDictionaryPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
+        if (_writer is null)
+            _writer = RealTaxiDictionaryPlankRow.CreateRowWriter(_output, _options);
+        else
+            _writer.Reset(_output);
         _pinning.Wait();
     }
 
@@ -437,16 +438,20 @@ public class RealTaxiDictionaryPlankBenchmarks
     }
 
     [IterationCleanup(Target = nameof(Write))]
-    public void CleanupWrite() => _output.Dispose();
+    public void CleanupWrite()
+    {
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _output?.Dispose();
+    }
 
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
-        _reader.Dispose();
-        _source.Dispose();
-        _pool.Dispose();
-        _output.Dispose();
+        _writer?.Dispose();
+        _reader?.Dispose();
+        _source?.Dispose();
+        _pool?.Dispose();
+        _output?.Dispose();
     }
 }
 
@@ -462,6 +467,7 @@ public class RealTaxiDictionaryParquetSharpBenchmarks
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<RealTaxiDictionarySharpRow> _writer = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
     BufferReader _source = null!;
@@ -472,10 +478,10 @@ public class RealTaxiDictionaryParquetSharpBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = BenchmarkData.LoadTaxiRows<RealTaxiDictionarySharpRow>();
+        _rows ??= BenchmarkData.LoadTaxiRows<RealTaxiDictionarySharpRow>();
         _schema =
         [
             new ParquetSharp.Column<int?>("VendorID"),
@@ -506,17 +512,13 @@ public class RealTaxiDictionaryParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.EnableDictionary().DictionaryPagesizeLimit(536_870_912).Build();
 
-        _output = new MemoryStream();
-        _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
-        _writer = ParquetFile.CreateRowWriter<RealTaxiDictionarySharpRow>(_managedOutput, _properties, _schema);
-        Write();
-        _outputCapacity = BenchmarkData.OutputCapacity(checked((int)_output.Length));
-        Console.WriteLine("BENCHMARK_FILE|RealTaxiDictionary|ParquetSharp|" + _output.Length);
-        _writer.Dispose();
-        _managedOutput.Dispose();
-        _output.Dispose();
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealTaxiDictionary", "ParquetSharp", out _expectedOutputBytes);
+    }
 
-        var file = RealTaxiDictionaryPlankRow.CreateReadFile(RealTaxiDictionaryPlankRow.FromSharp(_rows));
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead()
+    {
+        var file = BenchmarkFixtures.LoadReadFile("RealTaxiDictionary");
         _pinned = GCHandle.Alloc(file, GCHandleType.Pinned);
         _buffer = new NativeBuffer(_pinned.AddrOfPinnedObject(), file.LongLength);
         _source = new BufferReader(_buffer);
@@ -581,26 +583,26 @@ public class RealTaxiDictionaryParquetSharpBenchmarks
     [IterationCleanup(Target = nameof(Write))]
     public void CleanupWrite()
     {
-        _writer.Dispose();
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _writer?.Dispose();
         _managedOutput.Dispose();
-        _output.Dispose();
+        _output?.Dispose();
     }
 
     [GlobalCleanup]
     public void Cleanup()
     {
         _reader?.Dispose();
-        _source.Dispose();
-        _buffer.Dispose();
+        _source?.Dispose();
+        _buffer?.Dispose();
         if (_pinned.IsAllocated) _pinned.Free();
-        _properties.Dispose();
+        _properties?.Dispose();
     }
 }
 
 [MemoryDiagnoser]
 public class RealTaxiDictionaryParquetNetBenchmarks
 {
-    RealTaxiDictionaryNetRow[] _rows = null!;
     byte[] _file = null!;
     MemoryStream? _stream;
 
@@ -609,13 +611,8 @@ public class RealTaxiDictionaryParquetNetBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
-    {
-        _rows = BenchmarkData.LoadTaxiRows<RealTaxiDictionaryNetRow>();
-
-        _file = RealTaxiDictionaryPlankRow.CreateReadFile(RealTaxiDictionaryPlankRow.FromNet(_rows));
-    }
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("RealTaxiDictionary");
 
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()

@@ -2,6 +2,10 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Engines;
+using Perfolizer.Mathematics.OutlierDetection;
+using BenchmarkDotNet.ConsoleArguments;
+using BenchmarkDotNet.Loggers;
 
 namespace Plank.Benchmarks.Published;
 
@@ -35,14 +39,56 @@ public static class PublishedBenchmarkCommand
         Environment.SetEnvironmentVariable("PLANK_BENCHMARK_TAXI_ROWS", taxiRows.ToString());
         Environment.SetEnvironmentVariable("PLANK_BENCHMARK_TAXI_FILE", taxiFile);
 
-        var job = Job.Default
-            .WithWarmupCount(quick ? 8 : 80)
-            .WithIterationCount(quick ? 1 : 100)
-            .WithInvocationCount(1)
-            .WithUnrollFactor(1);
+        var job = CreateJob(quick);
         var config = ManualConfig.Create(DefaultConfig.Instance).AddJob(job);
-        BenchmarkSwitcher.FromTypes(GetBenchmarkTypes()).Run([.. arguments], config);
+        if (arguments.Any(a => a is "--help" or "--info" or "--list" or "--version"))
+        {
+            BenchmarkSwitcher.FromTypes(GetBenchmarkTypes()).Run([.. arguments], config);
+            return;
+        }
+
+        // Explicit selection prevents an interactive prompt after expensive fixture preparation.
+        if (!arguments.Contains("--filter") && !arguments.Contains("-f"))
+            arguments.AddRange(["--filter", "*"]);
+        var (parsed, cliConfig, _) = ConfigParser.Parse([.. arguments], ConsoleLogger.Default, config);
+        if (!parsed) throw new ArgumentException("Invalid benchmark arguments.");
+        // Use BDN's own selection rules, including category, attribute and parameter filters.
+        var effectiveConfig = ManualConfig.Union(config, cliConfig);
+        var selected = GetBenchmarkTypes().SelectMany(type => BenchmarkConverter.TypeToBenchmarks(type, effectiveConfig).BenchmarksCases)
+            .Select(b => (Type: b.Descriptor.Type, Method: b.Descriptor.WorkloadMethod.Name))
+            .Distinct().ToArray();
+        if (selected.Length == 0) throw new ArgumentException("No benchmark cases match the supplied filters.");
+        var previousFixtures = Environment.GetEnvironmentVariable(BenchmarkFixtures.DirectoryVariable);
+        var fixtures = Directory.CreateTempSubdirectory("plank-benchmark-fixtures-");
+        try
+        {
+            Environment.SetEnvironmentVariable(BenchmarkFixtures.DirectoryVariable, fixtures.FullName);
+            foreach (var group in selected.GroupBy(x => s_librarySuffixes.Aggregate(x.Type.Name,
+                         (name, suffix) => name.EndsWith(suffix, StringComparison.Ordinal) ? name[..^suffix.Length] : name)))
+                BenchmarkFixtures.PrepareInChild(group.Key,
+                    group.Where(x => x.Method == "Write").Select(x => x.Type.Name).ToArray(),
+                    group.Any(x => x.Method == "Read"));
+            var summaries = BenchmarkSwitcher.FromTypes(GetBenchmarkTypes()).Run([.. arguments], config).ToArray();
+            if (summaries.Length == 0 || summaries.Any(s => s.HasCriticalValidationErrors || s.Reports.Any(r => !r.Success)))
+                throw new InvalidOperationException("Benchmark run failed; see the preceding log.");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(BenchmarkFixtures.DirectoryVariable, previousFixtures);
+            fixtures.Delete(recursive: true);
+        }
     }
+
+    internal static Job CreateJob(bool quick = false) => Job.Default
+        .WithStrategy(RunStrategy.ColdStart)
+        .WithLaunchCount(1)
+        .WithWarmupCount(0)
+        .WithIterationCount(quick ? 1 : 100)
+        .WithInvocationCount(1)
+        .WithUnrollFactor(1)
+        .WithGcForce(false)
+        .WithEvaluateOverhead(false)
+        .WithOutlierMode(OutlierMode.DontRemove);
 
     internal static Type[] GetBenchmarkTypes()
         => typeof(PublishedBenchmarkCommand).Assembly.GetTypes()
