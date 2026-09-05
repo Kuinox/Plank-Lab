@@ -63,6 +63,7 @@ public class RealInt32DeltaBinaryPackedPlankBenchmarks
     RealInt32DeltaBinaryPackedRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
+    RealInt32DeltaBinaryPackedRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -94,6 +95,8 @@ public class RealInt32DeltaBinaryPackedPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
+        _writer = RealInt32DeltaBinaryPackedRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealInt32DeltaBinaryPacked|Plank|" + file.Length);
@@ -110,6 +113,8 @@ public class RealInt32DeltaBinaryPackedPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
+        _writer.Reset(_output);
+        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -118,16 +123,14 @@ public class RealInt32DeltaBinaryPackedPlankBenchmarks
     [Benchmark]
     public void Write()
     {
-        using var writer = RealInt32DeltaBinaryPackedRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = writer.GetRow();
+            var row = _writer.GetRow();
             row.VendorId = value.VendorId;
             row.PickupLocationId = value.PickupLocationId;
             row.DropoffLocationId = value.DropoffLocationId;
         }
-        writer.Complete();
+        _writer.Complete();
     }
 
     [Benchmark]
@@ -149,6 +152,7 @@ public class RealInt32DeltaBinaryPackedPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
+        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

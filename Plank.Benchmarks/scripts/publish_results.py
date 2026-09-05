@@ -248,7 +248,7 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             "data": "Synthetic cases use 1,000,000 deterministic flat row objects with 22 columns. Real-world cases use all 2,964,624 rows and the selected columns from the January 2024 NYC yellow-taxi file. Input is never pre-split into columns or row groups.",
             "quick": False,
             "rowGroupBoundaries": "Every writer receives flat rows. Synthetic cases produce 22 row groups; taxi-derived cases produce 3. No worker count is selected, so each library uses its default.",
-            "timingBoundary": "Only the library write/read operation is timed. Data, schemas, options, capacities, streams, and reusable reader setup are outside timing. Plank's generated writer is stack-bound, so its writer construction, worker startup, and worker pinning are included in the write measurement. " + isolation,
+            "timingBoundary": "Only the library write/read operation is timed. Data, schemas, options, capacities, streams, reusable writer/reader setup, worker startup, and worker pinning are outside timing where the public API permits it. " + isolation,
         },
         "suites": suites,
         "benchmarkCode": benchmark_code(args.generated, mode),

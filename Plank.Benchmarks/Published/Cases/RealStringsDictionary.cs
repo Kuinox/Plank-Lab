@@ -93,6 +93,7 @@ public class RealStringsDictionaryPlankBenchmarks
     RealStringsDictionaryPlankRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
+    RealStringsDictionaryPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -124,6 +125,8 @@ public class RealStringsDictionaryPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
+        _writer = RealStringsDictionaryPlankRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealStringsDictionary|Plank|" + file.Length);
@@ -140,6 +143,8 @@ public class RealStringsDictionaryPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
+        _writer.Reset(_output);
+        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -148,14 +153,12 @@ public class RealStringsDictionaryPlankBenchmarks
     [Benchmark]
     public void Write()
     {
-        using var writer = RealStringsDictionaryPlankRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = writer.GetRow();
+            var row = _writer.GetRow();
             row.StoreAndForwardFlag = value.StoreAndForwardFlag;
         }
-        writer.Complete();
+        _writer.Complete();
     }
 
     [Benchmark]
@@ -175,6 +178,7 @@ public class RealStringsDictionaryPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
+        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

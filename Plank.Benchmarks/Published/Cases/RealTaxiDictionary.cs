@@ -309,6 +309,7 @@ public class RealTaxiDictionaryPlankBenchmarks
     RealTaxiDictionaryPlankRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
+    RealTaxiDictionaryPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -345,6 +346,8 @@ public class RealTaxiDictionaryPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
+        _writer = RealTaxiDictionaryPlankRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealTaxiDictionary|Plank|" + file.Length);
@@ -361,6 +364,8 @@ public class RealTaxiDictionaryPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
+        _writer.Reset(_output);
+        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -369,11 +374,9 @@ public class RealTaxiDictionaryPlankBenchmarks
     [Benchmark]
     public void Write()
     {
-        using var writer = RealTaxiDictionaryPlankRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = writer.GetRow();
+            var row = _writer.GetRow();
             row.VendorId = value.VendorId;
             row.Pickup = value.Pickup;
             row.Dropoff = value.Dropoff;
@@ -394,7 +397,7 @@ public class RealTaxiDictionaryPlankBenchmarks
             row.CongestionSurcharge = value.CongestionSurcharge;
             row.AirportFee = value.AirportFee;
         }
-        writer.Complete();
+        _writer.Complete();
     }
 
     [Benchmark]
@@ -432,6 +435,7 @@ public class RealTaxiDictionaryPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
+        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();

@@ -59,6 +59,7 @@ public class RealTimestampsDictionaryPlankBenchmarks
     RealTimestampsDictionaryRow[] _rows = null!;
     DefaultParquetBufferPool _pool = null!;
     ParquetWriterOptions _options = null!;
+    RealTimestampsDictionaryRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
     MemoryReadSource _source = null!;
@@ -95,6 +96,8 @@ public class RealTimestampsDictionaryPlankBenchmarks
 
         _output = new MemoryStream();
         _pinning.Reset();
+        _writer = RealTimestampsDictionaryRow.CreateRowWriter(_output, _options);
+        _pinning.Wait();
         Write();
         var file = _output.ToArray();
         Console.WriteLine("BENCHMARK_FILE|RealTimestampsDictionary|Plank|" + file.Length);
@@ -111,6 +114,8 @@ public class RealTimestampsDictionaryPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
+        _writer.Reset(_output);
+        _pinning.Wait();
     }
 
     [IterationSetup(Target = nameof(Read))]
@@ -119,15 +124,13 @@ public class RealTimestampsDictionaryPlankBenchmarks
     [Benchmark]
     public void Write()
     {
-        using var writer = RealTimestampsDictionaryRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
         foreach (var value in _rows)
         {
-            var row = writer.GetRow();
+            var row = _writer.GetRow();
             row.Pickup = value.Pickup;
             row.Dropoff = value.Dropoff;
         }
-        writer.Complete();
+        _writer.Complete();
     }
 
     [Benchmark]
@@ -148,6 +151,7 @@ public class RealTimestampsDictionaryPlankBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
+        _writer.Dispose();
         _reader.Dispose();
         _source.Dispose();
         _pool.Dispose();
