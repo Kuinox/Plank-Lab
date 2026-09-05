@@ -151,9 +151,16 @@ public class RealDoublesPlainPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+#if PLANK_ROW_CURSOR
+        var row = _writer.CreateCursor();
+#endif
         foreach (var value in _rows)
         {
+#if PLANK_ROW_CURSOR
+            row.NextRow();
+#else
             var row = _writer.GetRow();
+#endif
             row.TripDistance = value.TripDistance;
             row.FareAmount = value.FareAmount;
             row.Extra = value.Extra;

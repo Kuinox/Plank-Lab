@@ -498,9 +498,16 @@ public class SyntheticStringDeltaLengthByteArrayPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+#if PLANK_ROW_CURSOR
+        var row = _writer.CreateCursor();
+#endif
         foreach (var value in _rows)
         {
+#if PLANK_ROW_CURSOR
+            row.NextRow();
+#else
             var row = _writer.GetRow();
+#endif
             row.Value0 = value.Value0;
             row.Value1 = value.Value1;
             row.Value2 = value.Value2;

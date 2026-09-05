@@ -6,6 +6,26 @@ namespace Plank.Benchmarks.Tests;
 internal sealed class PublishedBenchmarkCatalogTests
 {
     [Test]
+    public void PlankWriteLoopSupportsRepeatedWriterReset()
+    {
+        var benchmark = new SyntheticInt32PlainPlankBenchmarks { Rows = 128 };
+        benchmark.Setup();
+        try
+        {
+            for (var iteration = 0; iteration < 2; iteration++)
+            {
+                benchmark.SetupWrite();
+                try { benchmark.Write(); }
+                finally { benchmark.CleanupWrite(); }
+            }
+        }
+        finally
+        {
+            benchmark.Cleanup();
+        }
+    }
+
+    [Test]
     public async Task DirectCatalogContainsOnlyPerLibraryCaseClasses()
     {
         var types = PublishedBenchmarkCommand.GetBenchmarkTypes();
