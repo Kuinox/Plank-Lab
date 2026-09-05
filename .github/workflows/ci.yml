@@ -15,10 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m unittest discover -s Plank.Benchmarks/scripts/tests -p 'test_*.py'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: node --test Plank.Benchmarks/scripts/tests/s3-footer.test.cjs
 
   dotnet:
     runs-on: ubuntu-latest

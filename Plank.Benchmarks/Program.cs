@@ -2,10 +2,6 @@ using BenchmarkDotNet.Running;
 using Plank.Benchmarks;
 using Plank.Benchmarks.EncodingRegression;
 using Plank.Benchmarks.Published;
-using Plank.Benchmarks.S3Footer;
-
-if (args is ["--s3-footer", ..])
-    return await S3FooterCommand.RunAsync(args[1..]);
 
 if (args is ["--prepare-published-fixture", var stem, var read, .. var writers])
 {
