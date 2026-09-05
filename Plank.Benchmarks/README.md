@@ -1,5 +1,78 @@
 # Benchmarks
 
+## S3 footer reads
+
+Compare **Plank, Parquet.Net, and ParquetSharp** opening the same Parquet object and reading its
+footer metadata through a local S3 emulator:
+
+```sh
+dotnet run -c Release --project Plank.Benchmarks -- --s3-footer
+dotnet run -c Release --project Plank.Benchmarks -- --s3-footer --iterations 20 --latency-ms 25
+```
+
+Open [`docs/s3-footer.html`](../docs/s3-footer.html), then choose
+`artifacts/benchmarks/s3-footer.json` with **Open result JSON**. The viewer works from disk and
+on the [benchmark website](https://kuinox.github.io/Plank-Lab/s3-footer.html). It shows:
+
+- elapsed footer-read time, HTTP request count, transferred body bytes, and unique file bytes;
+- one request timeline per library, aligned at the start of each independent operation;
+- a file-range map with footer/trailer boundaries, full-file and footer-context views;
+- linked request selection across both views and an exact inclusive byte-range table;
+- first-use timings separately from the median of successful subsequent iterations.
+
+Each result preserves every trial, request start/duration, method, Range header, status, bytes
+received, metadata counts, and failures. The viewer accepts partial results and excludes failed
+trials from medians. `--output PATH` selects another JSON destination; for a checked-in snapshot,
+use `--output docs/benchmarks/s3-footer.json` and review it before publishing. No snapshot is
+required: the viewer can load any local result JSON. `?data=relative/result.json` loads a different
+served result.
+
+### Taxi fixture
+
+The default dataset is **NYC yellow taxi, January 2024**, from
+[NYC TLC](https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-01.parquet).
+If `Plank.Benchmarks/nyc-data/yellow_tripdata_2024-01.parquet` exists, it is used as a full file.
+Otherwise preparation downloads only the trailer and footer using validated HTTP ranges,
+then builds a temporary sparse object with the original header, file size and footer offsets.
+Data-page bytes are zero-filled: this **metadata-only** fixture is for footer reads, not row reads.
+Read-ahead into that region still transfers and counts those bytes. Preparation/download is outside
+timing; the temporary fixture is removed afterwards. The footer SHA-256 and fixture mode are recorded.
+
+Use `--data-file PATH` to serve an existing complete Parquet file instead. The benchmark never
+rewrites that input. Remote fixture preparation needs internet access; measurements themselves use
+only loopback HTTP. There is no Docker or cloud account requirement.
+
+### What is measured
+
+The emulator implements the read-only, path-style S3 **HEAD Object / GET Object** HTTP subset,
+including closed, open-ended and suffix byte ranges. It binds to a dynamic loopback port. It does
+not implement authentication, writes, listing, TLS or the complete S3 service. `--latency-ms` adds
+the specified delay before every response, including HEAD; it does not model bandwidth or a real
+cloud network.
+
+All three readers use the same seekable, unbuffered HTTP range stream. A fresh stream lazily issues
+one HEAD to discover length, then one exact GET per nonempty read. The adapter does not prefetch,
+cache body bytes, retry, or tell readers the fixture length out of band. Each library keeps its
+own default footer-read policy, so additional library read-ahead remains visible. This compares
+the libraries' stream APIs; it does not compare native S3 SDK integrations.
+
+Timing starts before constructing the stream and public reader, and ends after footer parsing and
+extracting row, row-group and leaf-column counts. HEAD/GET requests are inside that interval.
+Reader disposal, fixture preparation, client construction, validation and JSON output are outside.
+Request durations are measured at the client through complete response-body consumption. The sum
+of request durations is not the total footer-read time. Bytes mean response payload bytes consumed,
+excluding HTTP headers, TCP overhead and HEAD's advertised object size. Repeated reads count again;
+unique file bytes are the union of fully successful GET ranges.
+
+There are zero warmups and ten iterations per library by default, in one process, with the library
+order rotated each iteration. Each trial constructs a fresh reader, stream, HTTP client and
+connection pool. Iteration 1 includes first-use effects; it is not a cold process launch, and later
+trials may reuse JIT state, OS caches and library buffer pools. The report preserves these distinctions.
+Cross-library and cross-iteration metadata counts must agree. Failures retain their traces and
+make the command exit nonzero (`1` for failures, `2` for invalid options).
+
+## Writer cursor compatibility
+
 Published Plank write cases use one reusable `CreateCursor()` / `NextRow()` cursor
 when the checked-out Plank source includes `Plank.SourceGen/RowCursorEmitter.cs`.
 Older revisions use `GetRow()`, so PR comparisons compile both versions without
