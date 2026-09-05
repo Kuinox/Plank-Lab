@@ -93,6 +93,8 @@ python3 Plank.Benchmarks/scripts/publish_results.py \
 ```
 
 The publisher rejects incomplete logs, including any supported method without exactly 100 samples,
-missing allocation data, or a Plank write that allocates inside the timed method. Publish multiple
+missing allocation data, or missing write output sizes. All measured allocation values, including
+nonzero Plank write allocations, are preserved as report data from the separate post-series
+diagnostic invocation. Publish multiple
 machines with `scripts/publish_matrix.py`; it checks that each write/read pair came from the same CPU
 and commit before copying it to `docs/benchmarks`.
