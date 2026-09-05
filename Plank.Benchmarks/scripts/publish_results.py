@@ -177,8 +177,6 @@ def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes:
         raise ValueError(f"missing allocation result for {key}")
     if mode == "write" and base["outputBytes"] is None:
         raise ValueError(f"missing output size for {key}")
-    if library == "Plank" and mode == "write" and base["allocatedBytes"] != 0:
-        raise ValueError(f"Plank allocated {base['allocatedBytes']} bytes for {case['id']}")
     return base
 
 

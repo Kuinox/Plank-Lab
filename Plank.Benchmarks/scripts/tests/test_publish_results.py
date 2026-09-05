@@ -40,8 +40,53 @@ class PublisherTests(unittest.TestCase):
     def test_incomplete_series_rejected(self):
         case = {"stem": "SyntheticInt32Plain", "id": "test", "valueCount": 128}
         key = (case["stem"], "Plank", "write")
-        with self.assertRaisesRegex(ValueError, "expected 100"):
-            publisher.measurement(case, "Plank", "write", {key: {"samples": [1]}}, {})
+        for count in (1, 99, 101):
+            with self.subTest(count=count), self.assertRaisesRegex(ValueError, "expected 100"):
+                publisher.measurement(case, "Plank", "write", {key: {"samples": [1] * count}}, {})
+
+    def test_measured_allocations_preserved(self):
+        case = {"stem": "TaxiDictionary", "id": "taxi-dictionary", "valueCount": 128,
+                "parquetNetWrite": True, "parquetNetRead": True}
+        for library in publisher.LIBRARIES:
+            suffix = next(suffix for suffix, name in publisher.CLASS_SUFFIXES.items() if name == library)
+            for mode in ("write", "read"):
+                for allocated in (0, 288, 123456789):
+                    with self.subTest(library=library, mode=mode, allocated=allocated):
+                        lines = ["benchmark CPUs: 1-3",
+                                 f"// Benchmark: TaxiDictionary{suffix}.{mode.title()}: Job-X",
+                                 f"BENCHMARK_FILE|TaxiDictionary|{library}|42"]
+                        lines += [f"WorkloadActual {i}: 1 op, 1000000 ns" for i in range(1, 101)]
+                        lines += [f"// GC: 0 0 0 {allocated} 1"]
+                        with tempfile.TemporaryDirectory() as directory:
+                            log = Path(directory) / "run.log"
+                            log.write_text("\n".join(lines))
+                            parsed, sizes, _ = publisher.parse_log(log)
+                        result = publisher.measurement(case, library, mode, parsed, sizes)
+                        self.assertEqual(result["allocatedBytes"], allocated)
+                        self.assertEqual(result["allocationMeasurement"],
+                                         "separate diagnostic invocation after the timed series; not first-use allocations")
+
+    def test_missing_measurements_rejected(self):
+        case = {"stem": "TaxiDictionary", "id": "taxi-dictionary", "valueCount": 128}
+        key = (case["stem"], "Plank", "write")
+        for parsed in ({}, {key: {"samples": [], "allocated": 288}}):
+            with self.subTest(parsed=parsed), self.assertRaisesRegex(ValueError, "missing measurements"):
+                publisher.measurement(case, "Plank", "write", parsed, {})
+
+    def test_missing_allocations_rejected(self):
+        case = {"stem": "TaxiDictionary", "id": "taxi-dictionary", "valueCount": 128}
+        for mode in ("write", "read"):
+            key = (case["stem"], "Plank", mode)
+            parsed = {key: {"samples": [1] * 100, "allocated": None}}
+            with self.subTest(mode=mode), self.assertRaisesRegex(ValueError, "missing allocation result"):
+                publisher.measurement(case, "Plank", mode, parsed, {(case["stem"], "Plank"): 42})
+
+    def test_missing_write_output_size_rejected(self):
+        case = {"stem": "TaxiDictionary", "id": "taxi-dictionary", "valueCount": 128}
+        key = (case["stem"], "Plank", "write")
+        parsed = {key: {"samples": [1] * 100, "allocated": 288}}
+        with self.assertRaisesRegex(ValueError, "missing output size"):
+            publisher.measurement(case, "Plank", "write", parsed, {})
 
 
 if __name__ == "__main__":
