@@ -31,7 +31,11 @@ encoding has a separate source file, and every library has its own direct `Write
 methods. The timed paths do not pass through the old generic adapters, per-cell type switches, or a
 shared row helper.
 
-The full run uses 80 warmups and 100 measured iterations:
+The full run uses zero warmups and 100 ordered measured iterations in **one process per case**.
+The ColdStart strategy skips workload JIT pre-runs, pilot iterations and overhead calibration;
+forced per-iteration GC and outlier removal are disabled. Automatic GC remains enabled.
+Sample 1 is the first operation after setup; samples 2–100 show subsequent behavior. This is
+not a measurement of process startup or constructor/setup costs, and not 100 cold process launches.
 
 ```bash
 dotnet build -c Release Plank.Benchmarks/Plank.Benchmarks.csproj
@@ -54,6 +58,21 @@ Synthetic cases use 1,000,000 flat rows and 22 columns and produce 22 row groups
 use all 2,964,624 rows and produce three row groups. Inputs are not pre-split into library-specific
 column buffers. Streams, capacities, reusable Plank writer/reader setup, worker startup, and pinning
 stay outside the timed method. Each library otherwise uses its public API and default worker count.
+
+Read and write have separate targeted global setups, neither of which invokes the timed method.
+Before launching measurements, preparation processes build one shared read fixture per selected
+schema and determine each selected writer's output capacity. These run-scoped temporary artifacts
+are removed when the command finishes; there is no persistent fixture cache. The preparers cannot
+warm the benchmark processes. Read cases load only the prepared bytes, not millions of source row
+objects. Write cases still construct their input row objects once per process and reuse them for
+all measurements. Preparation retains each required row representation only within its schema's
+preparation process. Writer output sizes are validated outside timing on every iteration.
+
+MemoryDiagnoser runs an additional operation **after** the measured series to collect allocation
+statistics; those statistics describe post-series behavior, not allocations during first use.
+The JSON reports preserve all samples in execution order and expose the first iteration separately
+from the median of subsequent iterations. Effective job settings are read from the log rather than
+hard-coded. Old warmed-up snapshots are not directly comparable to this first-use protocol.
 
 The isolation runner reserves housekeeping CPUs, moves movable threads and IRQs away from the
 benchmark CPUs, and restores the exact original affinity state when the command exits or is killed.

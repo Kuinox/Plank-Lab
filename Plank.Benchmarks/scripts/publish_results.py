@@ -105,6 +105,36 @@ def unavailable_reason(case: dict, mode: str) -> str:
     return f"Parquet.Net 6.0.3 cannot decode {encoding} for this data type."
 
 
+def measurement_configuration(text: str) -> dict:
+    """Read effective jobs, not command defaults (CLI overrides are supported)."""
+    jobs = re.findall(r"^// Benchmark: .+$", text, re.MULTILINE)
+    if not jobs:
+        raise ValueError("no benchmark jobs in log")
+    configurations = []
+    for job in jobs:
+        def setting(name: str, default: str | None = None) -> str:
+            match = re.search(rf"\b{name}=([^,)]+)", job)
+            if match:
+                return match.group(1).strip()
+            if default is not None:
+                return default
+            raise ValueError(f"missing {name} in benchmark job")
+        configurations.append({
+            "warmups": int(setting("WarmupCount")),
+            "iterations": int(setting("IterationCount")),
+            "launches": int(setting("LaunchCount", "1")),
+            "invocationsPerIteration": int(setting("InvocationCount")),
+            "runStrategy": setting("RunStrategy", "Throughput"),
+            "forcedGc": setting("Force", "True") == "True",
+            "evaluateOverhead": setting("EvaluateOverhead", "True") == "True",
+            "outlierMode": setting("OutlierMode", "RemoveUpper"),
+            "sampleOrder": "execution order; no samples removed",
+        })
+    if any(config != configurations[0] for config in configurations):
+        raise ValueError("mixed benchmark configurations in log")
+    return configurations[0]
+
+
 def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes: dict) -> dict:
     implementation_id, label = LIBRARIES[library]
     supported = library != "Parquet.Net" or case[f"parquetNet{mode.title()}"]
@@ -134,7 +164,10 @@ def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes:
         "p25Milliseconds": round(p25, 3),
         "p75Milliseconds": round(p75, 3),
         "samplesMilliseconds": rounded,
+        "firstIterationMilliseconds": rounded[0],
+        "subsequentMedianMilliseconds": round(percentile(values[1:], 0.5), 3),
         "allocatedBytes": parsed[key]["allocated"],
+        "allocationMeasurement": "separate diagnostic invocation after the timed series; not first-use allocations",
         "variationPercent": (p75 - p25) / median * 100,
         "throughput": case["valueCount"] / (median / 1000) / 1_000_000,
     })
@@ -237,8 +270,7 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             },
         },
         "configuration": {
-            "warmups": 80,
-            "iterations": 100,
+            **measurement_configuration(args.log.read_text()),
             "compression": "none",
             "dataPageVersion": "V2 for Plank and ParquetSharp; V1 for Parquet.Net",
             "statistics": "Full min/max/null-count statistics exposed by each library; column-chunk and page statistics for Plank and ParquetSharp, column-chunk statistics for Parquet.Net",
@@ -248,7 +280,7 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             "data": "Synthetic cases use 1,000,000 deterministic flat row objects with 22 columns. Real-world cases use all 2,964,624 rows and the selected columns from the January 2024 NYC yellow-taxi file. Input is never pre-split into columns or row groups.",
             "quick": False,
             "rowGroupBoundaries": "Every writer receives flat rows. Synthetic cases produce 22 row groups; taxi-derived cases produce 3. No worker count is selected, so each library uses its default.",
-            "timingBoundary": "Only the library write/read operation is timed. Data, schemas, options, capacities, streams, reusable writer/reader setup, worker startup, and worker pinning are outside timing where the public API permits it. " + isolation,
+            "timingBoundary": "Only the library write/read operation is timed, not process startup. Each case runs its measured iterations in one process. With ColdStart and zero warmups, the first operation is not pre-invoked by setup or JIT calibration; later samples show its evolution. Read fixtures and write output capacities are prepared in separate processes once per run. Data, schemas, options, capacities, streams, reusable writer/reader setup, worker startup, and worker pinning remain outside timing where the public API permits it. " + isolation,
         },
         "suites": suites,
         "benchmarkCode": benchmark_code(args.generated, mode),

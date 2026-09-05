@@ -173,6 +173,7 @@ public class SyntheticTimestampPlainPlankBenchmarks
     SyntheticTimestampPlainRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticTimestampPlainRow.RowReader _reader = null!;
     PlankWorkerPinning _pinning = null!;
@@ -182,10 +183,10 @@ public class SyntheticTimestampPlainPlankBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = SyntheticTimestampPlainRow.CreateRows(Rows);
+        _rows ??= SyntheticTimestampPlainRow.CreateRows(Rows);
         _pool = new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation);
         _pinning = new PlankWorkerPinning();
         _options = new ParquetWriterOptions
@@ -200,19 +201,16 @@ public class SyntheticTimestampPlainPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _output = new MemoryStream();
-        _pinning.Reset();
-        _writer = SyntheticTimestampPlainRow.CreateRowWriter(_output, _options);
-        _pinning.Wait();
-        Write();
-        var file = _output.ToArray();
-        Console.WriteLine("BENCHMARK_FILE|SyntheticTimestampPlain|Plank|" + file.Length);
-        _outputCapacity = BenchmarkData.OutputCapacity(file.Length);
-        _output.Dispose();
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampPlain", "Plank", out _expectedOutputBytes);
+    }
 
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead()
+    {
+        _pool = new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation);
+        var file = BenchmarkFixtures.LoadReadFile("SyntheticTimestampPlain");
         _source = new MemoryReadSource(file);
         _reader = SyntheticTimestampPlainRow.CreateRowReader(_source, options: new RowReaderOptions { BufferPool = _pool });
-        _ = Read();
     }
 
     [IterationSetup(Target = nameof(Write))]
@@ -220,7 +218,10 @@ public class SyntheticTimestampPlainPlankBenchmarks
     {
         _output = new MemoryStream(_outputCapacity);
         _pinning.Reset();
-        _writer.Reset(_output);
+        if (_writer is null)
+            _writer = SyntheticTimestampPlainRow.CreateRowWriter(_output, _options);
+        else
+            _writer.Reset(_output);
         _pinning.Wait();
     }
 
@@ -299,16 +300,20 @@ public class SyntheticTimestampPlainPlankBenchmarks
     }
 
     [IterationCleanup(Target = nameof(Write))]
-    public void CleanupWrite() => _output.Dispose();
+    public void CleanupWrite()
+    {
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _output?.Dispose();
+    }
 
     [GlobalCleanup]
     public void Cleanup()
     {
-        _writer.Dispose();
-        _reader.Dispose();
-        _source.Dispose();
-        _pool.Dispose();
-        _output.Dispose();
+        _writer?.Dispose();
+        _reader?.Dispose();
+        _source?.Dispose();
+        _pool?.Dispose();
+        _output?.Dispose();
     }
 }
 
@@ -324,6 +329,7 @@ public class SyntheticTimestampPlainParquetSharpBenchmarks
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticTimestampPlainRow> _writer = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
     BufferReader _source = null!;
@@ -334,10 +340,10 @@ public class SyntheticTimestampPlainParquetSharpBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = SyntheticTimestampPlainRow.CreateRows(Rows);
+        _rows ??= SyntheticTimestampPlainRow.CreateRows(Rows);
         _schema =
         [
             new ParquetSharp.Column<DateTime>("value_0", LogicalType.Timestamp(false, TimeUnit.Micros)),
@@ -371,17 +377,13 @@ public class SyntheticTimestampPlainParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.Plain).Build();
 
-        _output = new MemoryStream();
-        _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
-        _writer = ParquetFile.CreateRowWriter<SyntheticTimestampPlainRow>(_managedOutput, _properties, _schema);
-        Write();
-        _outputCapacity = BenchmarkData.OutputCapacity(checked((int)_output.Length));
-        Console.WriteLine("BENCHMARK_FILE|SyntheticTimestampPlain|ParquetSharp|" + _output.Length);
-        _writer.Dispose();
-        _managedOutput.Dispose();
-        _output.Dispose();
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampPlain", "ParquetSharp", out _expectedOutputBytes);
+    }
 
-        var file = SyntheticTimestampPlainRow.CreateReadFile(_rows);
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead()
+    {
+        var file = BenchmarkFixtures.LoadReadFile("SyntheticTimestampPlain");
         _pinned = GCHandle.Alloc(file, GCHandleType.Pinned);
         _buffer = new NativeBuffer(_pinned.AddrOfPinnedObject(), file.LongLength);
         _source = new BufferReader(_buffer);
@@ -449,19 +451,20 @@ public class SyntheticTimestampPlainParquetSharpBenchmarks
     [IterationCleanup(Target = nameof(Write))]
     public void CleanupWrite()
     {
-        _writer.Dispose();
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _writer?.Dispose();
         _managedOutput.Dispose();
-        _output.Dispose();
+        _output?.Dispose();
     }
 
     [GlobalCleanup]
     public void Cleanup()
     {
         _reader?.Dispose();
-        _source.Dispose();
-        _buffer.Dispose();
+        _source?.Dispose();
+        _buffer?.Dispose();
         if (_pinned.IsAllocated) _pinned.Free();
-        _properties.Dispose();
+        _properties?.Dispose();
     }
 }
 
@@ -472,6 +475,7 @@ public class SyntheticTimestampPlainParquetNetBenchmarks
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
     int _outputCapacity;
+    long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
 
@@ -480,10 +484,10 @@ public class SyntheticTimestampPlainParquetNetBenchmarks
     [ParamsSource(nameof(RowCounts))]
     public int Rows { get; set; }
 
-    [GlobalSetup]
-    public void Setup()
+    [GlobalSetup(Target = nameof(Write))]
+    public void GlobalSetupWrite()
     {
-        _rows = SyntheticTimestampPlainRow.CreateRows(Rows);
+        _rows ??= SyntheticTimestampPlainRow.CreateRows(Rows);
         _options = new ParquetOptions
         {
             CompressionMethod = CompressionMethod.None,
@@ -513,14 +517,11 @@ public class SyntheticTimestampPlainParquetNetBenchmarks
         _options.ColumnEncodingHints["value_20"] = EncodingHint.Default;
         _options.ColumnEncodingHints["value_21"] = EncodingHint.Default;
 
-        _output = new MemoryStream();
-        Write().GetAwaiter().GetResult();
-        _outputCapacity = BenchmarkData.OutputCapacity(checked((int)_output.Length));
-        Console.WriteLine("BENCHMARK_FILE|SyntheticTimestampPlain|Parquet.Net|" + _output.Length);
-        _output.Dispose();
-
-        _file = SyntheticTimestampPlainRow.CreateReadFile(_rows);
+        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampPlain", "Parquet.Net", out _expectedOutputBytes);
     }
+
+    [GlobalSetup(Target = nameof(Read))]
+    public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("SyntheticTimestampPlain");
 
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
@@ -568,7 +569,11 @@ public class SyntheticTimestampPlainParquetNetBenchmarks
     }
 
     [IterationCleanup(Target = nameof(Write))]
-    public void CleanupWrite() => _output.Dispose();
+    public void CleanupWrite()
+    {
+        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
+        _output?.Dispose();
+    }
     [GlobalCleanup]
     public void Cleanup() => _stream?.Dispose();
 }
