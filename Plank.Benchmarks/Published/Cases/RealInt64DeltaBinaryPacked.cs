@@ -123,9 +123,16 @@ public class RealInt64DeltaBinaryPackedPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+#if PLANK_ROW_CURSOR
+        var row = _writer.CreateCursor();
+#endif
         foreach (var value in _rows)
         {
+#if PLANK_ROW_CURSOR
+            row.NextRow();
+#else
             var row = _writer.GetRow();
+#endif
             row.PassengerCount = value.PassengerCount;
             row.RatecodeId = value.RatecodeId;
             row.PaymentType = value.PaymentType;

@@ -374,9 +374,16 @@ public class RealTaxiPlainPlankBenchmarks
     [Benchmark]
     public void Write()
     {
+#if PLANK_ROW_CURSOR
+        var row = _writer.CreateCursor();
+#endif
         foreach (var value in _rows)
         {
+#if PLANK_ROW_CURSOR
+            row.NextRow();
+#else
             var row = _writer.GetRow();
+#endif
             row.VendorId = value.VendorId;
             row.Pickup = value.Pickup;
             row.Dropoff = value.Dropoff;

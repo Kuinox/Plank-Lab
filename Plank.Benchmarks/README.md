@@ -1,5 +1,13 @@
 # Benchmarks
 
+Published Plank write cases use one reusable `CreateCursor()` / `NextRow()` cursor
+when the checked-out Plank source includes `Plank.SourceGen/RowCursorEmitter.cs`.
+Older revisions use `GetRow()`, so PR comparisons compile both versions without
+reflection in the timed loop. Writer construction and worker startup remain in
+setup; the timed method includes cursor creation, row assignments, and completion.
+Pass `-p:PlankUseRowCursor=false` when building to compare the compatibility API
+on the same Plank revision.
+
 ## Encoding regression suite
 
 `--encoding-regression` measures every encoder path in `Plank.Writing.Encoding` and records a

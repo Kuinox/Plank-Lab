@@ -20,4 +20,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Compare old Plank revisions with GetRow and cursor-capable revisions with
+       their reusable cursor API, without reflection in the measured loop.
+       Override PlankUseRowCursor=false to measure the compatibility API. -->
+  <PropertyGroup>
+    <PlankUseRowCursor Condition="'$(PlankUseRowCursor)' == '' and Exists('..\library\Plank\Plank.SourceGen\RowCursorEmitter.cs')">true</PlankUseRowCursor>
+    <DefineConstants Condition="'$(PlankUseRowCursor)' == 'true'">$(DefineConstants);PLANK_ROW_CURSOR</DefineConstants>
+  </PropertyGroup>
+
 </Project>
