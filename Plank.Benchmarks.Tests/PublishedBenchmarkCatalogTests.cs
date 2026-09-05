@@ -49,11 +49,20 @@ internal sealed class PublishedBenchmarkCatalogTests
                         var unusedField = type.GetField(operation == "Read" ? "_rows" : "_reader", BindingFlags.NonPublic | BindingFlags.Instance);
                         if (unusedField is not null) await Assert.That(unusedField.GetValue(benchmark)).IsNull();
                         object? previous = null;
+                        byte[]? previousOutputBuffer = null;
                         for (var iteration = 0; iteration < 2; iteration++)
                         {
                             type.GetMethod("Setup" + operation)!.Invoke(benchmark, null);
                             try
                             {
+                                if (operation == "Write")
+                                {
+                                    var output = (MemoryStream)type.GetField("_output", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(benchmark)!;
+                                    var buffer = output.GetBuffer();
+                                    if (previousOutputBuffer is not null)
+                                        await Assert.That(ReferenceEquals(buffer, previousOutputBuffer)).IsTrue();
+                                    previousOutputBuffer = buffer;
+                                }
                                 var result = method.Invoke(benchmark, null);
                                 if (result is Task task)
                                 {
@@ -76,6 +85,22 @@ internal sealed class PublishedBenchmarkCatalogTests
             Environment.SetEnvironmentVariable("PLANK_BENCHMARK_ROWS", oldRows);
             directory.Delete(recursive: true);
         }
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task OutputBufferCanBeReopenedAfterWriterClosesStream()
+    {
+        var buffer = new byte[32];
+        using (var first = BenchmarkFixtures.CreateOutput(buffer))
+            first.Write([1, 2, 3, 4]);
+
+        using var second = BenchmarkFixtures.CreateOutput(buffer);
+        await Assert.That(ReferenceEquals(second.GetBuffer(), buffer)).IsTrue();
+        await Assert.That(second.Length).IsEqualTo(0L);
+        await Assert.That(second.Position).IsEqualTo(0L);
+        second.Write([5, 6]);
+        await Assert.That(second.ToArray()).IsEquivalentTo(new byte[] { 5, 6 });
     }
 
     [Test]

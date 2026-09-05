@@ -172,7 +172,7 @@ public class SyntheticInt64ByteStreamSplitPlankBenchmarks
     ParquetWriterOptions _options = null!;
     SyntheticInt64ByteStreamSplitRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticInt64ByteStreamSplitRow.RowReader _reader = null!;
@@ -201,7 +201,7 @@ public class SyntheticInt64ByteStreamSplitPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticInt64ByteStreamSplit", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticInt64ByteStreamSplit", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -216,7 +216,7 @@ public class SyntheticInt64ByteStreamSplitPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = SyntheticInt64ByteStreamSplitRow.CreateRowWriter(_output, _options);
@@ -328,7 +328,7 @@ public class SyntheticInt64ByteStreamSplitParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticInt64ByteStreamSplitRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -377,7 +377,7 @@ public class SyntheticInt64ByteStreamSplitParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.ByteStreamSplit).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticInt64ByteStreamSplit", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticInt64ByteStreamSplit", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -392,7 +392,7 @@ public class SyntheticInt64ByteStreamSplitParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<SyntheticInt64ByteStreamSplitRow>(_managedOutput, _properties, _schema);
     }
@@ -474,7 +474,7 @@ public class SyntheticInt64ByteStreamSplitParquetNetBenchmarks
     SyntheticInt64ByteStreamSplitRow[] _rows = null!;
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
@@ -517,14 +517,14 @@ public class SyntheticInt64ByteStreamSplitParquetNetBenchmarks
         _options.ColumnEncodingHints["value_20"] = EncodingHint.ByteSplitStream;
         _options.ColumnEncodingHints["value_21"] = EncodingHint.ByteSplitStream;
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticInt64ByteStreamSplit", "Parquet.Net", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticInt64ByteStreamSplit", "Parquet.Net", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
     public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("SyntheticInt64ByteStreamSplit");
 
     [IterationSetup(Target = nameof(Write))]
-    public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
+    public void SetupWrite() => _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
     {

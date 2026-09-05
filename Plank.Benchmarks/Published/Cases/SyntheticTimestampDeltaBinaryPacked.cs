@@ -172,7 +172,7 @@ public class SyntheticTimestampDeltaBinaryPackedPlankBenchmarks
     ParquetWriterOptions _options = null!;
     SyntheticTimestampDeltaBinaryPackedRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticTimestampDeltaBinaryPackedRow.RowReader _reader = null!;
@@ -201,7 +201,7 @@ public class SyntheticTimestampDeltaBinaryPackedPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampDeltaBinaryPacked", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampDeltaBinaryPacked", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -216,7 +216,7 @@ public class SyntheticTimestampDeltaBinaryPackedPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = SyntheticTimestampDeltaBinaryPackedRow.CreateRowWriter(_output, _options);
@@ -328,7 +328,7 @@ public class SyntheticTimestampDeltaBinaryPackedParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticTimestampDeltaBinaryPackedRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -377,7 +377,7 @@ public class SyntheticTimestampDeltaBinaryPackedParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.DeltaBinaryPacked).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampDeltaBinaryPacked", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticTimestampDeltaBinaryPacked", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -392,7 +392,7 @@ public class SyntheticTimestampDeltaBinaryPackedParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<SyntheticTimestampDeltaBinaryPackedRow>(_managedOutput, _properties, _schema);
     }

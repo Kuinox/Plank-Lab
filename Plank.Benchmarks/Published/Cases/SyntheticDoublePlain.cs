@@ -172,7 +172,7 @@ public class SyntheticDoublePlainPlankBenchmarks
     ParquetWriterOptions _options = null!;
     SyntheticDoublePlainRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticDoublePlainRow.RowReader _reader = null!;
@@ -201,7 +201,7 @@ public class SyntheticDoublePlainPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticDoublePlain", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticDoublePlain", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -216,7 +216,7 @@ public class SyntheticDoublePlainPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = SyntheticDoublePlainRow.CreateRowWriter(_output, _options);
@@ -328,7 +328,7 @@ public class SyntheticDoublePlainParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticDoublePlainRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -377,7 +377,7 @@ public class SyntheticDoublePlainParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.Plain).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticDoublePlain", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticDoublePlain", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -392,7 +392,7 @@ public class SyntheticDoublePlainParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<SyntheticDoublePlainRow>(_managedOutput, _properties, _schema);
     }
@@ -474,7 +474,7 @@ public class SyntheticDoublePlainParquetNetBenchmarks
     SyntheticDoublePlainRow[] _rows = null!;
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
@@ -517,14 +517,14 @@ public class SyntheticDoublePlainParquetNetBenchmarks
         _options.ColumnEncodingHints["value_20"] = EncodingHint.Default;
         _options.ColumnEncodingHints["value_21"] = EncodingHint.Default;
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticDoublePlain", "Parquet.Net", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticDoublePlain", "Parquet.Net", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
     public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("SyntheticDoublePlain");
 
     [IterationSetup(Target = nameof(Write))]
-    public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
+    public void SetupWrite() => _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
     {

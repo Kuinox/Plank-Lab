@@ -440,7 +440,7 @@ public class SyntheticStringDeltaByteArrayPlankBenchmarks
     ParquetWriterOptions _options = null!;
     SyntheticStringDeltaByteArrayPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticStringDeltaByteArrayPlankRow.RowReader _reader = null!;
@@ -469,7 +469,7 @@ public class SyntheticStringDeltaByteArrayPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticStringDeltaByteArray", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticStringDeltaByteArray", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -484,7 +484,7 @@ public class SyntheticStringDeltaByteArrayPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = SyntheticStringDeltaByteArrayPlankRow.CreateRowWriter(_output, _options);
@@ -596,7 +596,7 @@ public class SyntheticStringDeltaByteArrayParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticStringDeltaByteArraySharpRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -645,7 +645,7 @@ public class SyntheticStringDeltaByteArrayParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.DeltaByteArray).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticStringDeltaByteArray", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticStringDeltaByteArray", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -660,7 +660,7 @@ public class SyntheticStringDeltaByteArrayParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<SyntheticStringDeltaByteArraySharpRow>(_managedOutput, _properties, _schema);
     }

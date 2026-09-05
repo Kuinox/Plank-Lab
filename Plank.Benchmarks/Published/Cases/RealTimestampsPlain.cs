@@ -61,7 +61,7 @@ public class RealTimestampsPlainPlankBenchmarks
     ParquetWriterOptions _options = null!;
     RealTimestampsPlainRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     RealTimestampsPlainRow.RowReader _reader = null!;
@@ -95,7 +95,7 @@ public class RealTimestampsPlainPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealTimestampsPlain", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealTimestampsPlain", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -110,7 +110,7 @@ public class RealTimestampsPlainPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = RealTimestampsPlainRow.CreateRowWriter(_output, _options);
@@ -182,7 +182,7 @@ public class RealTimestampsPlainParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<RealTimestampsPlainRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -211,7 +211,7 @@ public class RealTimestampsPlainParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.Plain).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealTimestampsPlain", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealTimestampsPlain", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -226,7 +226,7 @@ public class RealTimestampsPlainParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<RealTimestampsPlainRow>(_managedOutput, _properties, _schema);
     }
@@ -288,7 +288,7 @@ public class RealTimestampsPlainParquetNetBenchmarks
     RealTimestampsPlainRow[] _rows = null!;
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
@@ -311,14 +311,14 @@ public class RealTimestampsPlainParquetNetBenchmarks
         _options.ColumnEncodingHints["tpep_pickup_datetime"] = EncodingHint.Default;
         _options.ColumnEncodingHints["tpep_dropoff_datetime"] = EncodingHint.Default;
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealTimestampsPlain", "Parquet.Net", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealTimestampsPlain", "Parquet.Net", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
     public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("RealTimestampsPlain");
 
     [IterationSetup(Target = nameof(Write))]
-    public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
+    public void SetupWrite() => _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
     {

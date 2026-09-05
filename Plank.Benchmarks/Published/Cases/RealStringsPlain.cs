@@ -95,7 +95,7 @@ public class RealStringsPlainPlankBenchmarks
     ParquetWriterOptions _options = null!;
     RealStringsPlainPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     RealStringsPlainPlankRow.RowReader _reader = null!;
@@ -124,7 +124,7 @@ public class RealStringsPlainPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealStringsPlain", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealStringsPlain", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -139,7 +139,7 @@ public class RealStringsPlainPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = RealStringsPlainPlankRow.CreateRowWriter(_output, _options);
@@ -209,7 +209,7 @@ public class RealStringsPlainParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<RealStringsPlainSharpRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -237,7 +237,7 @@ public class RealStringsPlainParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.Plain).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealStringsPlain", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealStringsPlain", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -252,7 +252,7 @@ public class RealStringsPlainParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<RealStringsPlainSharpRow>(_managedOutput, _properties, _schema);
     }
@@ -313,7 +313,7 @@ public class RealStringsPlainParquetNetBenchmarks
     RealStringsPlainNetRow[] _rows = null!;
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
@@ -335,14 +335,14 @@ public class RealStringsPlainParquetNetBenchmarks
         };
         _options.ColumnEncodingHints["store_and_fwd_flag"] = EncodingHint.Default;
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealStringsPlain", "Parquet.Net", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealStringsPlain", "Parquet.Net", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
     public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("RealStringsPlain");
 
     [IterationSetup(Target = nameof(Write))]
-    public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
+    public void SetupWrite() => _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
     {

@@ -8,17 +8,18 @@
       "environment": {
         "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
         "logicalProcessors": 22,
-        "operatingSystem": "CachyOS",
+        "operatingSystem": "CachyOS Linux x64",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "35dfab5176b127eedd4f9625aafaf846d2c9b014-dirty",
+        "commit": "e96971697df32967148e00b0631148132f0c2640",
         "libraries": {
           "Plank": "local source",
           "ParquetSharp": "24.0.0",
           "Parquet.Net": "6.0.3",
           "BenchmarkDotNet": "0.15.8"
-        }
+        },
+        "benchmarkHarnessCommit": "11efc31"
       },
-      "generatedAt": "2026-08-27T17:12:52.235Z",
+      "generatedAt": "2026-09-05T22:42:51.427741Z",
       "write": "write-ryzen-9-7900x-v1.json",
       "read": "read-ryzen-9-7900x-v1.json"
     },
