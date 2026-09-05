@@ -440,7 +440,7 @@ public class SyntheticStringDictionaryPlankBenchmarks
     ParquetWriterOptions _options = null!;
     SyntheticStringDictionaryPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticStringDictionaryPlankRow.RowReader _reader = null!;
@@ -469,7 +469,7 @@ public class SyntheticStringDictionaryPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticStringDictionary", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticStringDictionary", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -484,7 +484,7 @@ public class SyntheticStringDictionaryPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = SyntheticStringDictionaryPlankRow.CreateRowWriter(_output, _options);
@@ -596,7 +596,7 @@ public class SyntheticStringDictionaryParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticStringDictionarySharpRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -645,7 +645,7 @@ public class SyntheticStringDictionaryParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.EnableDictionary().DictionaryPagesizeLimit(536_870_912).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticStringDictionary", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticStringDictionary", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -660,7 +660,7 @@ public class SyntheticStringDictionaryParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<SyntheticStringDictionarySharpRow>(_managedOutput, _properties, _schema);
     }
@@ -742,7 +742,7 @@ public class SyntheticStringDictionaryParquetNetBenchmarks
     SyntheticStringDictionaryNetRow[] _rows = null!;
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
@@ -785,14 +785,14 @@ public class SyntheticStringDictionaryParquetNetBenchmarks
         _options.ColumnEncodingHints["value_20"] = EncodingHint.Dictionary;
         _options.ColumnEncodingHints["value_21"] = EncodingHint.Dictionary;
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticStringDictionary", "Parquet.Net", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticStringDictionary", "Parquet.Net", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
     public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("SyntheticStringDictionary");
 
     [IterationSetup(Target = nameof(Write))]
-    public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
+    public void SetupWrite() => _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
     {

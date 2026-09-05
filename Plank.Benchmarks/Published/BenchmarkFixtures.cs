@@ -31,6 +31,16 @@ internal static class BenchmarkFixtures
         return BenchmarkData.OutputCapacity(checked((int)expectedBytes));
     }
 
+    internal static MemoryStream CreateOutput(byte[] buffer)
+    {
+        // Fixture preparation discovers the size with an expandable stream. Measured
+        // iterations reopen the same backing array, even when a writer closes its stream.
+        if (Preparing) return new MemoryStream();
+        var stream = new MemoryStream(buffer, 0, buffer.Length, writable: true, publiclyVisible: true);
+        stream.SetLength(0);
+        return stream;
+    }
+
     internal static void ValidateOutput(long expected, long actual)
     {
         if (expected >= 0 && expected != actual)

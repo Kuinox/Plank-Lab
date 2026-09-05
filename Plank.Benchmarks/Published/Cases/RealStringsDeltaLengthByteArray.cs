@@ -95,7 +95,7 @@ public class RealStringsDeltaLengthByteArrayPlankBenchmarks
     ParquetWriterOptions _options = null!;
     RealStringsDeltaLengthByteArrayPlankRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     RealStringsDeltaLengthByteArrayPlankRow.RowReader _reader = null!;
@@ -124,7 +124,7 @@ public class RealStringsDeltaLengthByteArrayPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealStringsDeltaLengthByteArray", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealStringsDeltaLengthByteArray", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -139,7 +139,7 @@ public class RealStringsDeltaLengthByteArrayPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = RealStringsDeltaLengthByteArrayPlankRow.CreateRowWriter(_output, _options);
@@ -209,7 +209,7 @@ public class RealStringsDeltaLengthByteArrayParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<RealStringsDeltaLengthByteArraySharpRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -237,7 +237,7 @@ public class RealStringsDeltaLengthByteArrayParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.DeltaLengthByteArray).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealStringsDeltaLengthByteArray", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealStringsDeltaLengthByteArray", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -252,7 +252,7 @@ public class RealStringsDeltaLengthByteArrayParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<RealStringsDeltaLengthByteArraySharpRow>(_managedOutput, _properties, _schema);
     }

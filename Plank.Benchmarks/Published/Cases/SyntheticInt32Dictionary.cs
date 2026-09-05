@@ -172,7 +172,7 @@ public class SyntheticInt32DictionaryPlankBenchmarks
     ParquetWriterOptions _options = null!;
     SyntheticInt32DictionaryRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     SyntheticInt32DictionaryRow.RowReader _reader = null!;
@@ -201,7 +201,7 @@ public class SyntheticInt32DictionaryPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticInt32Dictionary", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticInt32Dictionary", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -216,7 +216,7 @@ public class SyntheticInt32DictionaryPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = SyntheticInt32DictionaryRow.CreateRowWriter(_output, _options);
@@ -328,7 +328,7 @@ public class SyntheticInt32DictionaryParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<SyntheticInt32DictionaryRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -377,7 +377,7 @@ public class SyntheticInt32DictionaryParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.EnableDictionary().DictionaryPagesizeLimit(536_870_912).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("SyntheticInt32Dictionary", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("SyntheticInt32Dictionary", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -392,7 +392,7 @@ public class SyntheticInt32DictionaryParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<SyntheticInt32DictionaryRow>(_managedOutput, _properties, _schema);
     }

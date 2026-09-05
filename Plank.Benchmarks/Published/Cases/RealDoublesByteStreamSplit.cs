@@ -93,7 +93,7 @@ public class RealDoublesByteStreamSplitPlankBenchmarks
     ParquetWriterOptions _options = null!;
     RealDoublesByteStreamSplitRow.PipelineWriter _writer = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     MemoryReadSource _source = null!;
     RealDoublesByteStreamSplitRow.RowReader _reader = null!;
@@ -122,7 +122,7 @@ public class RealDoublesByteStreamSplitPlankBenchmarks
             Execution = new ParquetExecutionOptions { OnWorkerStarted = _pinning.OnWorkerStarted }
         };
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealDoublesByteStreamSplit", "Plank", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealDoublesByteStreamSplit", "Plank", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -137,7 +137,7 @@ public class RealDoublesByteStreamSplitPlankBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _pinning.Reset();
         if (_writer is null)
             _writer = RealDoublesByteStreamSplitRow.CreateRowWriter(_output, _options);
@@ -225,7 +225,7 @@ public class RealDoublesByteStreamSplitParquetSharpBenchmarks
     MemoryStream _output = null!;
     ManagedOutputStream _managedOutput = null!;
     ParquetRowWriter<RealDoublesByteStreamSplitRow> _writer = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     GCHandle _pinned;
     NativeBuffer _buffer = null!;
@@ -262,7 +262,7 @@ public class RealDoublesByteStreamSplitParquetSharpBenchmarks
             .DataPageVersion(ParquetSharp.ParquetDataPageVersion.V2);
         _properties = builder.DisableDictionary().Encoding(ParquetSharp.Encoding.ByteStreamSplit).Build();
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealDoublesByteStreamSplit", "ParquetSharp", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealDoublesByteStreamSplit", "ParquetSharp", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
@@ -277,7 +277,7 @@ public class RealDoublesByteStreamSplitParquetSharpBenchmarks
     [IterationSetup(Target = nameof(Write))]
     public void SetupWrite()
     {
-        _output = new MemoryStream(_outputCapacity);
+        _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
         _managedOutput = new ManagedOutputStream(_output, leaveOpen: true);
         _writer = ParquetFile.CreateRowWriter<RealDoublesByteStreamSplitRow>(_managedOutput, _properties, _schema);
     }
@@ -347,7 +347,7 @@ public class RealDoublesByteStreamSplitParquetNetBenchmarks
     RealDoublesByteStreamSplitRow[] _rows = null!;
     ParquetOptions _options = null!;
     MemoryStream _output = null!;
-    int _outputCapacity;
+    byte[] _outputBuffer = null!;
     long _expectedOutputBytes;
     byte[] _file = null!;
     MemoryStream? _stream;
@@ -378,14 +378,14 @@ public class RealDoublesByteStreamSplitParquetNetBenchmarks
         _options.ColumnEncodingHints["congestion_surcharge"] = EncodingHint.ByteSplitStream;
         _options.ColumnEncodingHints["Airport_fee"] = EncodingHint.ByteSplitStream;
 
-        _outputCapacity = BenchmarkFixtures.GetOutputCapacity("RealDoublesByteStreamSplit", "Parquet.Net", out _expectedOutputBytes);
+        _outputBuffer = new byte[BenchmarkFixtures.GetOutputCapacity("RealDoublesByteStreamSplit", "Parquet.Net", out _expectedOutputBytes)];
     }
 
     [GlobalSetup(Target = nameof(Read))]
     public void GlobalSetupRead() => _file = BenchmarkFixtures.LoadReadFile("RealDoublesByteStreamSplit");
 
     [IterationSetup(Target = nameof(Write))]
-    public void SetupWrite() => _output = new MemoryStream(_outputCapacity);
+    public void SetupWrite() => _output = BenchmarkFixtures.CreateOutput(_outputBuffer);
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
     {

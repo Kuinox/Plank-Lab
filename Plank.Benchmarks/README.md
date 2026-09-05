@@ -139,7 +139,10 @@ are removed when the command finishes; there is no persistent fixture cache. The
 warm the benchmark processes. Read cases load only the prepared bytes, not millions of source row
 objects. Write cases still construct their input row objects once per process and reuse them for
 all measurements. Preparation retains each required row representation only within its schema's
-preparation process. Writer output sizes are validated outside timing on every iteration.
+preparation process. Writer output sizes are validated outside timing on every iteration. Output backing arrays are
+allocated once in global setup and reused across iterations for every library. Each iteration opens
+an empty stream over the same array, so library-owned stream closure does not discard the buffer.
+The first write can incur first-touch page costs; later writes reuse the populated output memory.
 
 MemoryDiagnoser runs an additional operation **after** the measured series to collect allocation
 statistics; those statistics describe post-series behavior, not allocations during first use.
