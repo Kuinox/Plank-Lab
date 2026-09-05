@@ -214,13 +214,16 @@
       }
     }
     const p = report.protocol ?? {}, e = report.environment ?? {};
+    $("environment").hidden = !report.environment;
+    $("revisions").hidden = !e.labCommit && !e.plankCommit;
+    $("fixture-hash").hidden = !d.footerSha256;
     $("protocol").textContent = `${p.description ?? ""} ${p.iterations ?? "?"} iterations per library; ${p.latencyMs ?? 0} ms configured emulator delay per request. Request counts include HEAD, GET and failed requests. Body bytes exclude HTTP headers and transport overhead. Unique file bytes count the union of fully successful GET ranges. Failed samples are excluded from medians.`;
     $("environment").textContent = `${e.operatingSystem ?? ""} · ${e.architecture ?? ""} · ${e.runtime ?? ""} · ${e.processorCount ?? "?"} logical processors · ${report.generatedAt ?? ""}`;
     const revision = (commit, dirty) => `${commit ?? "unknown"}${dirty === true ? " (modified working tree)" : dirty == null ? " (working-tree state unknown)" : ""}`;
     $("revisions").textContent = `Lab: ${revision(e.labCommit, e.labDirty)} · Plank: ${revision(e.plankCommit, e.plankDirty)}`;
     $("fixture-hash").textContent = `Footer SHA-256: ${d.footerSha256 ?? "unknown"}`;
     const failures = report.runs.filter(r => r.error).length;
-    $("status").textContent = `${label} · ${report.runs.length} trials${failures ? ` · ${failures} failed` : ""}`;
+    $("status").textContent = `${label} · ${report.runs.length} trials · ${p.latencyMs ?? 0} ms added per request${failures ? ` · ${failures} failed` : ""}`;
     $("report").hidden = false; $("empty").hidden = true;
     render();
   }

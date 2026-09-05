@@ -10,9 +10,10 @@ dotnet run -c Release --project Plank.Benchmarks -- --s3-footer
 dotnet run -c Release --project Plank.Benchmarks -- --s3-footer --iterations 20 --latency-ms 25
 ```
 
-Open [`docs/s3-footer.html`](../docs/s3-footer.html), then choose
-`artifacts/benchmarks/s3-footer.json` with **Open result JSON**. The viewer works from disk and
-on the [benchmark website](https://kuinox.github.io/Plank-Lab/s3-footer.html). It shows:
+The [benchmark website](https://kuinox.github.io/Plank-Lab/s3-footer.html) displays a measured taxi
+run automatically, with 25 ms added latency per request. To inspect your own run, choose
+`artifacts/benchmarks/s3-footer.json` with **Load another run**. The viewer also works from disk at
+[`docs/s3-footer.html`](../docs/s3-footer.html). It shows:
 
 - elapsed footer-read time, HTTP request count, transferred body bytes, and unique file bytes;
 - one request timeline per library, aligned at the start of each independent operation;
