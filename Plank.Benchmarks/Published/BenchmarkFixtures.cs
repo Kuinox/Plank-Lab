@@ -78,8 +78,9 @@ internal static class BenchmarkFixtures
         {
             var assembly = typeof(BenchmarkFixtures).Assembly;
             // Resolve only known schemas rather than treating CLI input as a filesystem path.
-            var rowType = assembly.GetType($"Plank.Benchmarks.{stem}Row")
-                ?? assembly.GetType($"Plank.Benchmarks.{stem}PlankRow", throwOnError: true)!;
+            var schemaStem = stem.EndsWith("Column", StringComparison.Ordinal) ? stem[..^6] : stem;
+            var rowType = assembly.GetType($"Plank.Benchmarks.{schemaStem}Row")
+                ?? assembly.GetType($"Plank.Benchmarks.{schemaStem}PlankRow", throwOnError: true)!;
             var count = stem.StartsWith("Real", StringComparison.Ordinal) ? BenchmarkData.TaxiRows : BenchmarkData.SyntheticRows;
             var rowSets = new Dictionary<Type, object>();
             object GetRows(Type type)
@@ -95,7 +96,7 @@ internal static class BenchmarkFixtures
             if (read)
             {
                 var file = (byte[])rowType.GetMethod("CreateReadFile")!.Invoke(null, [GetRows(rowType)])!;
-                File.WriteAllBytes(Path.Combine(DirectoryPath, stem + ".parquet"), file);
+                File.WriteAllBytes(Path.Combine(DirectoryPath, schemaStem + ".parquet"), file);
             }
             var sizes = new Dictionary<string, long>();
             foreach (var className in writeClasses)

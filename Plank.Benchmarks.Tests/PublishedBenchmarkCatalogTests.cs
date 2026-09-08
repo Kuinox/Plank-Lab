@@ -108,13 +108,13 @@ internal sealed class PublishedBenchmarkCatalogTests
     {
         var types = PublishedBenchmarkCommand.GetBenchmarkTypes();
 
-        await Assert.That(types).Count().IsEqualTo(121);
+        await Assert.That(types).Count().IsEqualTo(242);
         await Assert.That(types.All(type =>
             type.Name.StartsWith("Real", StringComparison.Ordinal) ||
             type.Name.StartsWith("Synthetic", StringComparison.Ordinal))).IsTrue();
         var methods = types.SelectMany(type => type.GetMethods()
             .Where(method => method.IsDefined(typeof(BenchmarkAttribute), false))).ToArray();
-        await Assert.That(methods).Count().IsEqualTo(229);
+        await Assert.That(methods).Count().IsEqualTo(458);
         await Assert.That(types.All(type => type.GetMethods()
             .Count(method => method.IsDefined(typeof(BenchmarkAttribute), false)) is 1 or 2)).IsTrue();
         await Assert.That(methods.All(method => method.Name is "Write" or "Read")).IsTrue();
@@ -129,6 +129,9 @@ internal sealed class PublishedBenchmarkCatalogTests
             .ToArray();
 
         await Assert.That(names).IsEquivalentTo([
+            "SyntheticInt32PlainColumnParquetNetBenchmarks",
+            "SyntheticInt32PlainColumnParquetSharpBenchmarks",
+            "SyntheticInt32PlainColumnPlankBenchmarks",
             "SyntheticInt32PlainParquetNetBenchmarks",
             "SyntheticInt32PlainParquetSharpBenchmarks",
             "SyntheticInt32PlainPlankBenchmarks"

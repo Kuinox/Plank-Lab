@@ -135,7 +135,7 @@ def measurement_configuration(text: str) -> dict:
     return configurations[0]
 
 
-def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes: dict) -> dict:
+def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes: dict, expected_samples: int = 100) -> dict:
     implementation_id, label = LIBRARIES[library]
     supported = library != "Parquet.Net" or case[f"parquetNet{mode.title()}"]
     base = {
@@ -153,8 +153,8 @@ def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes:
     if key not in parsed or not parsed[key]["samples"]:
         raise ValueError(f"missing measurements for {key}")
     values = parsed[key]["samples"]
-    if len(values) != 100:
-        raise ValueError(f"expected 100 samples for {key}, found {len(values)}")
+    if len(values) != expected_samples:
+        raise ValueError(f"expected {expected_samples} samples for {key}, found {len(values)}")
     median = percentile(values, 0.5)
     p25 = percentile(values, 0.25)
     p75 = percentile(values, 0.75)
@@ -165,7 +165,7 @@ def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes:
         "p75Milliseconds": round(p75, 3),
         "samplesMilliseconds": rounded,
         "firstIterationMilliseconds": rounded[0],
-        "subsequentMedianMilliseconds": round(percentile(values[1:], 0.5), 3),
+        "subsequentMedianMilliseconds": round(percentile(values[1:] or values, 0.5), 3),
         "allocatedBytes": parsed[key]["allocated"],
         "allocationMeasurement": "separate diagnostic invocation after the timed series; not first-use allocations",
         "variationPercent": (p75 - p25) / median * 100,
@@ -196,12 +196,14 @@ def method_source(path: Path, class_name: str, method: str) -> str:
             raise ValueError(f"method {class_name}.{method} not found")
 
 
-def benchmark_code(generated: Path, mode: str) -> list[dict]:
-    source = generated / "SyntheticInt32Plain.cs"
+def benchmark_code(generated: Path, mode: str, workload: str = "row") -> list[dict]:
+    stem = "SyntheticInt32Plain" + ("Column" if workload == "column" else "")
+    source = generated / f"{stem}.cs"
     return [
         {
             "label": f"{library} · {mode.title()}",
-            "source": method_source(source, f"SyntheticInt32Plain{suffix}", mode.title()),
+            "workload": workload,
+            "source": method_source(source, f"{stem}{suffix}", mode.title()),
         }
         for suffix, library in (
             ("PlankBenchmarks", "Plank"),
@@ -213,6 +215,15 @@ def benchmark_code(generated: Path, mode: str) -> list[dict]:
 
 def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parsed: dict,
                   output_bytes: dict, benchmark_cpus: str) -> dict:
+    configuration = measurement_configuration(args.log.read_text())
+    workloads = [workload for workload in ("row", "column")
+                 if any(key[2] == mode and key[0].endswith("Column") == (workload == "column")
+                        for key in parsed)]
+    if not workloads:
+        raise ValueError(f"No {mode} results in log")
+    matrix = [{**case, "workload": workload,
+               "stem": case["stem"] + ("Column" if workload == "column" else "")}
+              for case in matrix for workload in workloads]
     suites = []
     for suite_id, suite_label in (("real-world", "Real-world data"), ("synthetic", "Synthetic")):
         cases = []
@@ -221,7 +232,7 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             if suite_id == "synthetic":
                 label = f"{item['dataTypes'][0]} · {ENCODING_LABELS[item['encoding']]}"
             measurements = [
-                measurement(item, library, mode, parsed, output_bytes)
+                measurement(item, library, mode, parsed, output_bytes, configuration["iterations"])
                 for library in LIBRARIES
             ]
             available = [value for value in measurements if value["available"]]
@@ -232,6 +243,7 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             ]
             cases.append({
                 "id": item["id"],
+                "workload": item["workload"],
                 "label": label,
                 "encoding": item["encoding"],
                 "dataTypes": item["dataTypes"],
@@ -275,13 +287,13 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             "pageIndexes": "Plank and ParquetSharp only",
             "bloomFilters": False,
             "format": "No compression or Bloom filters; full statistics; requested encoding per case. Plank and ParquetSharp use Data Page V2 with page indexes. Parquet.Net uses Data Page V1 without page indexes.",
-            "data": "Synthetic cases use 1,000,000 deterministic flat row objects with 22 columns. Real-world cases use all 2,964,624 rows and the selected columns from the January 2024 NYC yellow-taxi file. Input is never pre-split into columns or row groups.",
+            "data": "Synthetic cases use 1,000,000 deterministic flat row objects with 22 columns. Real-world cases use all 2,964,624 rows and the selected columns from the January 2024 NYC yellow-taxi file. Row workloads use row objects. Column workloads transpose the same values into typed column arrays during untimed setup.",
             "quick": False,
-            "rowGroupBoundaries": "Every writer receives flat rows. Synthetic cases produce 22 row groups; taxi-derived cases produce 3. No worker count is selected, so each library uses its default.",
+            "rowGroupBoundaries": "Row workloads receive flat rows; column workloads receive column batches with matching row counts per row group. Synthetic cases produce 22 row groups; taxi-derived cases produce 3. No worker count is selected, so each library uses its default.",
             "timingBoundary": "Only the library write/read operation is timed, not process startup. Each case runs its measured iterations in one process. With ColdStart and zero warmups, the first operation is not pre-invoked by setup or JIT calibration; later samples show its evolution. Read fixtures and write output capacities are prepared in separate processes once per run. Data, schemas, options, capacities, streams, reusable writer/reader setup, worker startup, and worker pinning remain outside timing where the public API permits it. " + isolation,
         },
         "suites": suites,
-        "benchmarkCode": benchmark_code(args.generated, mode),
+        "benchmarkCode": [snippet for workload in workloads for snippet in benchmark_code(args.generated, mode, workload)],
     }
 
 
@@ -293,13 +305,17 @@ def main() -> None:
     parser.add_argument("--cpu", required=True)
     parser.add_argument("--operating-system", required=True)
     parser.add_argument("--commit", required=True)
-    parser.add_argument("--write-output", required=True, type=Path)
-    parser.add_argument("--read-output", required=True, type=Path)
+    parser.add_argument("--write-output", type=Path)
+    parser.add_argument("--read-output", type=Path)
     args = parser.parse_args()
 
+    if args.write_output is None and args.read_output is None:
+        parser.error("Provide --write-output or --read-output.")
     matrix = json.loads(args.matrix.read_text())
     parsed, output_bytes, benchmark_cpus = parse_log(args.log)
     for mode, output in (("write", args.write_output), ("read", args.read_output)):
+        if output is None:
+            continue
         report = create_report(args, mode, matrix, parsed, output_bytes, benchmark_cpus)
         output.write_text(json.dumps(report, indent=2) + "\n")
         print(f"wrote {output} ({sum(len(suite['cases']) for suite in report['suites'])} cases)")
