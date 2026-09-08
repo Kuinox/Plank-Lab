@@ -167,7 +167,7 @@ for path in sorted(root.glob('*.cs')):
             block=re.sub(r'^    (?:\w+(?:<[^>]+>)?\??\[\]|MemoryStream|byte\[\]|long|ParquetOptions|Parquet.Schema.ParquetSchema) (_rows|_output|_outputBuffer|_expectedOutputBytes|_c\d+|_options|_schema)[^\n]*\n','',block,flags=re.M)
             block=block.replace('        _output?.Dispose();\n','')
             generated=generated[:start]+block+generated[end:]
-    (root/(stem+'Column.cs')).write_text(generated)
+    (root/(stem+'Column.cs')).write_text('\n'.join(line.rstrip() for line in generated.splitlines()) + '\n')
 
 # Keep value consumption identical across native column adapters. Passing the
 # accumulator preserves floating-point addition order across buffer boundaries.

@@ -571,7 +571,7 @@ public class SyntheticStringPlainColumnParquetSharpBenchmarks
         _pinned = GCHandle.Alloc(file, GCHandleType.Pinned);
         _buffer = new NativeBuffer(_pinned.AddrOfPinnedObject(), file.LongLength);
         _source = new BufferReader(_buffer);
-    
+
     }
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
