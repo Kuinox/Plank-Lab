@@ -37,6 +37,25 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(result["subsequentMedianMilliseconds"], 50)
         self.assertEqual(result["outputBytes"], 42)
 
+    def test_column_and_row_measurements_remain_distinct_with_ten_samples(self):
+        lines = ["benchmark CPUs: 1-3"]
+        for stem, time in (("SyntheticInt32Plain", 1), ("SyntheticInt32PlainColumn", 2)):
+            lines += [f"// Benchmark: {stem}PlankBenchmarks.Write: Job-X",
+                      f"BENCHMARK_FILE|{stem}|Plank|42"]
+            lines += [f"WorkloadActual {i}: 1 op, {time * 1000000} ns" for i in range(10)]
+            lines += ["// GC: 0 0 0 0 1"]
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "run.log"
+            log.write_text("\n".join(lines))
+            parsed, sizes, _ = publisher.parse_log(log)
+        self.assertEqual(len(parsed), 2)
+        for stem, time in (("SyntheticInt32Plain", 1), ("SyntheticInt32PlainColumn", 2)):
+            case = {"stem": stem, "id": "int32-plain", "valueCount": 128}
+            result = publisher.measurement(case, "Plank", "write", parsed, sizes, expected_samples=10)
+            self.assertEqual(result["samplesMilliseconds"], [time] * 10)
+            with self.assertRaisesRegex(ValueError, "expected 100"):
+                publisher.measurement(case, "Plank", "write", parsed, sizes)
+
     def test_incomplete_series_rejected(self):
         case = {"stem": "SyntheticInt32Plain", "id": "test", "valueCount": 128}
         key = (case["stem"], "Plank", "write")

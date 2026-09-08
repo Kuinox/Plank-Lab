@@ -22,6 +22,8 @@ public static class PublishedBenchmarkCommand
     {
         var arguments = args.ToList();
         var quick = arguments.Remove("--quick");
+        var workload = ReadStringOption(arguments, "--workload");
+        var types = GetBenchmarkTypes(workload);
         var rows = ReadIntOption(arguments, "--rows", quick ? 4_096 : 1_000_000);
         var taxiRows = ReadIntOption(arguments, "--taxi-rows", quick ? 4_096 : 2_964_624);
         var taxiFile = ReadStringOption(arguments, "--data-file") ?? DefaultTaxiFile();
@@ -43,7 +45,7 @@ public static class PublishedBenchmarkCommand
         var config = ManualConfig.Create(DefaultConfig.Instance).AddJob(job);
         if (arguments.Any(a => a is "--help" or "--info" or "--list" or "--version"))
         {
-            BenchmarkSwitcher.FromTypes(GetBenchmarkTypes()).Run([.. arguments], config);
+            BenchmarkSwitcher.FromTypes(types).Run([.. arguments], config);
             return;
         }
 
@@ -54,7 +56,7 @@ public static class PublishedBenchmarkCommand
         if (!parsed) throw new ArgumentException("Invalid benchmark arguments.");
         // Use BDN's own selection rules, including category, attribute and parameter filters.
         var effectiveConfig = ManualConfig.Union(config, cliConfig);
-        var selected = GetBenchmarkTypes().SelectMany(type => BenchmarkConverter.TypeToBenchmarks(type, effectiveConfig).BenchmarksCases)
+        var selected = types.SelectMany(type => BenchmarkConverter.TypeToBenchmarks(type, effectiveConfig).BenchmarksCases)
             .Select(b => (Type: b.Descriptor.Type, Method: b.Descriptor.WorkloadMethod.Name))
             .Distinct().ToArray();
         if (selected.Length == 0) throw new ArgumentException("No benchmark cases match the supplied filters.");
@@ -68,7 +70,7 @@ public static class PublishedBenchmarkCommand
                 BenchmarkFixtures.PrepareInChild(group.Key,
                     group.Where(x => x.Method == "Write").Select(x => x.Type.Name).ToArray(),
                     group.Any(x => x.Method == "Read"));
-            var summaries = BenchmarkSwitcher.FromTypes(GetBenchmarkTypes()).Run([.. arguments], config).ToArray();
+            var summaries = BenchmarkSwitcher.FromTypes(types).Run([.. arguments], config).ToArray();
             if (summaries.Length == 0 || summaries.Any(s => s.HasCriticalValidationErrors || s.Reports.Any(r => !r.Success)))
                 throw new InvalidOperationException("Benchmark run failed; see the preceding log.");
         }
@@ -90,13 +92,19 @@ public static class PublishedBenchmarkCommand
         .WithEvaluateOverhead(false)
         .WithOutlierMode(OutlierMode.DontRemove);
 
-    internal static Type[] GetBenchmarkTypes()
-        => typeof(PublishedBenchmarkCommand).Assembly.GetTypes()
+    internal static Type[] GetBenchmarkTypes(string? workload = null)
+        => (workload is null or "row" or "column"
+            ? typeof(PublishedBenchmarkCommand).Assembly.GetTypes()
+            : throw new ArgumentException("Workload must be row or column.", nameof(workload)))
+            .Where(type => workload is null || IsColumn(type) == (workload == "column"))
             .Where(type => type.IsClass && type.IsPublic &&
                            s_librarySuffixes.Any(suffix => type.Name.EndsWith(suffix, StringComparison.Ordinal)) &&
                            type.GetMethods().Any(method => method.IsDefined(typeof(BenchmarkAttribute), false)))
             .OrderBy(type => type.Name, StringComparer.Ordinal)
             .ToArray();
+
+    internal static bool IsColumn(Type type)
+        => s_librarySuffixes.Any(suffix => type.Name.EndsWith("Column" + suffix, StringComparison.Ordinal));
 
     internal static string FindRepositoryRoot()
     {
