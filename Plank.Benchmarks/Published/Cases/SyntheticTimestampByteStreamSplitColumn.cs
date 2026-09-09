@@ -214,8 +214,7 @@ public class SyntheticTimestampByteStreamSplitColumnPlankBenchmarks
     {
         _reader.Reset(_source);
     }
-    [Benchmark]
-    public long Read()
+    public long VerifyRead()
     {
         long sum = 0;
         long count = 0;
@@ -334,6 +333,126 @@ public class SyntheticTimestampByteStreamSplitColumnPlankBenchmarks
         }
         if (count != (long)Rows * 22) throw new InvalidDataException($"Expected {(long)Rows * 22} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        foreach (var group in _reader.RowGroups)
+        {
+            foreach (var buffer in group.Column<DateTime>(0))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(1))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(2))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(3))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(4))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(5))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(6))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(7))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(8))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(9))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(10))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(11))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(12))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(13))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(14))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(15))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(16))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(17))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(18))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(19))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(20))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime>(21))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+        }
+        if (count != (long)Rows * 22) throw new InvalidDataException($"Expected {(long)Rows * 22} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -557,8 +676,7 @@ public class SyntheticTimestampByteStreamSplitColumnParquetSharpBenchmarks
         _reader?.Dispose();
         _reader = new ParquetFileReader(_source);
     }
-    [Benchmark]
-    public long Read()
+    public long VerifyRead()
     {
         long sum = 0;
         long count = 0;
@@ -766,6 +884,215 @@ public class SyntheticTimestampByteStreamSplitColumnParquetSharpBenchmarks
         }
         if (count != (long)Rows * 22) throw new InvalidDataException($"Expected {(long)Rows * 22} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        for (var g = 0; g < _reader.FileMetaData.NumRowGroups; g++)
+        {
+            using var group = _reader.RowGroup(g);
+            using (var column = group.Column(0).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read0);
+                    ReadConsumption.Consume(_read0.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(1).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read1);
+                    ReadConsumption.Consume(_read1.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(2).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read2);
+                    ReadConsumption.Consume(_read2.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(3).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read3);
+                    ReadConsumption.Consume(_read3.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(4).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read4);
+                    ReadConsumption.Consume(_read4.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(5).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read5);
+                    ReadConsumption.Consume(_read5.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(6).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read6);
+                    ReadConsumption.Consume(_read6.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(7).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read7);
+                    ReadConsumption.Consume(_read7.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(8).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read8);
+                    ReadConsumption.Consume(_read8.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(9).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read9);
+                    ReadConsumption.Consume(_read9.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(10).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read10);
+                    ReadConsumption.Consume(_read10.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(11).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read11);
+                    ReadConsumption.Consume(_read11.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(12).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read12);
+                    ReadConsumption.Consume(_read12.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(13).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read13);
+                    ReadConsumption.Consume(_read13.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(14).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read14);
+                    ReadConsumption.Consume(_read14.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(15).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read15);
+                    ReadConsumption.Consume(_read15.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(16).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read16);
+                    ReadConsumption.Consume(_read16.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(17).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read17);
+                    ReadConsumption.Consume(_read17.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(18).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read18);
+                    ReadConsumption.Consume(_read18.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(19).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read19);
+                    ReadConsumption.Consume(_read19.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(20).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read20);
+                    ReadConsumption.Consume(_read20.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(21).LogicalReader<DateTime>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read21);
+                    ReadConsumption.Consume(_read21.AsSpan(0, length));
+                    count += length;
+                }
+            }
+        }
+        if (count != (long)Rows * 22) throw new InvalidDataException($"Expected {(long)Rows * 22} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()

@@ -88,8 +88,7 @@ public class RealStringsDictionaryColumnPlankBenchmarks
     {
         _reader.Reset(_source);
     }
-    [Benchmark]
-    public ulong Read()
+    public ulong VerifyRead()
     {
         ulong sum = 0;
         long count = 0;
@@ -104,6 +103,21 @@ public class RealStringsDictionaryColumnPlankBenchmarks
         }
         if (count != (long)Rows * 1) throw new InvalidDataException($"Expected {(long)Rows * 1} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        foreach (var group in _reader.RowGroups)
+        {
+            foreach (var buffer in group.Column<byte>(0))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+        }
+        if (count != (long)Rows * 1) throw new InvalidDataException($"Expected {(long)Rows * 1} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -201,8 +215,7 @@ public class RealStringsDictionaryColumnParquetSharpBenchmarks
         _reader?.Dispose();
         _reader = new ParquetFileReader(_source);
     }
-    [Benchmark]
-    public ulong Read()
+    public ulong VerifyRead()
     {
         ulong sum = 0;
         long count = 0;
@@ -225,6 +238,26 @@ public class RealStringsDictionaryColumnParquetSharpBenchmarks
         }
         if (count != (long)Rows * 1) throw new InvalidDataException($"Expected {(long)Rows * 1} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        for (var g = 0; g < _reader.FileMetaData.NumRowGroups; g++)
+        {
+            using var group = _reader.RowGroup(g);
+            using (var column = group.Column(0).LogicalReader<string?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read0);
+                    ReadConsumption.Consume(_read0.AsSpan(0, length));
+                    count += length;
+                }
+            }
+        }
+        if (count != (long)Rows * 1) throw new InvalidDataException($"Expected {(long)Rows * 1} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -307,8 +340,7 @@ public class RealStringsDictionaryColumnParquetNetBenchmarks
         _stream?.Dispose();
         _stream = new MemoryStream(_file, writable: false);
     }
-    [Benchmark]
-    public async Task<ulong> Read()
+    public async Task<ulong> VerifyRead()
     {
         ulong sum = 0;
         long count = 0;
@@ -324,6 +356,23 @@ public class RealStringsDictionaryColumnParquetNetBenchmarks
         }
         if (count != (long)Rows * 1) throw new InvalidDataException($"Expected {(long)Rows * 1} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public async Task<long> Read()
+    {
+        long count = 0;
+        await using var reader = await Parquet.ParquetReader.CreateAsync(_stream);
+        var fields = reader.Schema.GetDataFields();
+        for (var g = 0; g < reader.RowGroupCount; g++)
+        {
+            using var group = reader.OpenRowGroupReader(g);
+            var column0 = new string?[checked((int)group.RowCount)];
+            await group.ReadAsync(fields[0], column0.AsMemory());
+            ReadConsumption.Consume(column0.AsSpan());
+            count += column0.Length;
+        }
+        if (count != (long)Rows * 1) throw new InvalidDataException($"Expected {(long)Rows * 1} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()

@@ -101,3 +101,12 @@ nonzero Plank write allocations, are preserved as report data from the separate 
 diagnostic invocation. Publish multiple
 machines with `scripts/publish_matrix.py`; it checks that each write/read pair came from the same CPU
 and commit before copying it to `docs/benchmarks`.
+
+Column reads consume each fully decoded buffer through a shared non-inlined span
+helper and validate the total element count. They do not traverse values to compute
+a timed checksum. Plank buffer enumeration, ParquetSharp `ReadBatch`, and awaited
+Parquet.Net `ReadAsync` still drive decoding; binary payloads use the same span
+consumption. Row benchmarks still access every measured field. Full column
+checksums live in untimed `VerifyRead` methods, exercised against row fixtures and
+column-writer output by `ColumnWorkloadTests`. Regenerate the column adapters with
+`python3 Plank.Benchmarks/scripts/generate_column_cases.py`.

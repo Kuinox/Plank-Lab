@@ -100,8 +100,7 @@ public class RealInt32ByteStreamSplitColumnPlankBenchmarks
     {
         _reader.Reset(_source);
     }
-    [Benchmark]
-    public ulong Read()
+    public ulong VerifyRead()
     {
         ulong sum = 0;
         long count = 0;
@@ -125,6 +124,31 @@ public class RealInt32ByteStreamSplitColumnPlankBenchmarks
         }
         if (count != (long)Rows * 3) throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        foreach (var group in _reader.RowGroups)
+        {
+            foreach (var buffer in group.Column<int?>(0))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<int?>(1))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<int?>(2))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+        }
+        if (count != (long)Rows * 3) throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -234,8 +258,7 @@ public class RealInt32ByteStreamSplitColumnParquetSharpBenchmarks
         _reader?.Dispose();
         _reader = new ParquetFileReader(_source);
     }
-    [Benchmark]
-    public ulong Read()
+    public ulong VerifyRead()
     {
         ulong sum = 0;
         long count = 0;
@@ -272,6 +295,44 @@ public class RealInt32ByteStreamSplitColumnParquetSharpBenchmarks
         }
         if (count != (long)Rows * 3) throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        for (var g = 0; g < _reader.FileMetaData.NumRowGroups; g++)
+        {
+            using var group = _reader.RowGroup(g);
+            using (var column = group.Column(0).LogicalReader<int?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read0);
+                    ReadConsumption.Consume(_read0.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(1).LogicalReader<int?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read1);
+                    ReadConsumption.Consume(_read1.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(2).LogicalReader<int?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read2);
+                    ReadConsumption.Consume(_read2.AsSpan(0, length));
+                    count += length;
+                }
+            }
+        }
+        if (count != (long)Rows * 3) throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -362,8 +423,7 @@ public class RealInt32ByteStreamSplitColumnParquetNetBenchmarks
         _stream?.Dispose();
         _stream = new MemoryStream(_file, writable: false);
     }
-    [Benchmark]
-    public async Task<ulong> Read()
+    public async Task<ulong> VerifyRead()
     {
         ulong sum = 0;
         long count = 0;
@@ -387,6 +447,31 @@ public class RealInt32ByteStreamSplitColumnParquetNetBenchmarks
         }
         if (count != (long)Rows * 3) throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public async Task<long> Read()
+    {
+        long count = 0;
+        await using var reader = await Parquet.ParquetReader.CreateAsync(_stream);
+        var fields = reader.Schema.GetDataFields();
+        for (var g = 0; g < reader.RowGroupCount; g++)
+        {
+            using var group = reader.OpenRowGroupReader(g);
+            var column0 = new int?[checked((int)group.RowCount)];
+            await group.ReadAsync<int>(fields[0], column0.AsMemory());
+            ReadConsumption.Consume(column0.AsSpan());
+            count += column0.Length;
+            var column1 = new int?[checked((int)group.RowCount)];
+            await group.ReadAsync<int>(fields[1], column1.AsMemory());
+            ReadConsumption.Consume(column1.AsSpan());
+            count += column1.Length;
+            var column2 = new int?[checked((int)group.RowCount)];
+            await group.ReadAsync<int>(fields[2], column2.AsMemory());
+            ReadConsumption.Consume(column2.AsSpan());
+            count += column2.Length;
+        }
+        if (count != (long)Rows * 3) throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()

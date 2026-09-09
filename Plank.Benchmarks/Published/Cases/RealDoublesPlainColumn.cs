@@ -142,8 +142,7 @@ public class RealDoublesPlainColumnPlankBenchmarks
     {
         _reader.Reset(_source);
     }
-    [Benchmark]
-    public double Read()
+    public double VerifyRead()
     {
         double sum = 0;
         long count = 0;
@@ -202,6 +201,66 @@ public class RealDoublesPlainColumnPlankBenchmarks
         }
         if (count != (long)Rows * 10) throw new InvalidDataException($"Expected {(long)Rows * 10} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        foreach (var group in _reader.RowGroups)
+        {
+            foreach (var buffer in group.Column<double?>(0))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(1))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(2))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(3))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(4))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(5))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(6))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(7))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(8))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<double?>(9))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+        }
+        if (count != (long)Rows * 10) throw new InvalidDataException($"Expected {(long)Rows * 10} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -353,8 +412,7 @@ public class RealDoublesPlainColumnParquetSharpBenchmarks
         _reader?.Dispose();
         _reader = new ParquetFileReader(_source);
     }
-    [Benchmark]
-    public double Read()
+    public double VerifyRead()
     {
         double sum = 0;
         long count = 0;
@@ -454,6 +512,107 @@ public class RealDoublesPlainColumnParquetSharpBenchmarks
         }
         if (count != (long)Rows * 10) throw new InvalidDataException($"Expected {(long)Rows * 10} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        for (var g = 0; g < _reader.FileMetaData.NumRowGroups; g++)
+        {
+            using var group = _reader.RowGroup(g);
+            using (var column = group.Column(0).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read0);
+                    ReadConsumption.Consume(_read0.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(1).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read1);
+                    ReadConsumption.Consume(_read1.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(2).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read2);
+                    ReadConsumption.Consume(_read2.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(3).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read3);
+                    ReadConsumption.Consume(_read3.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(4).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read4);
+                    ReadConsumption.Consume(_read4.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(5).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read5);
+                    ReadConsumption.Consume(_read5.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(6).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read6);
+                    ReadConsumption.Consume(_read6.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(7).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read7);
+                    ReadConsumption.Consume(_read7.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(8).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read8);
+                    ReadConsumption.Consume(_read8.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(9).LogicalReader<double?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read9);
+                    ReadConsumption.Consume(_read9.AsSpan(0, length));
+                    count += length;
+                }
+            }
+        }
+        if (count != (long)Rows * 10) throw new InvalidDataException($"Expected {(long)Rows * 10} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -572,8 +731,7 @@ public class RealDoublesPlainColumnParquetNetBenchmarks
         _stream?.Dispose();
         _stream = new MemoryStream(_file, writable: false);
     }
-    [Benchmark]
-    public async Task<double> Read()
+    public async Task<double> VerifyRead()
     {
         double sum = 0;
         long count = 0;
@@ -625,6 +783,59 @@ public class RealDoublesPlainColumnParquetNetBenchmarks
         }
         if (count != (long)Rows * 10) throw new InvalidDataException($"Expected {(long)Rows * 10} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public async Task<long> Read()
+    {
+        long count = 0;
+        await using var reader = await Parquet.ParquetReader.CreateAsync(_stream);
+        var fields = reader.Schema.GetDataFields();
+        for (var g = 0; g < reader.RowGroupCount; g++)
+        {
+            using var group = reader.OpenRowGroupReader(g);
+            var column0 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[0], column0.AsMemory());
+            ReadConsumption.Consume(column0.AsSpan());
+            count += column0.Length;
+            var column1 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[1], column1.AsMemory());
+            ReadConsumption.Consume(column1.AsSpan());
+            count += column1.Length;
+            var column2 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[2], column2.AsMemory());
+            ReadConsumption.Consume(column2.AsSpan());
+            count += column2.Length;
+            var column3 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[3], column3.AsMemory());
+            ReadConsumption.Consume(column3.AsSpan());
+            count += column3.Length;
+            var column4 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[4], column4.AsMemory());
+            ReadConsumption.Consume(column4.AsSpan());
+            count += column4.Length;
+            var column5 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[5], column5.AsMemory());
+            ReadConsumption.Consume(column5.AsSpan());
+            count += column5.Length;
+            var column6 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[6], column6.AsMemory());
+            ReadConsumption.Consume(column6.AsSpan());
+            count += column6.Length;
+            var column7 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[7], column7.AsMemory());
+            ReadConsumption.Consume(column7.AsSpan());
+            count += column7.Length;
+            var column8 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[8], column8.AsMemory());
+            ReadConsumption.Consume(column8.AsSpan());
+            count += column8.Length;
+            var column9 = new double?[checked((int)group.RowCount)];
+            await group.ReadAsync<double>(fields[9], column9.AsMemory());
+            ReadConsumption.Consume(column9.AsSpan());
+            count += column9.Length;
+        }
+        if (count != (long)Rows * 10) throw new InvalidDataException($"Expected {(long)Rows * 10} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()

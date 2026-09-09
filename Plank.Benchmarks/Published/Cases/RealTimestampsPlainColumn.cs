@@ -99,8 +99,7 @@ public class RealTimestampsPlainColumnPlankBenchmarks
     {
         _reader.Reset(_source);
     }
-    [Benchmark]
-    public long Read()
+    public long VerifyRead()
     {
         long sum = 0;
         long count = 0;
@@ -119,6 +118,26 @@ public class RealTimestampsPlainColumnPlankBenchmarks
         }
         if (count != (long)Rows * 2) throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        foreach (var group in _reader.RowGroups)
+        {
+            foreach (var buffer in group.Column<DateTime?>(0))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+            foreach (var buffer in group.Column<DateTime?>(1))
+            {
+                ReadConsumption.Consume(buffer.Values);
+                count += buffer.Count;
+            }
+        }
+        if (count != (long)Rows * 2) throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -222,8 +241,7 @@ public class RealTimestampsPlainColumnParquetSharpBenchmarks
         _reader?.Dispose();
         _reader = new ParquetFileReader(_source);
     }
-    [Benchmark]
-    public long Read()
+    public long VerifyRead()
     {
         long sum = 0;
         long count = 0;
@@ -251,6 +269,35 @@ public class RealTimestampsPlainColumnParquetSharpBenchmarks
         }
         if (count != (long)Rows * 2) throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public long Read()
+    {
+        long count = 0;
+        for (var g = 0; g < _reader.FileMetaData.NumRowGroups; g++)
+        {
+            using var group = _reader.RowGroup(g);
+            using (var column = group.Column(0).LogicalReader<DateTime?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read0);
+                    ReadConsumption.Consume(_read0.AsSpan(0, length));
+                    count += length;
+                }
+            }
+            using (var column = group.Column(1).LogicalReader<DateTime?>())
+            {
+                while (column.HasNext)
+                {
+                    var length = column.ReadBatch(_read1);
+                    ReadConsumption.Consume(_read1.AsSpan(0, length));
+                    count += length;
+                }
+            }
+        }
+        if (count != (long)Rows * 2) throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()
@@ -337,8 +384,7 @@ public class RealTimestampsPlainColumnParquetNetBenchmarks
         _stream?.Dispose();
         _stream = new MemoryStream(_file, writable: false);
     }
-    [Benchmark]
-    public async Task<long> Read()
+    public async Task<long> VerifyRead()
     {
         long sum = 0;
         long count = 0;
@@ -358,6 +404,27 @@ public class RealTimestampsPlainColumnParquetNetBenchmarks
         }
         if (count != (long)Rows * 2) throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
         return sum;
+    }
+    [Benchmark]
+    public async Task<long> Read()
+    {
+        long count = 0;
+        await using var reader = await Parquet.ParquetReader.CreateAsync(_stream);
+        var fields = reader.Schema.GetDataFields();
+        for (var g = 0; g < reader.RowGroupCount; g++)
+        {
+            using var group = reader.OpenRowGroupReader(g);
+            var column0 = new DateTime?[checked((int)group.RowCount)];
+            await group.ReadAsync<DateTime>(fields[0], column0.AsMemory());
+            ReadConsumption.Consume(column0.AsSpan());
+            count += column0.Length;
+            var column1 = new DateTime?[checked((int)group.RowCount)];
+            await group.ReadAsync<DateTime>(fields[1], column1.AsMemory());
+            ReadConsumption.Consume(column1.AsSpan());
+            count += column1.Length;
+        }
+        if (count != (long)Rows * 2) throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
+        return count;
     }
     [GlobalCleanup]
     public void Cleanup()

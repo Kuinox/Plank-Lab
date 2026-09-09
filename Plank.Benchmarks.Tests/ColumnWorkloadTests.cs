@@ -120,6 +120,14 @@ internal sealed class ColumnWorkloadTests
             type.GetMethod("GlobalSetupRead")!.Invoke(reader, null);
             type.GetMethod("SetupRead")!.Invoke(reader, null);
             var value = type.GetMethod("Read")!.Invoke(reader, null)!;
+            if (type.Name.Contains("Column"))
+            {
+                var consumed = value is Task<long> consumption ? await consumption : (long)value;
+                type.GetMethod("SetupRead")!.Invoke(reader, null);
+                value = type.GetMethod("VerifyRead")!.Invoke(reader, null)!;
+                // Timed Read also validates the exact row count times schema width.
+                if (consumed <= 0) throw new InvalidDataException("No decoded values consumed.");
+            }
             if (value is Task task)
             {
                 await task;
