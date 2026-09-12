@@ -22,6 +22,7 @@ public static class PublishedBenchmarkCommand
     {
         var arguments = args.ToList();
         var quick = arguments.Remove("--quick");
+        var prComparison = arguments.Remove("--pr-comparison");
         var workload = ReadStringOption(arguments, "--workload");
         var types = GetBenchmarkTypes(workload);
         var rows = ReadIntOption(arguments, "--rows", quick ? 4_096 : 1_000_000);
@@ -41,7 +42,7 @@ public static class PublishedBenchmarkCommand
         Environment.SetEnvironmentVariable("PLANK_BENCHMARK_TAXI_ROWS", taxiRows.ToString());
         Environment.SetEnvironmentVariable("PLANK_BENCHMARK_TAXI_FILE", taxiFile);
 
-        var job = CreateJob(quick);
+        var job = prComparison ? CreatePrComparisonJob() : CreateJob(quick);
         var config = ManualConfig.Create(DefaultConfig.Instance).AddJob(job);
         if (arguments.Any(a => a is "--help" or "--info" or "--list" or "--version"))
         {
@@ -80,6 +81,17 @@ public static class PublishedBenchmarkCommand
             fixtures.Delete(recursive: true);
         }
     }
+
+    internal static Job CreatePrComparisonJob() => Job.Default
+        .WithStrategy(RunStrategy.Throughput)
+        .WithLaunchCount(1)
+        .WithWarmupCount(8)
+        .WithIterationCount(15)
+        .WithInvocationCount(1)
+        .WithUnrollFactor(1)
+        .WithGcForce(true)
+        .WithEvaluateOverhead(true)
+        .WithOutlierMode(OutlierMode.RemoveUpper);
 
     internal static Job CreateJob(bool quick = false) => Job.Default
         .WithStrategy(RunStrategy.ColdStart)

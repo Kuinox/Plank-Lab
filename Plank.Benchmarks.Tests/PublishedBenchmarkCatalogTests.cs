@@ -8,6 +8,19 @@ namespace Plank.Benchmarks.Tests;
 internal sealed class PublishedBenchmarkCatalogTests
 {
     [Test]
+    public async Task PrComparisonJobUsesWarmedThroughput()
+    {
+        var job = PublishedBenchmarkCommand.CreatePrComparisonJob();
+        await Assert.That(job.Run.RunStrategy).IsEqualTo(RunStrategy.Throughput);
+        await Assert.That(job.Run.WarmupCount).IsEqualTo(8);
+        await Assert.That(job.Run.IterationCount).IsEqualTo(15);
+        await Assert.That(job.Run.InvocationCount).IsEqualTo(1L);
+        await Assert.That(job.Environment.Gc.Force).IsTrue();
+        await Assert.That(job.Accuracy.EvaluateOverhead).IsTrue();
+        await Assert.That(job.Accuracy.OutlierMode.ToString()).IsEqualTo("RemoveUpper");
+    }
+
+    [Test]
     public async Task DefaultJobPreservesFirstUseAndAllOrderedSamples()
     {
         var job = PublishedBenchmarkCommand.CreateJob();
