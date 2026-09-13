@@ -44,7 +44,7 @@ sudo python3 Plank.Benchmarks/scripts/run_cpu_isolated.py -- \
 ```
 
 PR CI can opt into `--published --pr-comparison`: each child uses Throughput with
-4 warmups and 20 measured iterations. Tiered compilation is disabled so every
+20 warmups and 50 measured iterations. Tiered compilation is disabled so every
 method is fully optimized on first use, and concurrent GC is disabled so background
 collections cannot overlap measurements. Invocation count stays at one because
 readers/writers require resetting between calls. Forced collections keep each
