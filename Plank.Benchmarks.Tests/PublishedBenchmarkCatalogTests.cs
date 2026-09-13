@@ -12,8 +12,8 @@ internal sealed class PublishedBenchmarkCatalogTests
     {
         var job = PublishedBenchmarkCommand.CreatePrComparisonJob();
         await Assert.That(job.Run.RunStrategy).IsEqualTo(RunStrategy.Throughput);
-        await Assert.That(job.Run.WarmupCount).IsEqualTo(4);
-        await Assert.That(job.Run.IterationCount).IsEqualTo(20);
+        await Assert.That(job.Run.WarmupCount).IsEqualTo(20);
+        await Assert.That(job.Run.IterationCount).IsEqualTo(50);
         await Assert.That(job.Run.InvocationCount).IsEqualTo(1L);
         await Assert.That(job.Environment.Gc.Force).IsTrue();
         await Assert.That(job.Environment.Gc.Concurrent).IsFalse();
