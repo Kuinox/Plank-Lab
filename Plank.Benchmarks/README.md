@@ -53,6 +53,12 @@ millisecond-scale operations, and all measured samples are retained. The default
 bare-metal profile above is unchanged. Explicit BenchmarkDotNet count arguments
 override the PR counts.
 
+Adding `--measurement-time-ms 500` selects the adaptive CI profile. Each case is
+calibrated independently and uses enough measured iterations to target 500 ms of
+total measured work, bounded to 15–1000 iterations. This gives short cases more
+samples while reducing long, stable cases. An explicit BenchmarkDotNet
+`--iterationCount` becomes the minimum.
+
 Use a focused quick run while changing the harness:
 
 ```bash

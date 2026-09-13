@@ -1,6 +1,7 @@
 using BenchmarkDotNet.Attributes;
 using Plank.Benchmarks.Published;
 using BenchmarkDotNet.Engines;
+using BenchmarkDotNet.Jobs;
 using System.Reflection;
 
 namespace Plank.Benchmarks.Tests;
@@ -21,6 +22,71 @@ internal sealed class PublishedBenchmarkCatalogTests
             variable.Key == "DOTNET_TieredCompilation" && variable.Value == "0")).IsTrue();
         await Assert.That(job.Accuracy.EvaluateOverhead).IsFalse();
         await Assert.That(job.Accuracy.OutlierMode.ToString()).IsEqualTo("DontRemove");
+    }
+
+    [Test]
+    public async Task TimedPrComparisonAdaptsIterationCountPerCase()
+    {
+        var job = PublishedBenchmarkCommand.CreatePrComparisonJob(500);
+        await Assert.That(job.Infrastructure.EngineFactory.GetType())
+            .IsEqualTo(typeof(PrComparisonEngineFactory));
+        await Assert.That(job.Run.IterationCount)
+            .IsEqualTo(PrComparisonEngineFactory.MinimumIterations);
+        await Assert.That(job.Environment.EnvironmentVariables.Any(variable =>
+            variable.Key == PrComparisonEngineFactory.MeasurementTimeVariable && variable.Value == "500")).IsTrue();
+
+        await Assert.That(PrComparisonEngineFactory.CalculateIterationCount(500_000)).IsEqualTo(1_000);
+        await Assert.That(PrComparisonEngineFactory.CalculateIterationCount(1_000_000)).IsEqualTo(500);
+        await Assert.That(PrComparisonEngineFactory.CalculateIterationCount(40_000_000)).IsEqualTo(15);
+        await Assert.That(PrComparisonEngineFactory.CalculateIterationCount(400_000_000)).IsEqualTo(15);
+    }
+
+    [Test]
+    [NotInParallel]
+    public async Task TimedPrComparisonEngineUsesItsCalibratedCount()
+    {
+        var oldTarget = Environment.GetEnvironmentVariable(PrComparisonEngineFactory.MeasurementTimeVariable);
+        Environment.SetEnvironmentVariable(PrComparisonEngineFactory.MeasurementTimeVariable, "50");
+        var host = new RecordingHost();
+        var cleanedUp = false;
+        try
+        {
+            var action = new Action<long>(_ => Thread.Sleep(1));
+            var empty = new Action(static () => { });
+            var parameters = new EngineParameters
+            {
+                Host = host,
+                WorkloadActionNoUnroll = action,
+                WorkloadActionUnroll = action,
+                Dummy1Action = empty,
+                Dummy2Action = empty,
+                Dummy3Action = empty,
+                OverheadActionNoUnroll = static _ => { },
+                OverheadActionUnroll = static _ => { },
+                TargetJob = PublishedBenchmarkCommand.CreatePrComparisonJob(50).WithWarmupCount(1),
+                OperationsPerInvoke = 1,
+                GlobalSetupAction = empty,
+                GlobalCleanupAction = () => cleanedUp = true,
+                IterationSetupAction = empty,
+                IterationCleanupAction = empty,
+                MeasureExtraStats = false,
+                BenchmarkName = "AdaptiveIterationTest"
+            };
+
+            using (var engine = new PrComparisonEngineFactory().CreateReadyToRun(parameters))
+            {
+                var results = engine.Run();
+                var plan = host.Lines.Single(line => line.StartsWith("// PR measurement plan:"));
+                var count = int.Parse(plan.Split(' ')[4]);
+                await Assert.That(count).IsGreaterThan(PrComparisonEngineFactory.MinimumIterations);
+                await Assert.That(results.Workload).Count().IsEqualTo(count);
+            }
+            await Assert.That(cleanedUp).IsTrue();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(PrComparisonEngineFactory.MeasurementTimeVariable, oldTarget);
+        }
     }
 
     [Test]
@@ -152,5 +218,18 @@ internal sealed class PublishedBenchmarkCatalogTests
             "SyntheticInt32PlainParquetSharpBenchmarks",
             "SyntheticInt32PlainPlankBenchmarks"
         ]);
+    }
+
+    sealed class RecordingHost : IHost
+    {
+        public List<string> Lines { get; } = [];
+
+        public void Write(string message) { }
+        public void WriteLine() => Lines.Add(string.Empty);
+        public void WriteLine(string message) => Lines.Add(message);
+        public void SendSignal(HostSignal hostSignal) { }
+        public void SendError(string message) => throw new InvalidOperationException(message);
+        public void ReportResults(RunResults runResults) { }
+        public void Dispose() { }
     }
 }
