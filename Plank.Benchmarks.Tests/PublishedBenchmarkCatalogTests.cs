@@ -11,13 +11,15 @@ internal sealed class PublishedBenchmarkCatalogTests
     public async Task PrComparisonJobUsesWarmedThroughput()
     {
         var job = PublishedBenchmarkCommand.CreatePrComparisonJob();
-        await Assert.That(job.Infrastructure.EngineFactory.GetType()).IsEqualTo(typeof(PrComparisonEngineFactory));
         await Assert.That(job.Run.RunStrategy).IsEqualTo(RunStrategy.Throughput);
-        await Assert.That(job.Run.WarmupCount).IsEqualTo(8);
-        await Assert.That(job.Run.IterationCount).IsEqualTo(30);
+        await Assert.That(job.Run.WarmupCount).IsEqualTo(4);
+        await Assert.That(job.Run.IterationCount).IsEqualTo(20);
         await Assert.That(job.Run.InvocationCount).IsEqualTo(1L);
         await Assert.That(job.Environment.Gc.Force).IsTrue();
-        await Assert.That(job.Accuracy.EvaluateOverhead).IsTrue();
+        await Assert.That(job.Environment.Gc.Concurrent).IsFalse();
+        await Assert.That(job.Environment.EnvironmentVariables.Any(variable =>
+            variable.Key == "DOTNET_TieredCompilation" && variable.Value == "0")).IsTrue();
+        await Assert.That(job.Accuracy.EvaluateOverhead).IsFalse();
         await Assert.That(job.Accuracy.OutlierMode.ToString()).IsEqualTo("DontRemove");
     }
 
