@@ -85,6 +85,7 @@ public static class PublishedBenchmarkCommand
     internal static Job CreatePrComparisonJob() => Job.Default
         .WithStrategy(RunStrategy.Throughput)
         .WithEnvironmentVariable("DOTNET_TieredCompilation", "0")
+        .WithAffinity(new IntPtr(1))
         .WithLaunchCount(1)
         .WithWarmupCount(4)
         .WithIterationCount(20)
@@ -92,6 +93,7 @@ public static class PublishedBenchmarkCommand
         .WithUnrollFactor(1)
         .WithGcForce(true)
         .WithGcConcurrent(false)
+        .WithGcRetainVm(true)
         .WithEvaluateOverhead(false)
         .WithOutlierMode(OutlierMode.DontRemove);
 
