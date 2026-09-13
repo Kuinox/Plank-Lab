@@ -23,6 +23,9 @@ public static class PublishedBenchmarkCommand
         var arguments = args.ToList();
         var quick = arguments.Remove("--quick");
         var prComparison = arguments.Remove("--pr-comparison");
+        var measurementTimeMilliseconds = ReadNullableIntOption(arguments, "--measurement-time-ms");
+        if (measurementTimeMilliseconds is not null && !prComparison)
+            throw new ArgumentException("--measurement-time-ms requires --pr-comparison.");
         var workload = ReadStringOption(arguments, "--workload");
         var types = GetBenchmarkTypes(workload);
         var rows = ReadIntOption(arguments, "--rows", quick ? 4_096 : 1_000_000);
@@ -42,7 +45,7 @@ public static class PublishedBenchmarkCommand
         Environment.SetEnvironmentVariable("PLANK_BENCHMARK_TAXI_ROWS", taxiRows.ToString());
         Environment.SetEnvironmentVariable("PLANK_BENCHMARK_TAXI_FILE", taxiFile);
 
-        var job = prComparison ? CreatePrComparisonJob() : CreateJob(quick);
+        var job = prComparison ? CreatePrComparisonJob(measurementTimeMilliseconds) : CreateJob(quick);
         var config = ManualConfig.Create(DefaultConfig.Instance).AddJob(job);
         if (arguments.Any(a => a is "--help" or "--info" or "--list" or "--version"))
         {
@@ -82,18 +85,29 @@ public static class PublishedBenchmarkCommand
         }
     }
 
-    internal static Job CreatePrComparisonJob() => Job.Default
-        .WithStrategy(RunStrategy.Throughput)
-        .WithEnvironmentVariable("DOTNET_TieredCompilation", "0")
-        .WithLaunchCount(1)
-        .WithWarmupCount(20)
-        .WithIterationCount(50)
-        .WithInvocationCount(1)
-        .WithUnrollFactor(1)
-        .WithGcForce(true)
-        .WithGcConcurrent(false)
-        .WithEvaluateOverhead(false)
-        .WithOutlierMode(OutlierMode.DontRemove);
+    internal static Job CreatePrComparisonJob(int? measurementTimeMilliseconds = null)
+    {
+        var job = Job.Default
+            .WithStrategy(RunStrategy.Throughput)
+            .WithEnvironmentVariable("DOTNET_TieredCompilation", "0")
+            .WithLaunchCount(1)
+            .WithWarmupCount(20)
+            .WithIterationCount(measurementTimeMilliseconds is null
+                ? 50
+                : PrComparisonEngineFactory.MinimumIterations)
+            .WithInvocationCount(1)
+            .WithUnrollFactor(1)
+            .WithGcForce(true)
+            .WithGcConcurrent(false)
+            .WithEvaluateOverhead(false)
+            .WithOutlierMode(OutlierMode.DontRemove);
+        return measurementTimeMilliseconds is { } target
+            ? job.WithEnvironmentVariable(
+                    PrComparisonEngineFactory.MeasurementTimeVariable,
+                    target.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                .WithEngineFactory(new PrComparisonEngineFactory())
+            : job;
+    }
 
     internal static Job CreateJob(bool quick = false) => Job.Default
         .WithStrategy(RunStrategy.ColdStart)
@@ -146,6 +160,15 @@ public static class PublishedBenchmarkCommand
     {
         var value = ReadStringOption(arguments, option);
         if (value is null) return defaultValue;
+        if (!int.TryParse(value, out var parsed) || parsed <= 0)
+            throw new ArgumentException($"{option} must be a positive integer.");
+        return parsed;
+    }
+
+    static int? ReadNullableIntOption(List<string> arguments, string option)
+    {
+        var value = ReadStringOption(arguments, option);
+        if (value is null) return null;
         if (!int.TryParse(value, out var parsed) || parsed <= 0)
             throw new ArgumentException($"{option} must be a positive integer.");
         return parsed;
