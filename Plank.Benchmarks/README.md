@@ -46,12 +46,12 @@ sudo python3 Plank.Benchmarks/scripts/run_cpu_isolated.py -- \
 PR CI can opt into `--published --pr-comparison`: each child uses Throughput with
 4 warmups and 20 measured iterations. Tiered compilation is disabled so every
 method is fully optimized on first use, and concurrent GC is disabled so background
-collections cannot overlap measurements. The process is pinned to one logical CPU,
-and GC virtual memory is retained across forced collections to avoid migration and
-memory-recommit noise. Invocation count stays at one because readers/writers require
-resetting between calls. Overhead evaluation is skipped for these millisecond-scale
-operations, and all measured samples are retained. The default bare-metal profile
-above is unchanged. Explicit BenchmarkDotNet count arguments override the PR counts.
+collections cannot overlap measurements. Invocation count stays at one because
+readers/writers require resetting between calls. Forced collections keep each
+iteration's starting state comparable, overhead evaluation is skipped for these
+millisecond-scale operations, and all measured samples are retained. The default
+bare-metal profile above is unchanged. Explicit BenchmarkDotNet count arguments
+override the PR counts.
 
 Use a focused quick run while changing the harness:
 

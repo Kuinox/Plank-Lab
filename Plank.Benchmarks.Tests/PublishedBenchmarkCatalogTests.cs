@@ -17,8 +17,6 @@ internal sealed class PublishedBenchmarkCatalogTests
         await Assert.That(job.Run.InvocationCount).IsEqualTo(1L);
         await Assert.That(job.Environment.Gc.Force).IsTrue();
         await Assert.That(job.Environment.Gc.Concurrent).IsFalse();
-        await Assert.That(job.Environment.Gc.RetainVm).IsTrue();
-        await Assert.That(job.Environment.Affinity).IsEqualTo(new IntPtr(1));
         await Assert.That(job.Environment.EnvironmentVariables.Any(variable =>
             variable.Key == "DOTNET_TieredCompilation" && variable.Value == "0")).IsTrue();
         await Assert.That(job.Accuracy.EvaluateOverhead).IsFalse();
