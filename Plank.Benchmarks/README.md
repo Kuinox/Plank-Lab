@@ -43,16 +43,15 @@ sudo python3 Plank.Benchmarks/scripts/run_cpu_isolated.py -- \
   dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll --published
 ```
 
-PR CI can opt into `--published --pr-comparison`: each child first runs at least
-32 complete iterations and 10 seconds of continuous warmup, then uses Throughput
-with 8 further warmups and 30 measured iterations. Prewarm uses the same iteration
-setup, workload, cleanup and forced GC as measurement; it logs every warmup plus
-a duration/count marker. Invocation count stays at one because readers/writers
-require resetting between calls. All measured samples are retained, with overhead
-evaluation enabled. Tiering/PGO stay enabled. This is a minimum warmup budget, not
-a guarantee of steady state; compare ordered measurements and independent passes.
-The default bare-metal profile above is unchanged. Explicit BenchmarkDotNet count
-arguments override the PR counts, but do not skip the initial prewarm budget.
+PR CI can opt into `--published --pr-comparison`: each child uses Throughput with
+4 warmups and 20 measured iterations. Tiered compilation is disabled so every
+method is fully optimized on first use, and concurrent GC is disabled so background
+collections cannot overlap measurements. Invocation count stays at one because
+readers/writers require resetting between calls. Forced collections keep each
+iteration's starting state comparable, overhead evaluation is skipped for these
+millisecond-scale operations, and all measured samples are retained. The default
+bare-metal profile above is unchanged. Explicit BenchmarkDotNet count arguments
+override the PR counts.
 
 Use a focused quick run while changing the harness:
 
