@@ -83,15 +83,16 @@ public static class PublishedBenchmarkCommand
     }
 
     internal static Job CreatePrComparisonJob() => Job.Default
-        .WithEngineFactory(new PrComparisonEngineFactory())
         .WithStrategy(RunStrategy.Throughput)
+        .WithEnvironmentVariable("DOTNET_TieredCompilation", "0")
         .WithLaunchCount(1)
-        .WithWarmupCount(8)
-        .WithIterationCount(30)
+        .WithWarmupCount(4)
+        .WithIterationCount(20)
         .WithInvocationCount(1)
         .WithUnrollFactor(1)
         .WithGcForce(true)
-        .WithEvaluateOverhead(true)
+        .WithGcConcurrent(false)
+        .WithEvaluateOverhead(false)
         .WithOutlierMode(OutlierMode.DontRemove);
 
     internal static Job CreateJob(bool quick = false) => Job.Default
