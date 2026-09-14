@@ -28,6 +28,7 @@
   let machineIndex = null;
   let selectedMachineId = null;
   let writeSelected = true;
+  let selectedWorkload = "row";
   let measurementGraphSequence = 0;
 
   loadResults(indexUrl)
@@ -178,14 +179,51 @@
     readPanel.hidden = writeSelected;
 
     operationTabs.append(writeTab, readTab);
-    writePanel.append(renderReport(writeReport, "write"));
-    readPanel.append(renderReport(readReport, "read"));
-    container.append(operationTabs, writePanel, readPanel);
+    const workloadLabel = element("label", "benchmark-workload-picker");
+    workloadLabel.textContent = "Workload ";
+    const workloadSelect = element("select", "benchmark-workload-select");
+    workloadSelect.setAttribute("aria-label", "Benchmark workload");
+    for (const [value, label] of [["row", "Row-oriented"], ["column", "Column-oriented"]]) {
+      const option = element("option");
+      option.value = value;
+      option.textContent = label;
+      workloadSelect.append(option);
+    }
+    workloadSelect.value = selectedWorkload;
+    workloadLabel.append(workloadSelect);
+    workloadSelect.addEventListener("change", () => {
+      selectedWorkload = workloadSelect.value;
+      renderWorkload();
+    });
+    renderWorkload();
+    container.append(workloadLabel, operationTabs, writePanel, readPanel);
     writeTab.addEventListener("click", () => selectOperation(true));
     readTab.addEventListener("click", () => selectOperation(false));
     writeTab.addEventListener("keydown", event => navigateOperation(event, true));
     readTab.addEventListener("keydown", event => navigateOperation(event, false));
     return container;
+
+    function renderWorkload() {
+      writePanel.replaceChildren(renderReportForWorkload(writeReport, "write"));
+      readPanel.replaceChildren(renderReportForWorkload(readReport, "read"));
+    }
+
+    function renderReportForWorkload(report, operation) {
+      // Existing snapshots predate workload metadata and contain the row baseline.
+      const suites = report.suites.map(suite => ({
+        ...suite,
+        cases: suite.cases.filter(item => (item.workload || "row") === selectedWorkload)
+      })).filter(suite => suite.cases.length > 0);
+      if (suites.length === 0) {
+        const message = element("p", "benchmark-loading");
+        message.setAttribute("role", "status");
+        message.textContent = `No ${selectedWorkload}-oriented ${operation} results have been published for this CPU yet.`;
+        return message;
+      }
+      return renderReport({ ...report, suites,
+        benchmarkCode: report.benchmarkCode?.filter(snippet => (snippet.workload || "row") === selectedWorkload)
+      }, operation);
+    }
 
     function configureOperationTab(button, id, label, selected) {
       button.type = "button";

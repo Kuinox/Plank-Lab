@@ -636,3 +636,20 @@ main {
 .benchmark-machine-tab[aria-selected="true"] .benchmark-machine-detail {
   opacity: .9;
 }
+
+.benchmark-workload-picker {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+.benchmark-workload-select {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: .35rem;
+  padding: .45rem .75rem;
+}
+.benchmark-workload-select option { color: #171717; background: #fff; }
