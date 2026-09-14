@@ -8,60 +8,13 @@
       "environment": {
         "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
         "logicalProcessors": 22,
-        "operatingSystem": "CachyOS Linux x64",
+        "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "e96971697df32967148e00b0631148132f0c2640",
-        "libraries": {
-          "Plank": "local source",
-          "ParquetSharp": "24.0.0",
-          "Parquet.Net": "6.0.3",
-          "BenchmarkDotNet": "0.15.8"
-        },
-        "benchmarkHarnessCommit": "11efc31"
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
       },
-      "generatedAt": "2026-09-05T22:42:51.427741Z",
+      "generatedAt": "2026-09-14T21:07:58.097564Z",
       "write": "write-ryzen-9-7900x-v1.json",
       "read": "read-ryzen-9-7900x-v1.json"
-    },
-    {
-      "id": "xeon-e3-1230-v6",
-      "label": "Intel Xeon E3-1230 v6",
-      "environment": {
-        "cpu": "Intel(R) Xeon(R) CPU E3-1230 v6 @ 3.50GHz",
-        "logicalProcessors": 6,
-        "operatingSystem": "Debian GNU/Linux 12 (bookworm)",
-        "dotNetVersion": ".NET 10.0.3",
-        "commit": "35dfab5176b127eedd4f9625aafaf846d2c9b014-dirty",
-        "libraries": {
-          "Plank": "local source",
-          "ParquetSharp": "24.0.0",
-          "Parquet.Net": "6.0.3",
-          "BenchmarkDotNet": "0.15.8"
-        }
-      },
-      "generatedAt": "2026-08-27T17:12:52.267Z",
-      "write": "write-xeon-e3-1230-v6-v1.json",
-      "read": "read-xeon-e3-1230-v6-v1.json"
-    },
-    {
-      "id": "xeon-e-2288g",
-      "label": "Intel Xeon E-2288G",
-      "environment": {
-        "cpu": "Intel(R) Xeon(R) E-2288G CPU @ 3.70GHz",
-        "logicalProcessors": 14,
-        "operatingSystem": "Debian GNU/Linux 12 (bookworm)",
-        "dotNetVersion": ".NET 10.0.3",
-        "commit": "35dfab5176b127eedd4f9625aafaf846d2c9b014-dirty",
-        "libraries": {
-          "Plank": "local source",
-          "ParquetSharp": "24.0.0",
-          "Parquet.Net": "6.0.3",
-          "BenchmarkDotNet": "0.15.8"
-        }
-      },
-      "generatedAt": "2026-08-27T17:12:52.299Z",
-      "write": "write-xeon-e-2288g-v1.json",
-      "read": "read-xeon-e-2288g-v1.json"
     },
     {
       "id": "scaleway-epyc-9555p-compute3",
@@ -69,59 +22,13 @@
       "environment": {
         "cpu": "AMD EPYC 9555P 64-Core Processor",
         "logicalProcessors": 7,
-        "operatingSystem": "Ubuntu 24.04 LTS",
-        "dotNetVersion": ".NET 10.0.11",
-        "commit": "35dfab5176b127eedd4f9625aafaf846d2c9b014-dirty",
-        "libraries": {
-          "Plank": "local source",
-          "ParquetSharp": "24.0.0",
-          "Parquet.Net": "6.0.3",
-          "BenchmarkDotNet": "0.15.8"
-        }
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
       },
-      "generatedAt": "2026-08-27T17:59:55.458Z",
+      "generatedAt": "2026-09-14T21:07:57.438011Z",
       "write": "write-scaleway-epyc-9555p-compute3-v1.json",
       "read": "read-scaleway-epyc-9555p-compute3-v1.json"
-    },
-    {
-      "id": "scaleway-apple-m2-pro",
-      "label": "Apple M2 Pro (10-core)",
-      "environment": {
-        "cpu": "Apple M2 Pro (10-core)",
-        "logicalProcessors": 9,
-        "operatingSystem": "Fedora Linux Asahi Remix 42",
-        "dotNetVersion": ".NET 10.0.11",
-        "commit": "35dfab5176b127eedd4f9625aafaf846d2c9b014-dirty",
-        "libraries": {
-          "Plank": "local source",
-          "ParquetSharp": "24.0.0",
-          "Parquet.Net": "6.0.3",
-          "BenchmarkDotNet": "0.15.8"
-        }
-      },
-      "generatedAt": "2026-08-27T17:31:38.382Z",
-      "write": "write-scaleway-apple-m2-pro-v1.json",
-      "read": "read-scaleway-apple-m2-pro-v1.json"
-    },
-    {
-      "id": "scaleway-ampere-altra-max-a12c",
-      "label": "Ampere Altra Max (12 vCPU, Neoverse N1)",
-      "environment": {
-        "cpu": "Ampere Altra Max (Neoverse N1)",
-        "logicalProcessors": 11,
-        "operatingSystem": "Ubuntu 24.04.4 LTS",
-        "dotNetVersion": ".NET 10.0.11",
-        "commit": "35dfab5176b127eedd4f9625aafaf846d2c9b014-dirty",
-        "libraries": {
-          "Plank": "local source",
-          "ParquetSharp": "24.0.0",
-          "Parquet.Net": "6.0.3",
-          "BenchmarkDotNet": "0.15.8"
-        }
-      },
-      "generatedAt": "2026-08-27T17:15:27.890Z",
-      "write": "write-scaleway-ampere-altra-max-a12c-v1.json",
-      "read": "read-scaleway-ampere-altra-max-a12c-v1.json"
     }
   ]
 }
