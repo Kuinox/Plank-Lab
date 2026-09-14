@@ -17,6 +17,20 @@
       "read": "read-ryzen-9-7900x-v1.json"
     },
     {
+      "id": "ryzen-9-7900x-single-thread",
+      "label": "AMD Ryzen 9 7900X (single-core)",
+      "environment": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "logicalProcessors": 1,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+      },
+      "generatedAt": "2026-09-14T21:07:57.866555Z",
+      "write": "write-ryzen-9-7900x-single-thread-v1.json",
+      "read": "read-ryzen-9-7900x-single-thread-v1.json"
+    },
+    {
       "id": "scaleway-epyc-9555p-compute3",
       "label": "AMD EPYC 9555P (Scaleway Compute3, 8 vCPU)",
       "environment": {
@@ -29,6 +43,20 @@
       "generatedAt": "2026-09-14T21:07:57.438011Z",
       "write": "write-scaleway-epyc-9555p-compute3-v1.json",
       "read": "read-scaleway-epyc-9555p-compute3-v1.json"
+    },
+    {
+      "id": "scaleway-epyc-9555p-compute3-single-thread",
+      "label": "AMD EPYC 9555P (Scaleway Compute3, 8 vCPU) (single-core)",
+      "environment": {
+        "cpu": "AMD EPYC 9555P 64-Core Processor",
+        "logicalProcessors": 1,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+      },
+      "generatedAt": "2026-09-14T21:07:57.182802Z",
+      "write": "write-scaleway-epyc-9555p-compute3-single-thread-v1.json",
+      "read": "read-scaleway-epyc-9555p-compute3-single-thread-v1.json"
     }
   ]
 }
