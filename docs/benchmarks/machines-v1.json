@@ -73,6 +73,20 @@
       "read": "read-scaleway-gp1-s-v1.json"
     },
     {
+      "id": "scaleway-basic2-a8c",
+      "label": "Neoverse-N1 (Scaleway BASIC2-A8C, 8 vCPU)",
+      "environment": {
+        "cpu": "Neoverse-N1",
+        "logicalProcessors": 7,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+      },
+      "generatedAt": "2026-09-15T20:47:49.223382Z",
+      "write": "write-scaleway-basic2-a8c-v1.json",
+      "read": "read-scaleway-basic2-a8c-v1.json"
+    },
+    {
       "id": "scaleway-apple-m2-pro",
       "label": "Apple M2 Pro (10-core)",
       "environment": {
