@@ -43,6 +43,20 @@
       "generatedAt": "2026-09-14T21:07:57.438011Z",
       "write": "write-scaleway-epyc-9555p-compute3-v1.json",
       "read": "read-scaleway-epyc-9555p-compute3-v1.json"
+    },
+    {
+      "id": "scaleway-gp1-s",
+      "label": "Scaleway GP1-S (older x64)",
+      "environment": {
+        "cpu": "AMD EPYC 7402P 24-Core Processor",
+        "logicalProcessors": 7,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+      },
+      "generatedAt": "2026-09-15T02:06:39.760118Z",
+      "write": "write-scaleway-gp1-s-v1.json",
+      "read": "read-scaleway-gp1-s-v1.json"
     }
   ]
 }
