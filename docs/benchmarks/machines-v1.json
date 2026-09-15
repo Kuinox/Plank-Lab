@@ -71,6 +71,20 @@
       "generatedAt": "2026-09-15T02:06:39.760118Z",
       "write": "write-scaleway-gp1-s-v1.json",
       "read": "read-scaleway-gp1-s-v1.json"
+    },
+    {
+      "id": "scaleway-apple-m2-pro",
+      "label": "Apple M2 Pro (10-core)",
+      "environment": {
+        "cpu": "Blizzard-M2-Pro",
+        "logicalProcessors": 6,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+      },
+      "generatedAt": "2026-09-15T04:27:39.705379Z",
+      "write": "write-scaleway-apple-m2-pro-v1.json",
+      "read": "read-scaleway-apple-m2-pro-v1.json"
     }
   ]
 }
