@@ -17,6 +17,20 @@
       "read": "read-ryzen-9-7900x-v1.json"
     },
     {
+      "id": "xeon-e-2288g",
+      "label": "Intel Xeon E-2288G",
+      "environment": {
+        "cpu": "Intel(R) Xeon(R) E-2288G CPU @ 3.70GHz",
+        "logicalProcessors": 14,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+      },
+      "generatedAt": "2026-09-14T23:50:07.284125Z",
+      "write": "write-xeon-e-2288g-v1.json",
+      "read": "read-xeon-e-2288g-v1.json"
+    },
+    {
       "id": "scaleway-epyc-9555p-compute3",
       "label": "AMD EPYC 9555P (Scaleway Compute3, 8 vCPU)",
       "environment": {
