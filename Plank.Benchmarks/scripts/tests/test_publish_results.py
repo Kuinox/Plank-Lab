@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location("publish_results", Path(__file__).parents[1] / "publish_results.py")
 publisher = importlib.util.module_from_spec(spec)
@@ -55,6 +56,76 @@ class PublisherTests(unittest.TestCase):
             self.assertEqual(result["samplesMilliseconds"], [time] * 10)
             with self.assertRaisesRegex(ValueError, "expected 100"):
                 publisher.measurement(case, "Plank", "write", parsed, sizes)
+
+    def test_multi_marker_preserves_worker_and_observed_thread_identity(self):
+        stem = "SyntheticInt32PlainColumn"
+        class_name = f"{stem}MultiPlankBenchmarks"
+        lines = ["benchmark CPUs: 1-22",
+                 f"// Benchmark: {class_name}.Write: Job-X",
+                 f"BENCHMARK_FILE|{stem}|Plank|42"]
+        lines += [f"WorkloadActual {i}: 1 op, 2000000 ns" for i in range(10)]
+        lines += ["// GC: 0 0 0 288 1",
+                  f"BENCHMARK_THREADS|{class_name}|write|22|17"]
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "run.log"
+            log.write_text("\n".join(lines))
+            parsed, sizes, _ = publisher.parse_log(log)
+        case = {"stem": stem, "id": "int32-plain", "valueCount": 128,
+                "parquetNetWrite": True, "parquetNetRead": True}
+        result = publisher.measurement(case, "Plank", "write", parsed, sizes,
+                                       expected_samples=10, variant="multi")
+        self.assertEqual(result["implementationId"], "plank-multi")
+        self.assertEqual(result["variant"], "multi")
+        self.assertEqual(result["workerCount"], 22)
+        self.assertEqual(result["observedThreads"], 17)
+        self.assertEqual(result["threads"], 17)
+        unavailable = publisher.measurement(case, "ParquetSharp", "write", parsed, sizes,
+                                            expected_samples=10, variant="multi")
+        self.assertFalse(unavailable["available"])
+        self.assertIn("writer", unavailable["unavailableReason"])
+
+    def test_column_report_groups_single_and_multi_measurements_by_case(self):
+        stem = "SyntheticInt32PlainColumn"
+        classes = [
+            (f"{stem}PlankBenchmarks", "Plank"),
+            (f"{stem}ParquetSharpBenchmarks", "ParquetSharp"),
+            (f"{stem}ParquetNetBenchmarks", "Parquet.Net"),
+            (f"{stem}MultiPlankBenchmarks", "Plank"),
+            (f"{stem}MultiParquetSharpBenchmarks", "ParquetSharp"),
+        ]
+        lines = ["benchmark CPUs: 1-22", "housekeeping CPUs: 0"]
+        for class_name, library in classes:
+            lines += [
+                f"// Benchmark: {class_name}.Read: Job-X(WarmupCount=0, IterationCount=2, LaunchCount=1, InvocationCount=1)",
+                "WorkloadActual 1: 1 op, 1000000 ns",
+                "WorkloadActual 2: 1 op, 1000000 ns",
+                "// GC: 0 0 0 288 1",
+            ]
+            if "Multi" in class_name:
+                lines.append(f"BENCHMARK_THREADS|{class_name}|read|22|17")
+        matrix = [{"suite": "synthetic", "id": "int32-plain", "stem": "SyntheticInt32Plain",
+                   "label": "int32 · plain", "encoding": "plain", "dataTypes": ["int32"],
+                   "rowCount": 128, "valueCount": 2816, "columnCount": 22,
+                   "expectedRowGroupCount": 1, "parquetNetWrite": True, "parquetNetRead": True}]
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            log = directory / "run.log"
+            log.write_text("\n".join(lines))
+            parsed, sizes, cpus = publisher.parse_log(log)
+            args = SimpleNamespace(log=log,
+                                   generated=Path(__file__).parents[2] / "Published" / "Cases",
+                                   cpu="test", operating_system="test", commit="test")
+            report = publisher.create_report(args, "read", matrix, parsed, sizes, cpus)
+        item = report["suites"][1]["cases"][0]
+        self.assertEqual(item["workload"], "column")
+        self.assertEqual([measurement["implementationId"] for measurement in item["measurements"]],
+                         ["plank-single", "parquetsharp-single", "parquetnet-single",
+                          "plank-multi", "parquetsharp-multi", "parquetnet-multi"])
+        self.assertEqual(item["measurements"][3]["threads"], 17)
+        self.assertEqual(item["measurements"][3]["workerCount"], 22)
+        self.assertFalse(item["measurements"][5]["available"])
+        self.assertEqual([snippet["variant"] for snippet in report["benchmarkCode"]],
+                         ["single", "single", "single", "multi", "multi"])
 
     def test_incomplete_series_rejected(self):
         case = {"stem": "SyntheticInt32Plain", "id": "test", "valueCount": 128}

@@ -71,9 +71,12 @@ the suite. Use `--rows`, `--taxi-rows`, or `--data-file` to override input. The 
 `Plank.Benchmarks/nyc-data/yellow_tripdata_2024-01.parquet`.
 
 Synthetic cases use 1,000,000 flat rows and 22 columns and produce 22 row groups. Taxi-derived cases
-use all 2,964,624 rows and produce three row groups. Inputs are not pre-split into library-specific
-column buffers. Streams, capacities, reusable Plank writer/reader setup, worker startup, and pinning
-stay outside the timed method. Each library otherwise uses its public API and default worker count.
+use all 2,964,624 rows and produce three row groups. Column inputs are transposed into typed arrays
+outside timing. Streams, capacities, reusable Plank writer/reader setup, worker startup, and pinning
+stay outside the timed method. Single column cases remain sequential. Wide schemas additionally
+generate `ColumnMulti` adapters: Plank serializes independent columns in parallel before ordered
+schema emission, while Plank and ParquetSharp read independent columns through one reader/source per
+column. ParquetSharp multi write and all Parquet.Net multi cases are intentionally unavailable.
 
 Read and write have separate targeted global setups, neither of which invokes the timed method.
 Before launching measurements, preparation processes build one shared read fixture per selected
@@ -111,7 +114,8 @@ python3 Plank.Benchmarks/scripts/publish_results.py \
   --read-output artifacts/benchmarks/read.json
 ```
 
-The publisher rejects incomplete logs, including any supported method without exactly 100 samples,
+The publisher rejects incomplete logs, including any supported method without the exact measured
+sample count in the effective job configuration,
 missing allocation data, or missing write output sizes. All measured allocation values, including
 nonzero Plank write allocations, are preserved as report data from the separate post-series
 diagnostic invocation. Publish multiple
@@ -124,5 +128,8 @@ a timed checksum. Plank buffer enumeration, ParquetSharp `ReadBatch`, and awaite
 Parquet.Net `ReadAsync` still drive decoding; binary payloads use the same span
 consumption. Row benchmarks still access every measured field. Full column
 checksums live in untimed `VerifyRead` methods, exercised against row fixtures and
-column-writer output by `ColumnWorkloadTests`. Regenerate the column adapters with
+column-writer output by `ColumnWorkloadTests`. `ColumnMulti` cleanup emits
+`BENCHMARK_THREADS|type|operation|workerCount|observedThreads`; the publisher stores both
+`workerCount` and `observedThreads` (and uses the latter for the UI thread label), rather than
+inferring execution from CPU affinity. Regenerate the column adapters with
 `python3 Plank.Benchmarks/scripts/generate_column_cases.py`.

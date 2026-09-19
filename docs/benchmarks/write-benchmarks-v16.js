@@ -318,10 +318,13 @@
     const matrixWrapper = element("div", "benchmark-case-matrix-wrapper");
     const matrix = element("table", "benchmark-case-matrix");
     const output = element("div", "benchmark-selection");
-    const multiThreads = suite.cases
+    const multiMeasurement = suite.cases
       .flatMap(item => item.measurements)
-      .find(isMultiThreaded)?.threads;
-    const selectorLabelText = `Data type × Encoding · Cell times: 1 thread / ${multiThreads ?? "all"} threads · ` +
+      .find(isMultiThreaded);
+    const hasMultiMeasurements = multiMeasurement != null;
+    const multiThreads = multiMeasurement?.observedThreads ?? multiMeasurement?.threads;
+    const selectorLabelText = `Data type × Encoding · Cell times: ` +
+      (hasMultiMeasurements ? `1 thread / ${multiThreads ?? "all"} threads · ` : "1 thread · ") +
       "Green = Plank won; red = Plank lost · Margin: <10% light, 10–<50% normal, ≥50% strong";
     const encodings = encodingOrder;
     const rows = [];
@@ -375,10 +378,10 @@
             `${row.label}, ${formatEncoding(encoding)}: ` +
             `1 thread ${matrixDuration(singlePlank)}, ` +
             `${multiThreadLabel(benchmarkCase.item.measurements)} ${matrixDuration(multiPlank)}`);
-          button.append(
-            matrixResult(singleMeasurements, "plank-single"),
-            document.createTextNode(" / "),
-            matrixResult(multiMeasurements, "plank-multi"));
+          button.append(matrixResult(singleMeasurements, "plank-single"));
+          if (hasMultiMeasurements) {
+            button.append(document.createTextNode(" / "), matrixResult(multiMeasurements, "plank-multi"));
+          }
           button.addEventListener("click", () => showCase(benchmarkCase.index));
           buttons.push({ button, index: benchmarkCase.index });
           cell.append(button);
@@ -407,9 +410,11 @@
     title.textContent = `${dataType} · ${formatEncoding(item.encoding)}`;
     size.textContent = `${formatInteger(item.rowCount)} rows · ${formatInteger(item.columnCount)} ${item.columnCount === 1 ? "column" : "columns"}`;
     const groups = element("div", "benchmark-thread-groups");
-    groups.append(
-      renderThreadGroup("Single thread", item.measurements.filter(isSingleThreaded), operation),
-      renderThreadGroup(multiThreadLabel(item.measurements), item.measurements.filter(isMultiThreaded), operation));
+    const singleMeasurements = item.measurements.filter(isSingleThreaded);
+    const multiMeasurements = item.measurements.filter(isMultiThreaded);
+    groups.append(renderThreadGroup("Single thread", singleMeasurements, operation));
+    if (multiMeasurements.length > 0)
+      groups.append(renderThreadGroup(multiThreadLabel(item.measurements), multiMeasurements, operation));
     section.append(title, size, groups, renderMeasurementGraph(item.measurements, title.textContent));
     return section;
   }
@@ -681,8 +686,14 @@
   }
 
   function multiThreadLabel(measurements) {
-    const threads = measurements.find(isMultiThreaded)?.threads;
-    return threads == null ? "Multithreaded" : `${threads} threads`;
+    const measurement = measurements.find(isMultiThreaded);
+    if (!measurement) return "Multithreaded";
+    const threads = measurement.observedThreads ?? measurement.threads;
+    if (threads == null) return "Multithreaded";
+    const workerCount = measurement.workerCount;
+    return workerCount != null && workerCount !== threads
+      ? `${threads} observed threads · ${workerCount}-worker cap`
+      : `${threads} threads`;
   }
 
   function fastestMeasurement(measurements) {
@@ -717,7 +728,10 @@
     track.setAttribute("role", "img");
     const duration = formatDuration(result.medianMilliseconds);
     const resultText = operation === "write" ? `${duration} · ${formatBytes(result.outputBytes)}` : duration;
-    track.setAttribute("aria-label", `${result.label}: ${resultText}`);
+    const workerText = !isMultiThreaded(result) || result.workerCount == null
+      ? ""
+      : ` · ${result.observedThreads ?? result.threads} observed threads, ${result.workerCount} worker cap`;
+    track.setAttribute("aria-label", `${result.label}: ${resultText}${workerText}`);
     const fill = element("span", "benchmark-fill");
     const value = element("span", "benchmark-value");
     value.textContent = resultText;
