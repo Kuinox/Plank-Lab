@@ -73,6 +73,11 @@ internal static class BenchmarkFixtures
 
     internal static async Task Prepare(string stem, bool read, string[] writeClasses)
     {
+        // Multi adapters share the same source schema and fixture as their single
+        // column counterpart. Tests group benchmark classes by their full type name,
+        // so accept either suffix here and canonicalize it before reflection/files.
+        if (stem.EndsWith("ColumnMulti", StringComparison.Ordinal))
+            stem = stem[..^"Multi".Length];
         Preparing = true;
         try
         {

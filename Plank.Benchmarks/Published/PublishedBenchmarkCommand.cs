@@ -71,9 +71,14 @@ public static class PublishedBenchmarkCommand
             Environment.SetEnvironmentVariable(BenchmarkFixtures.DirectoryVariable, fixtures.FullName);
             foreach (var group in selected.GroupBy(x => s_librarySuffixes.Aggregate(x.Type.Name,
                          (name, suffix) => name.EndsWith(suffix, StringComparison.Ordinal) ? name[..^suffix.Length] : name)))
-                BenchmarkFixtures.PrepareInChild(group.Key,
+            {
+                var stem = group.Key.EndsWith("ColumnMulti", StringComparison.Ordinal)
+                    ? group.Key[..^"Multi".Length]
+                    : group.Key;
+                BenchmarkFixtures.PrepareInChild(stem,
                     group.Where(x => x.Method == "Write").Select(x => x.Type.Name).ToArray(),
                     group.Any(x => x.Method == "Read"));
+            }
             var summaries = BenchmarkSwitcher.FromTypes(types).Run([.. arguments], config).ToArray();
             if (summaries.Length == 0 || summaries.Any(s => s.HasCriticalValidationErrors || s.Reports.Any(r => !r.Success)))
                 throw new InvalidOperationException("Benchmark run failed; see the preceding log.");
@@ -132,7 +137,8 @@ public static class PublishedBenchmarkCommand
             .ToArray();
 
     internal static bool IsColumn(Type type)
-        => s_librarySuffixes.Any(suffix => type.Name.EndsWith("Column" + suffix, StringComparison.Ordinal));
+        => s_librarySuffixes.Any(suffix => type.Name.EndsWith("Column" + suffix, StringComparison.Ordinal) ||
+                                           type.Name.EndsWith("ColumnMulti" + suffix, StringComparison.Ordinal));
 
     internal static string FindRepositoryRoot()
     {
