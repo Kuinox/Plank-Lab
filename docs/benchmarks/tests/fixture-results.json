@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "environment": {
+    "cpu": "Fixture CPU",
+    "logicalProcessors": 4,
+    "operatingSystem": "Fixture OS",
+    "dotNetVersion": ".NET fixture",
+    "commit": "fixture",
+    "libraries": {
+      "Plank": "fixture",
+      "Competitor": "fixture"
+    }
+  },
+  "configuration": {
+    "warmups": 0,
+    "iterations": 1,
+    "timingBoundary": "fixture"
+  },
+  "suites": [
+    {
+      "id": "matrix-cases",
+      "label": "Matrix cases",
+      "cases": [
+        {
+          "id": "loss",
+          "workload": "row",
+          "label": "Loss",
+          "encoding": "plain",
+          "dataTypes": ["loss"],
+          "rowCount": 1,
+          "columnCount": 1,
+          "measurements": [
+            {"implementationId": "plank-single", "label": "Plank", "threads": null, "available": true, "medianMilliseconds": 200},
+            {"implementationId": "plank-multi", "label": "Plank", "threads": 2, "available": true, "medianMilliseconds": 400},
+            {"implementationId": "competitor-single", "label": "Competitor", "threads": null, "available": true, "medianMilliseconds": 100},
+            {"implementationId": "competitor-multi", "label": "Competitor", "threads": 2, "available": true, "medianMilliseconds": 300}
+          ]
+        },
+        {
+          "id": "win",
+          "workload": "row",
+          "label": "Win",
+          "encoding": "plain",
+          "dataTypes": ["win"],
+          "rowCount": 1,
+          "columnCount": 1,
+          "measurements": [
+            {"implementationId": "plank-single", "label": "Plank", "threads": null, "available": true, "medianMilliseconds": 100},
+            {"implementationId": "plank-multi", "label": "Plank", "threads": 2, "available": true, "medianMilliseconds": 150},
+            {"implementationId": "competitor-single", "label": "Competitor", "threads": null, "available": true, "medianMilliseconds": 200},
+            {"implementationId": "competitor-multi", "label": "Competitor", "threads": 2, "available": true, "medianMilliseconds": 250}
+          ]
+        },
+        {
+          "id": "unavailable",
+          "workload": "row",
+          "label": "Unavailable",
+          "encoding": "plain",
+          "dataTypes": ["unavailable"],
+          "rowCount": 1,
+          "columnCount": 1,
+          "measurements": [
+            {"implementationId": "plank-single", "label": "Plank", "threads": null, "available": false, "unavailableReason": "fixture unavailable"},
+            {"implementationId": "plank-multi", "label": "Plank", "threads": 2, "available": false, "unavailableReason": "fixture unavailable"},
+            {"implementationId": "competitor-single", "label": "Competitor", "threads": null, "available": true, "medianMilliseconds": 100},
+            {"implementationId": "competitor-multi", "label": "Competitor", "threads": 2, "available": true, "medianMilliseconds": 200}
+          ]
+        }
+      ]
+    }
+  ]
+}
