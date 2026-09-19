@@ -17,11 +17,29 @@ LIBRARIES = {
     "Parquet.Net": ("parquetnet-single", "Parquet.Net (library default)"),
 }
 
+MULTI_LIBRARIES = {
+    "Plank": ("plank-multi", "Plank (column-parallel)"),
+    "ParquetSharp": ("parquetsharp-multi", "ParquetSharp (column-parallel)"),
+    "Parquet.Net": ("parquetnet-multi", "Parquet.Net (column-parallel)"),
+}
+
+# Match the more specific multi suffixes first. The parsed stem intentionally
+# remains the single-column stem (for example SyntheticInt32PlainColumn), so
+# single and multi measurements land in the same report case. Keep the legacy
+# mapping available to callers that use it to build fixture class names.
 CLASS_SUFFIXES = {
     "PlankBenchmarks": "Plank",
     "ParquetSharpBenchmarks": "ParquetSharp",
     "ParquetNetBenchmarks": "Parquet.Net",
 }
+CLASS_VARIANTS = (
+    ("MultiPlankBenchmarks", "Plank", "multi"),
+    ("MultiParquetSharpBenchmarks", "ParquetSharp", "multi"),
+    ("MultiParquetNetBenchmarks", "Parquet.Net", "multi"),
+    ("PlankBenchmarks", "Plank", "single"),
+    ("ParquetSharpBenchmarks", "ParquetSharp", "single"),
+    ("ParquetNetBenchmarks", "Parquet.Net", "single"),
+)
 
 ENCODING_LABELS = {
     "plain": "Plain",
@@ -52,34 +70,54 @@ def parse_cpu_list(value: str) -> list[int]:
     return result
 
 
-def split_class(class_name: str) -> tuple[str, str]:
-    for suffix, library in CLASS_SUFFIXES.items():
+def split_class(class_name: str) -> tuple[str, str, str]:
+    for suffix, library, variant in CLASS_VARIANTS:
         if class_name.endswith(suffix):
-            return class_name.removesuffix(suffix), library
+            return class_name.removesuffix(suffix), library, variant
     raise ValueError(f"unknown benchmark class {class_name}")
 
 
-def parse_log(path: Path) -> tuple[dict[tuple[str, str, str], dict], dict[tuple[str, str], int], str]:
+def parse_log(path: Path) -> tuple[dict[tuple[str, str, str, str], dict], dict[tuple[str, str], int], str]:
     text = path.read_text()
-    results: dict[tuple[str, str, str], dict] = {}
+    results: dict[tuple[str, str, str, str], dict] = {}
     output_bytes: dict[tuple[str, str], int] = {}
+    thread_markers: dict[tuple[str, str], tuple[int, int]] = {}
     current: dict | None = None
 
     benchmark_re = re.compile(r"^// Benchmark: ([A-Za-z0-9_]+)\.(Write|Read):")
     actual_re = re.compile(r"^WorkloadActual\s+\d+:\s+\d+ op,\s+([\d.]+) ns")
     gc_re = re.compile(r"^// GC:\s+\d+\s+\d+\s+\d+\s+(\d+)\s+\d+")
     marker_re = re.compile(r"BENCHMARK_FILE\|([^|]+)\|([^|]+)\|(\d+)")
+    # New markers carry configured worker count and observed managed-thread
+    # count. Accept the original four-field form while old logs are still
+    # useful; it records the observed count as both values.
+    thread_re = re.compile(r"BENCHMARK_THREADS\|([^|]+)\|(write|read)\|(\d+)(?:\|(\d+))?")
 
     for line in text.splitlines():
         marker = marker_re.search(line)
         if marker:
             output_bytes[(marker.group(1), marker.group(2))] = int(marker.group(3))
 
+        thread = thread_re.search(line)
+        if thread:
+            worker_count = int(thread.group(3))
+            observed_threads = int(thread.group(4) or thread.group(3))
+            marker_key = (thread.group(1), thread.group(2))
+            previous = thread_markers.get(marker_key)
+            thread_markers[marker_key] = (
+                max(worker_count, previous[0]) if previous else worker_count,
+                max(observed_threads, previous[1]) if previous else observed_threads,
+            )
+
         benchmark = benchmark_re.match(line)
         if benchmark:
-            stem, library = split_class(benchmark.group(1))
-            key = (stem, library, benchmark.group(2).lower())
-            current = results.setdefault(key, {"samples": [], "allocated": None})
+            class_name = benchmark.group(1)
+            stem, library, variant = split_class(class_name)
+            key = (stem, library, benchmark.group(2).lower(), variant)
+            current = results.setdefault(key, {"samples": [], "allocated": None,
+                                               "className": class_name,
+                                               "threads": None,
+                                               "workerCount": None})
             continue
 
         if current is None:
@@ -95,6 +133,13 @@ def parse_log(path: Path) -> tuple[dict[tuple[str, str, str], dict], dict[tuple[
     benchmark_cpus = re.search(r"^benchmark CPUs:\s+(.+)$", text, re.MULTILINE)
     if not benchmark_cpus:
         raise ValueError("benchmark CPU set is missing from the log")
+
+    for (class_name, mode), counts in thread_markers.items():
+        stem, library, variant = split_class(class_name)
+        entry = results.get((stem, library, mode, variant))
+        if entry is not None:
+            entry["workerCount"], entry["threads"] = counts
+
     return results, output_bytes, benchmark_cpus.group(1).strip()
 
 
@@ -135,26 +180,56 @@ def measurement_configuration(text: str) -> dict:
     return configurations[0]
 
 
-def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes: dict, expected_samples: int = 100) -> dict:
-    implementation_id, label = LIBRARIES[library]
+def _parsed_entry(parsed: dict, case: dict, library: str, mode: str, variant: str) -> dict | None:
+    """Find a measurement, accepting the pre-multi three-field test fixture keys."""
+    exact = parsed.get((case["stem"], library, mode, variant))
+    if exact is not None:
+        return exact
+    if variant == "single":
+        return parsed.get((case["stem"], library, mode))
+    return None
+
+
+def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes: dict,
+                expected_samples: int = 100, variant: str = "single") -> dict:
+    implementations = MULTI_LIBRARIES if variant == "multi" else LIBRARIES
+    implementation_id, label = implementations[library]
     supported = library != "Parquet.Net" or case[f"parquetNet{mode.title()}"]
+    if variant == "multi" and (library == "Parquet.Net" or
+                                (library == "ParquetSharp" and mode == "write")):
+        supported = False
     base = {
         "implementationId": implementation_id,
         "label": label,
-        "threads": None,
+        "variant": variant,
+        "threads": 1 if variant == "single" else None,
+        "workerCount": 1 if variant == "single" else None,
+        "observedThreads": 1 if variant == "single" else None,
         "available": supported,
     }
     if not supported:
-        base["unavailableReason"] = unavailable_reason(case, mode)
+        base["unavailableReason"] = (
+            "No independent ParquetSharp column writer is available."
+            if variant == "multi" and library == "ParquetSharp" and mode == "write"
+            else "Parquet.Net multi-threaded column adapters are intentionally unavailable."
+            if variant == "multi"
+            else unavailable_reason(case, mode))
         base["samplesMilliseconds"] = []
         return base
 
-    key = (case["stem"], library, mode)
-    if key not in parsed or not parsed[key]["samples"]:
+    entry = _parsed_entry(parsed, case, library, mode, variant)
+    key = (case["stem"], library, mode, variant)
+    if entry is None or not entry["samples"]:
         raise ValueError(f"missing measurements for {key}")
-    values = parsed[key]["samples"]
+    values = entry["samples"]
     if len(values) != expected_samples:
         raise ValueError(f"expected {expected_samples} samples for {key}, found {len(values)}")
+    if variant == "multi":
+        if entry.get("threads") is None or entry.get("workerCount") is None:
+            raise ValueError(f"missing thread marker for {key}")
+        base["threads"] = entry["threads"]
+        base["workerCount"] = entry["workerCount"]
+        base["observedThreads"] = entry["threads"]
     median = percentile(values, 0.5)
     p25 = percentile(values, 0.25)
     p75 = percentile(values, 0.75)
@@ -166,7 +241,7 @@ def measurement(case: dict, library: str, mode: str, parsed: dict, output_bytes:
         "samplesMilliseconds": rounded,
         "firstIterationMilliseconds": rounded[0],
         "subsequentMedianMilliseconds": round(percentile(values[1:] or values, 0.5), 3),
-        "allocatedBytes": parsed[key]["allocated"],
+        "allocatedBytes": entry["allocated"],
         "allocationMeasurement": "separate diagnostic invocation after the timed series; not first-use allocations",
         "variationPercent": (p75 - p25) / median * 100,
         "throughput": case["valueCount"] / (median / 1000) / 1_000_000,
@@ -198,19 +273,26 @@ def method_source(path: Path, class_name: str, method: str) -> str:
 
 def benchmark_code(generated: Path, mode: str, workload: str = "row") -> list[dict]:
     stem = "SyntheticInt32Plain" + ("Column" if workload == "column" else "")
-    source = generated / f"{stem}.cs"
-    return [
-        {
-            "label": f"{library} · {mode.title()}",
-            "workload": workload,
-            "source": method_source(source, f"{stem}{suffix}", mode.title()),
-        }
-        for suffix, library in (
-            ("PlankBenchmarks", "Plank"),
-            ("ParquetSharpBenchmarks", "ParquetSharp"),
-            ("ParquetNetBenchmarks", "Parquet.Net"),
-        )
+    snippets = []
+    classes = [
+        (f"{stem}PlankBenchmarks", "Plank", "single"),
+        (f"{stem}ParquetSharpBenchmarks", "ParquetSharp", "single"),
+        (f"{stem}ParquetNetBenchmarks", "Parquet.Net", "single"),
     ]
+    if workload == "column":
+        classes.append((f"{stem}MultiPlankBenchmarks", "Plank", "multi"))
+        if mode == "read":
+            classes.append((f"{stem}MultiParquetSharpBenchmarks", "ParquetSharp", "multi"))
+    for class_name, library, variant in classes:
+        source_name = f"{stem}{'Multi' if variant == 'multi' else ''}.cs"
+        source = generated / source_name
+        snippets.append({
+            "label": f"{library} · {mode.title()}" + (" · Multi" if variant == "multi" else ""),
+            "workload": workload,
+            "variant": variant,
+            "source": method_source(source, class_name, mode.title()),
+        })
+    return snippets
 
 
 def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parsed: dict,
@@ -231,10 +313,14 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             label = item["label"]
             if suite_id == "synthetic":
                 label = f"{item['dataTypes'][0]} · {ENCODING_LABELS[item['encoding']]}"
-            measurements = [
-                measurement(item, library, mode, parsed, output_bytes, configuration["iterations"])
-                for library in LIBRARIES
-            ]
+            measurements = [measurement(item, library, mode, parsed, output_bytes,
+                                        configuration["iterations"])
+                            for library in LIBRARIES]
+            if item["workload"] == "column":
+                measurements.extend(
+                    measurement(item, library, mode, parsed, output_bytes,
+                                configuration["iterations"], variant="multi")
+                    for library in MULTI_LIBRARIES)
             available = [value for value in measurements if value["available"]]
             winner = min(available, key=lambda value: value["medianMilliseconds"])
             plank = next(value for value in available if value["implementationId"] == "plank-single")
@@ -290,7 +376,7 @@ def create_report(args: argparse.Namespace, mode: str, matrix: list[dict], parse
             "data": "Synthetic cases use 1,000,000 deterministic flat row objects with 22 columns. Real-world cases use all 2,964,624 rows and the selected columns from the January 2024 NYC yellow-taxi file. Row workloads use row objects. Column workloads transpose the same values into typed column arrays during untimed setup.",
             "quick": False,
             "rowGroupBoundaries": "Row workloads receive flat rows; column workloads receive column batches with matching row counts per row group. Synthetic cases produce 22 row groups; taxi-derived cases produce 3. No worker count is selected, so each library uses its default.",
-            "timingBoundary": "Only the library write/read operation is timed, not process startup. Each case runs its measured iterations in one process. With ColdStart and zero warmups, the first operation is not pre-invoked by setup or JIT calibration; later samples show its evolution. Read fixtures and write output capacities are prepared in separate processes once per run. Data, schemas, options, capacities, streams, reusable writer/reader setup, worker startup, and worker pinning remain outside timing where the public API permits it. " + isolation,
+            "timingBoundary": "Only the library write/read operation is timed, not process startup. Each case runs its measured iterations in one process. With ColdStart and zero warmups, the first operation is not pre-invoked by setup or JIT calibration; later samples show its evolution. Read fixtures and write output capacities are prepared in separate processes once per run. Data, schemas, options, capacities, streams, reusable writer/reader setup, worker startup, and worker pinning remain outside timing where the public API permits it. ColumnMulti cases parallelize independent column work and record configured workerCount plus observedThreads in each measurement. " + isolation,
         },
         "suites": suites,
         "benchmarkCode": [snippet for workload in workloads for snippet in benchmark_code(args.generated, mode, workload)],

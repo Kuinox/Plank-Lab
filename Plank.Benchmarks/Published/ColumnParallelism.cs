@@ -40,6 +40,6 @@ static class ColumnParallelism
         return Math.Max(1, Math.Min(itemCount, available));
     }
 
-    internal static void WriteMarker(string benchmarkType, string operation, int threads)
-        => Console.WriteLine($"BENCHMARK_THREADS|{benchmarkType}|{operation}|{threads}");
+    internal static void WriteMarker(string benchmarkType, string operation, int workerCount, int observedThreads)
+        => Console.WriteLine($"BENCHMARK_THREADS|{benchmarkType}|{operation}|{workerCount}|{observedThreads}");
 }
