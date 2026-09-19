@@ -123,7 +123,15 @@ internal static class BenchmarkFixtures
                         var output = (MemoryStream)type.GetField("_output", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(instance)!;
                         var library = className.EndsWith("ParquetNetBenchmarks", StringComparison.Ordinal) ? "Parquet.Net"
                             : className.EndsWith("ParquetSharpBenchmarks", StringComparison.Ordinal) ? "ParquetSharp" : "Plank";
-                        sizes.Add(library, OutputLength(output));
+                    var outputLength = OutputLength(output);
+                    if (sizes.TryGetValue(library, out var previousLength))
+                    {
+                        if (previousLength != outputLength)
+                            throw new InvalidDataException(
+                                $"Column writer output changed for {library}: expected {previousLength}, got {outputLength}.");
+                    }
+                    else
+                        sizes.Add(library, outputLength);
                     }
                     finally { type.GetMethod("CleanupWrite")!.Invoke(instance, null); }
                 }
