@@ -110,6 +110,7 @@ def generate_multi_file(stem, generated, props, width):
         if match is None or width < 2:
             continue
         block = match[3].replace(class_name, stem + 'ColumnMulti' + lib + 'Benchmarks', 1)
+        multi_class_name = stem + 'ColumnMulti' + lib + 'Benchmarks'
         fields = ('    int _columnWorkerCount;\n'
                   '    readonly ColumnParallelism.Tracker _parallelism = new();\n'
                   '    int _writeThreads;\n    int _readThreads;\n')
@@ -162,7 +163,7 @@ def generate_multi_file(stem, generated, props, width):
             block = replace_method(block, 'Write', '\n'.join(write))
             block = replace_method(block, 'CleanupWrite',
                 '        BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));\n'
-                '        ColumnParallelism.WriteMarker(GetType().Name, "write", _columnWorkerCount, _writeThreads);\n'
+                f'        ColumnParallelism.WriteMarker("{multi_class_name}", "write", _columnWorkerCount, _writeThreads);\n'
                 '        _output?.Dispose();')
             write_setup = body(block, 'GlobalSetupWrite').rstrip()
             block = replace_method(block, 'GlobalSetupWrite',
@@ -198,7 +199,7 @@ def generate_multi_file(stem, generated, props, width):
             block = block[:insertion] + '\n' + '\n'.join(read) + block[insertion:]
             cleanup = [
                 '        if (_readThreads > 0)',
-                '            ColumnParallelism.WriteMarker(GetType().Name, "read", _columnWorkerCount, _readThreads);',
+                f'            ColumnParallelism.WriteMarker("{multi_class_name}", "read", _columnWorkerCount, _readThreads);',
                 '        foreach (var reader in _columnReaders ?? [])', '            reader?.Dispose();',
                 '        foreach (var source in _columnSources ?? [])', '            source?.Dispose();',
                 '        _writer?.Dispose();', '        _pool?.Dispose();', '        _output?.Dispose();']
@@ -233,7 +234,7 @@ def generate_multi_file(stem, generated, props, width):
             insertion = block.rfind('\n    [GlobalCleanup]')
             block = block[:insertion] + '\n' + '\n'.join(read) + block[insertion:]
             cleanup = ['        if (_readThreads > 0)',
-                       '            ColumnParallelism.WriteMarker(GetType().Name, "read", _columnWorkerCount, _readThreads);',
+                       f'            ColumnParallelism.WriteMarker("{multi_class_name}", "read", _columnWorkerCount, _readThreads);',
                        '        foreach (var reader in _columnReaders ?? [])', '            reader?.Dispose();',
                        '        foreach (var source in _columnSources ?? [])', '            source?.Dispose();',
                        '        _buffer?.Dispose();', '        if (_pinned.IsAllocated) _pinned.Free();',

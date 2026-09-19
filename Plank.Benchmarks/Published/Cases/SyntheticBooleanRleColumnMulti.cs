@@ -220,7 +220,7 @@ public class SyntheticBooleanRleColumnMultiPlankBenchmarks
     public void CleanupWrite()
     {
         BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
-        ColumnParallelism.WriteMarker(GetType().Name, "write", _columnWorkerCount, _writeThreads);
+        ColumnParallelism.WriteMarker("SyntheticBooleanRleColumnMultiPlankBenchmarks", "write", _columnWorkerCount, _writeThreads);
         _output?.Dispose();
     }
     [GlobalSetup(Target = nameof(Read))]
@@ -722,7 +722,7 @@ public class SyntheticBooleanRleColumnMultiPlankBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker(GetType().Name, "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("SyntheticBooleanRleColumnMultiPlankBenchmarks", "read", _columnWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])
@@ -1430,7 +1430,7 @@ public class SyntheticBooleanRleColumnMultiParquetSharpBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker(GetType().Name, "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("SyntheticBooleanRleColumnMultiParquetSharpBenchmarks", "read", _columnWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])

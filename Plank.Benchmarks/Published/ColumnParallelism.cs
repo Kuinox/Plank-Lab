@@ -41,5 +41,10 @@ static class ColumnParallelism
     }
 
     internal static void WriteMarker(string benchmarkType, string operation, int workerCount, int observedThreads)
-        => Console.WriteLine($"BENCHMARK_THREADS|{benchmarkType}|{operation}|{workerCount}|{observedThreads}");
+    {
+        // Fixture preparation invokes the same cleanup methods by reflection;
+        // keep those untimed worker observations out of published measurements.
+        if (BenchmarkFixtures.Preparing) return;
+        Console.WriteLine($"BENCHMARK_THREADS|{benchmarkType}|{operation}|{workerCount}|{observedThreads}");
+    }
 }

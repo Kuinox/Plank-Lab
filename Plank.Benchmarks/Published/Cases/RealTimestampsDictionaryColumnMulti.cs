@@ -105,7 +105,7 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
     public void CleanupWrite()
     {
         BenchmarkFixtures.ValidateOutput(_expectedOutputBytes, BenchmarkFixtures.OutputLength(_output));
-        ColumnParallelism.WriteMarker(GetType().Name, "write", _columnWorkerCount, _writeThreads);
+        ColumnParallelism.WriteMarker("RealTimestampsDictionaryColumnMultiPlankBenchmarks", "write", _columnWorkerCount, _writeThreads);
         _output?.Dispose();
     }
     [GlobalSetup(Target = nameof(Read))]
@@ -207,7 +207,7 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker(GetType().Name, "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("RealTimestampsDictionaryColumnMultiPlankBenchmarks", "read", _columnWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])
@@ -355,7 +355,7 @@ public class RealTimestampsDictionaryColumnMultiParquetSharpBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker(GetType().Name, "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("RealTimestampsDictionaryColumnMultiParquetSharpBenchmarks", "read", _columnWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])
