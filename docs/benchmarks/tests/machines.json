@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "defaultMachine": "fixture",
+  "machines": [
+    {
+      "id": "fixture",
+      "label": "Fixture machine",
+      "environment": {
+        "cpu": "Fixture CPU",
+        "logicalProcessors": 4,
+        "operatingSystem": "Fixture OS",
+        "dotNetVersion": ".NET fixture"
+      },
+      "write": "fixture-results.json",
+      "read": "fixture-results.json"
+    }
+  ]
+}

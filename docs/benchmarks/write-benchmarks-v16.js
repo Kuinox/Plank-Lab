@@ -8,8 +8,7 @@
     "plank-multi": "var(--bench-plank-multi)",
     "parquetsharp-single": "var(--bench-sharp)",
     "parquetsharp-multi": "var(--bench-sharp-multi)",
-    "parquetnet-single": "var(--bench-net)",
-    "parquetnet-multi": "var(--bench-net)"
+    "parquetnet-single": "var(--bench-net)"
   };
   const encodingOrder = [
     "plain",
@@ -371,14 +370,14 @@
           const button = element("button", "benchmark-matrix-cell");
           const singleMeasurements = benchmarkCase.item.measurements.filter(isSingleThreaded);
           const multiMeasurements = benchmarkCase.item.measurements.filter(isMultiThreaded);
-          const singleWinner = fastestMeasurement(singleMeasurements);
-          const multiWinner = fastestMeasurement(multiMeasurements);
+          const singlePlank = plankMeasurement(singleMeasurements, "plank-single");
+          const multiPlank = plankMeasurement(multiMeasurements, "plank-multi");
           button.type = "button";
           button.setAttribute("aria-pressed", benchmarkCase.index === 0 ? "true" : "false");
           button.setAttribute("aria-label",
             `${row.label}, ${formatEncoding(encoding)}: ` +
-            `1 thread ${matrixDuration(singleWinner)}, ` +
-            `${multiThreadLabel(benchmarkCase.item.measurements)} ${matrixDuration(multiWinner)}`);
+            `1 thread ${matrixDuration(singlePlank)}, ` +
+            `${multiThreadLabel(benchmarkCase.item.measurements)} ${matrixDuration(multiPlank)}`);
           button.append(matrixResult(singleMeasurements, "plank-single"));
           if (hasMultiMeasurements) {
             button.append(document.createTextNode(" / "), matrixResult(multiMeasurements, "plank-multi"));
@@ -643,7 +642,8 @@
   function matrixResult(measurements, plankImplementationId) {
     const result = element("span", "benchmark-matrix-result");
     const winner = fastestMeasurement(measurements);
-    result.textContent = matrixDuration(winner);
+    const plank = plankMeasurement(measurements, plankImplementationId);
+    result.textContent = matrixDuration(plank);
 
     if (winner?.implementationId === plankImplementationId) {
       const competitor = fastestMeasurement(measurements.filter(
@@ -657,10 +657,6 @@
         }
       }
     } else if (winner) {
-      const plank = measurements.find(measurement =>
-        measurement.implementationId === plankImplementationId &&
-        measurement.available &&
-        measurement.medianMilliseconds != null);
       if (plank) {
         const margin = (plank.medianMilliseconds - winner.medianMilliseconds) /
           winner.medianMilliseconds * 100;
@@ -672,6 +668,13 @@
     }
 
     return result;
+  }
+
+  function plankMeasurement(measurements, plankImplementationId) {
+    return measurements.find(measurement =>
+      measurement.implementationId === plankImplementationId &&
+      measurement.available &&
+      measurement.medianMilliseconds != null);
   }
 
   function isSingleThreaded(measurement) {
