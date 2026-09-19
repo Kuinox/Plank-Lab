@@ -1,10 +1,8 @@
 # Plank Lab
 
 > [!WARNING]
-> This repository is deliberately vibe-coded experimental infrastructure. Much of it was
-> produced through rapid AI-assisted iteration. It is not the supported Plank library, it
-> is not production software, and its scripts may consume substantial CPU, memory, disk,
-> cloud resources, or fuzzing capacity. Read every command before running it.
+> This repository is deliberately vibe-coded experimental infrastructure. Much of it was produced through rapid AI-assisted iteration.
+> It is not the supported Plank library, it is not production software.
 
 Plank Lab contains the exploratory work kept out of the clean
 [Plank](https://github.com/Kuinox/Plank) package repository:
