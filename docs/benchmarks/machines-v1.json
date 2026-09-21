@@ -1,21 +1,7 @@
 {
   "schemaVersion": 1,
-  "defaultMachine": "ryzen-9-7900x",
+  "defaultMachine": "scaleway-epyc-9555p-compute3",
   "machines": [
-    {
-      "id": "ryzen-9-7900x",
-      "label": "AMD Ryzen 9 7900X",
-      "environment": {
-        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
-        "logicalProcessors": 22,
-        "operatingSystem": "Linux",
-        "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
-      },
-      "generatedAt": "2026-09-14T21:07:58.097564Z",
-      "write": "write-ryzen-9-7900x-v1.json",
-      "read": "read-ryzen-9-7900x-v1.json"
-    },
     {
       "id": "xeon-e3-1230-v6",
       "label": "Intel Xeon E3-1230 v6",
@@ -24,9 +10,9 @@
         "logicalProcessors": 6,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-15T03:35:40.640927Z",
+      "generatedAt": "2026-09-21T02:43:57.272939Z",
       "write": "write-xeon-e3-1230-v6-v1.json",
       "read": "read-xeon-e3-1230-v6-v1.json"
     },
@@ -38,9 +24,9 @@
         "logicalProcessors": 14,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-14T23:50:07.284125Z",
+      "generatedAt": "2026-09-21T00:33:50.469035Z",
       "write": "write-xeon-e-2288g-v1.json",
       "read": "read-xeon-e-2288g-v1.json"
     },
@@ -52,9 +38,9 @@
         "logicalProcessors": 7,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-14T21:07:57.438011Z",
+      "generatedAt": "2026-09-20T21:31:23.226823Z",
       "write": "write-scaleway-epyc-9555p-compute3-v1.json",
       "read": "read-scaleway-epyc-9555p-compute3-v1.json"
     },
@@ -66,9 +52,9 @@
         "logicalProcessors": 7,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-15T02:06:39.760118Z",
+      "generatedAt": "2026-09-21T03:44:38.654315Z",
       "write": "write-scaleway-gp1-s-v1.json",
       "read": "read-scaleway-gp1-s-v1.json"
     },
@@ -80,9 +66,9 @@
         "logicalProcessors": 7,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-15T20:47:49.223382Z",
+      "generatedAt": "2026-09-21T11:45:11.375822Z",
       "write": "write-scaleway-basic2-a8c-v1.json",
       "read": "read-scaleway-basic2-a8c-v1.json"
     },
@@ -94,9 +80,9 @@
         "logicalProcessors": 6,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "1883765ba20d1ef360c861fe446c40f5d7dc02cd; Plank a8eaabb3f7c862d065170ff6602b82b033de6b85"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-15T04:27:39.705379Z",
+      "generatedAt": "2026-09-20T23:34:42.003904Z",
       "write": "write-scaleway-apple-m2-pro-v1.json",
       "read": "read-scaleway-apple-m2-pro-v1.json"
     }
