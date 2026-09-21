@@ -1,7 +1,21 @@
 {
   "schemaVersion": 1,
-  "defaultMachine": "scaleway-epyc-9555p-compute3",
+  "defaultMachine": "ryzen-9-7900x",
   "machines": [
+    {
+      "id": "ryzen-9-7900x",
+      "label": "AMD Ryzen 9 7900X",
+      "environment": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "logicalProcessors": 22,
+        "operatingSystem": "Linux",
+        "dotNetVersion": ".NET 10.0.10",
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+      },
+      "generatedAt": "2026-09-21T08:19:04.843522Z",
+      "write": "write-ryzen-9-7900x-v1.json",
+      "read": "read-ryzen-9-7900x-v1.json"
+    },
     {
       "id": "xeon-e3-1230-v6",
       "label": "Intel Xeon E3-1230 v6",
