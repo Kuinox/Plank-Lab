@@ -14,6 +14,19 @@ static class ColumnParallelism
         internal int MaximumObserved => Volatile.Read(ref _maximum);
         internal int LastObserved => Volatile.Read(ref _lastObserved);
 
+        internal void BeginObservation() => _threads.Clear();
+
+        internal void ObserveCurrentThread()
+            => _threads.TryAdd(Environment.CurrentManagedThreadId, 0);
+
+        internal int EndObservation()
+        {
+            var observed = _threads.Count;
+            Volatile.Write(ref _lastObserved, observed);
+            Interlocked.Exchange(ref _maximum, Math.Max(observed, Volatile.Read(ref _maximum)));
+            return observed;
+        }
+
         internal int Run(int itemCount, int workerCount, Action<int> action)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(itemCount);

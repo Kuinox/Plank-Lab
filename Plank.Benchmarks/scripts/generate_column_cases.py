@@ -67,20 +67,20 @@ def remove_fields(block, names):
 def plank_parallel_read_methods(props, width):
     result = []
     for i, (_, typ, _) in enumerate(props):
-        lines = [f'    long ReadColumn{i}()', '    {', '        long count = 0;']
-        lines += [f'        foreach (var group in _columnReaders[{i}].RowGroups)', '        {']
+        lines = [f'    long ReadColumn{i}(int groupIndex)', '    {', '        long count = 0;',
+                 f'        var group = _columnReaders[{i}].RowGroups[groupIndex];']
         if 'Memory<byte>' in typ:
-            lines += [f'            foreach (var buffer in group.Column<byte>({i}))', '            {',
-                      '                ReadConsumption.Consume(buffer.Values);',
-                      '                count += buffer.Count;', '            }']
+            lines += [f'        foreach (var buffer in group.Column<byte>({i}))', '        {',
+                      '            ReadConsumption.Consume(buffer.Values);',
+                      '            count += buffer.Count;', '        }']
         else:
-            lines += [f'            foreach (var buffer in group.Column<{typ}>({i}))', '            {',
-                      '                ReadConsumption.Consume(buffer.Values);',
-                      '                count += buffer.Count;', '            }']
-        lines += ['        }', '        return count;', '    }', '']
+            lines += [f'        foreach (var buffer in group.Column<{typ}>({i}))', '        {',
+                      '            ReadConsumption.Consume(buffer.Values);',
+                      '            count += buffer.Count;', '        }']
+        lines += ['        return count;', '    }', '']
         result.extend(lines)
-    result += ['    long ReadColumn(int ordinal)', '        => ordinal switch', '        {']
-    result += [f'            {i} => ReadColumn{i}(),' for i in range(width)]
+    result += ['    long ReadColumn(int ordinal, int groupIndex)', '        => ordinal switch', '        {']
+    result += [f'            {i} => ReadColumn{i}(groupIndex),' for i in range(width)]
     result += ['            _ => throw new ArgumentOutOfRangeException(nameof(ordinal))', '        };', '']
     return '\n'.join(result)
 
@@ -115,9 +115,10 @@ def generate_multi_file(stem, generated, props, width):
                   '    readonly ColumnParallelism.Tracker _parallelism = new();\n'
                   '    int _writeThreads;\n    int _readThreads;\n')
         if lib == 'Plank':
-            fields += ('    MemoryReadSource[] _columnSources = null!;\n'
+            fields += ('    int _readWorkerCount;\n'
+                       '    MemoryReadSource[] _columnSources = null!;\n'
                        '    Plank.Reading.Logical.ParquetReader[] _columnReaders = null!;\n'
-                       '    long[] _columnCounts = null!;\n')
+                       '')
         else:
             fields += ('    ParquetFileReader[] _columnReaders = null!;\n'
                        '    BufferReader[] _columnSources = null!;\n'
@@ -175,31 +176,40 @@ def generate_multi_file(stem, generated, props, width):
                 f'        var file = BenchmarkFixtures.LoadReadFile("{stem}");',
                 f'        _columnSources = new MemoryReadSource[{width}];',
                 f'        _columnReaders = new Plank.Reading.Logical.ParquetReader[{width}];',
-                f'        _columnCounts = new long[{width}];',
                 f'        for (var index = 0; index < {width}; index++)', '        {',
                 '            _columnSources[index] = new MemoryReadSource(file);',
                 '            _columnReaders[index] = new Plank.Reading.Logical.ParquetReader(',
                 '                new Plank.Reading.Logical.ParquetReaderOptions { BufferPool = _pool });',
                 '        }', '        _source = _columnSources[0];', '        _reader = _columnReaders[0];',
-                f'        _columnWorkerCount = ColumnParallelism.WorkerCount({width});']
+                f'        _columnWorkerCount = ColumnParallelism.WorkerCount({width});',
+                '        _readWorkerCount = Environment.ProcessorCount;']
             iteration = [f'        for (var index = 0; index < {width}; index++)',
                          '            _columnReaders[index].Reset(_columnSources[index]);']
             block = replace_method(block, 'GlobalSetupRead', '\n'.join(setup))
             block = replace_method(block, 'SetupRead', '\n'.join(iteration))
             block = remove_method(block, 'Read')
             read = [plank_parallel_read_methods(column_props, width), '    [Benchmark]', '    public long Read()', '    {',
-                    f'        _parallelism.Run({width}, _columnWorkerCount,',
-                    '            index => _columnCounts[index] = ReadColumn(index));', '        long count = 0;',
-                    f'        for (var index = 0; index < {width}; index++)',
-                    '            count += _columnCounts[index];',
+                    '        _parallelism.BeginObservation();',
+                    '        var count = Enumerable.Range(0, _reader.RowGroups.Count)',
+                    f'            .SelectMany(groupIndex => Enumerable.Range(0, {width})',
+                    '                .Select(ordinal => (groupIndex, ordinal)))',
+                    '            .AsParallel()',
+                    '            .WithDegreeOfParallelism(_readWorkerCount)',
+                    '            .Select(work =>',
+                    '            {',
+                    '                _parallelism.ObserveCurrentThread();',
+                    '                return ReadColumn(work.ordinal, work.groupIndex);',
+                    '            })',
+                    '            .Sum();',
                     f'        if (count != (long)Rows * {width})',
                     '            throw new InvalidDataException($"Expected {(long)Rows * ' + str(width) + '} values, got {count}.");',
-                    '        _readThreads = _parallelism.LastObserved;', '        return count;', '    }', '']
+                    '        _readThreads = _parallelism.EndObservation();',
+                    '        return count;', '    }', '']
             insertion = block.rfind('\n    [GlobalCleanup]')
             block = block[:insertion] + '\n' + '\n'.join(read) + block[insertion:]
             cleanup = [
                 '        if (_readThreads > 0)',
-                f'            ColumnParallelism.WriteMarker("{multi_class_name}", "read", _columnWorkerCount, _readThreads);',
+                f'            ColumnParallelism.WriteMarker("{multi_class_name}", "read", _readWorkerCount, _readThreads);',
                 '        foreach (var reader in _columnReaders ?? [])', '            reader?.Dispose();',
                 '        foreach (var source in _columnSources ?? [])', '            source?.Dispose();',
                 '        _writer?.Dispose();', '        _pool?.Dispose();', '        _output?.Dispose();']

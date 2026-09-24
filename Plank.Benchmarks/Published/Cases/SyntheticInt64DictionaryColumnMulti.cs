@@ -28,9 +28,9 @@ public class SyntheticInt64DictionaryColumnMultiPlankBenchmarks
     readonly ColumnParallelism.Tracker _parallelism = new();
     int _writeThreads;
     int _readThreads;
+    int _readWorkerCount;
     MemoryReadSource[] _columnSources = null!;
     Plank.Reading.Logical.ParquetReader[] _columnReaders = null!;
-    long[] _columnCounts = null!;
 
     const int RowsPerRowGroup = 45455;
     SyntheticInt64DictionaryRow[] _rows = null!;
@@ -230,7 +230,6 @@ public class SyntheticInt64DictionaryColumnMultiPlankBenchmarks
         var file = BenchmarkFixtures.LoadReadFile("SyntheticInt64Dictionary");
         _columnSources = new MemoryReadSource[22];
         _columnReaders = new Plank.Reading.Logical.ParquetReader[22];
-        _columnCounts = new long[22];
         for (var index = 0; index < 22; index++)
         {
             _columnSources[index] = new MemoryReadSource(file);
@@ -240,6 +239,7 @@ public class SyntheticInt64DictionaryColumnMultiPlankBenchmarks
         _source = _columnSources[0];
         _reader = _columnReaders[0];
         _columnWorkerCount = ColumnParallelism.WorkerCount(22);
+        _readWorkerCount = Environment.ProcessorCount;
     }
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
@@ -368,353 +368,316 @@ public class SyntheticInt64DictionaryColumnMultiPlankBenchmarks
         return sum;
     }
 
-    long ReadColumn0()
+    long ReadColumn0(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[0].RowGroups)
+        var group = _columnReaders[0].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(0))
         {
-            foreach (var buffer in group.Column<long>(0))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn1()
+    long ReadColumn1(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[1].RowGroups)
+        var group = _columnReaders[1].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(1))
         {
-            foreach (var buffer in group.Column<long>(1))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn2()
+    long ReadColumn2(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[2].RowGroups)
+        var group = _columnReaders[2].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(2))
         {
-            foreach (var buffer in group.Column<long>(2))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn3()
+    long ReadColumn3(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[3].RowGroups)
+        var group = _columnReaders[3].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(3))
         {
-            foreach (var buffer in group.Column<long>(3))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn4()
+    long ReadColumn4(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[4].RowGroups)
+        var group = _columnReaders[4].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(4))
         {
-            foreach (var buffer in group.Column<long>(4))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn5()
+    long ReadColumn5(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[5].RowGroups)
+        var group = _columnReaders[5].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(5))
         {
-            foreach (var buffer in group.Column<long>(5))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn6()
+    long ReadColumn6(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[6].RowGroups)
+        var group = _columnReaders[6].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(6))
         {
-            foreach (var buffer in group.Column<long>(6))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn7()
+    long ReadColumn7(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[7].RowGroups)
+        var group = _columnReaders[7].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(7))
         {
-            foreach (var buffer in group.Column<long>(7))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn8()
+    long ReadColumn8(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[8].RowGroups)
+        var group = _columnReaders[8].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(8))
         {
-            foreach (var buffer in group.Column<long>(8))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn9()
+    long ReadColumn9(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[9].RowGroups)
+        var group = _columnReaders[9].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(9))
         {
-            foreach (var buffer in group.Column<long>(9))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn10()
+    long ReadColumn10(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[10].RowGroups)
+        var group = _columnReaders[10].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(10))
         {
-            foreach (var buffer in group.Column<long>(10))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn11()
+    long ReadColumn11(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[11].RowGroups)
+        var group = _columnReaders[11].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(11))
         {
-            foreach (var buffer in group.Column<long>(11))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn12()
+    long ReadColumn12(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[12].RowGroups)
+        var group = _columnReaders[12].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(12))
         {
-            foreach (var buffer in group.Column<long>(12))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn13()
+    long ReadColumn13(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[13].RowGroups)
+        var group = _columnReaders[13].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(13))
         {
-            foreach (var buffer in group.Column<long>(13))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn14()
+    long ReadColumn14(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[14].RowGroups)
+        var group = _columnReaders[14].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(14))
         {
-            foreach (var buffer in group.Column<long>(14))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn15()
+    long ReadColumn15(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[15].RowGroups)
+        var group = _columnReaders[15].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(15))
         {
-            foreach (var buffer in group.Column<long>(15))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn16()
+    long ReadColumn16(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[16].RowGroups)
+        var group = _columnReaders[16].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(16))
         {
-            foreach (var buffer in group.Column<long>(16))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn17()
+    long ReadColumn17(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[17].RowGroups)
+        var group = _columnReaders[17].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(17))
         {
-            foreach (var buffer in group.Column<long>(17))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn18()
+    long ReadColumn18(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[18].RowGroups)
+        var group = _columnReaders[18].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(18))
         {
-            foreach (var buffer in group.Column<long>(18))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn19()
+    long ReadColumn19(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[19].RowGroups)
+        var group = _columnReaders[19].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(19))
         {
-            foreach (var buffer in group.Column<long>(19))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn20()
+    long ReadColumn20(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[20].RowGroups)
+        var group = _columnReaders[20].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(20))
         {
-            foreach (var buffer in group.Column<long>(20))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn21()
+    long ReadColumn21(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[21].RowGroups)
+        var group = _columnReaders[21].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<long>(21))
         {
-            foreach (var buffer in group.Column<long>(21))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn(int ordinal)
+    long ReadColumn(int ordinal, int groupIndex)
         => ordinal switch
         {
-            0 => ReadColumn0(),
-            1 => ReadColumn1(),
-            2 => ReadColumn2(),
-            3 => ReadColumn3(),
-            4 => ReadColumn4(),
-            5 => ReadColumn5(),
-            6 => ReadColumn6(),
-            7 => ReadColumn7(),
-            8 => ReadColumn8(),
-            9 => ReadColumn9(),
-            10 => ReadColumn10(),
-            11 => ReadColumn11(),
-            12 => ReadColumn12(),
-            13 => ReadColumn13(),
-            14 => ReadColumn14(),
-            15 => ReadColumn15(),
-            16 => ReadColumn16(),
-            17 => ReadColumn17(),
-            18 => ReadColumn18(),
-            19 => ReadColumn19(),
-            20 => ReadColumn20(),
-            21 => ReadColumn21(),
+            0 => ReadColumn0(groupIndex),
+            1 => ReadColumn1(groupIndex),
+            2 => ReadColumn2(groupIndex),
+            3 => ReadColumn3(groupIndex),
+            4 => ReadColumn4(groupIndex),
+            5 => ReadColumn5(groupIndex),
+            6 => ReadColumn6(groupIndex),
+            7 => ReadColumn7(groupIndex),
+            8 => ReadColumn8(groupIndex),
+            9 => ReadColumn9(groupIndex),
+            10 => ReadColumn10(groupIndex),
+            11 => ReadColumn11(groupIndex),
+            12 => ReadColumn12(groupIndex),
+            13 => ReadColumn13(groupIndex),
+            14 => ReadColumn14(groupIndex),
+            15 => ReadColumn15(groupIndex),
+            16 => ReadColumn16(groupIndex),
+            17 => ReadColumn17(groupIndex),
+            18 => ReadColumn18(groupIndex),
+            19 => ReadColumn19(groupIndex),
+            20 => ReadColumn20(groupIndex),
+            21 => ReadColumn21(groupIndex),
             _ => throw new ArgumentOutOfRangeException(nameof(ordinal))
         };
 
     [Benchmark]
     public long Read()
     {
-        _parallelism.Run(22, _columnWorkerCount,
-            index => _columnCounts[index] = ReadColumn(index));
-        long count = 0;
-        for (var index = 0; index < 22; index++)
-            count += _columnCounts[index];
+        _parallelism.BeginObservation();
+        var count = Enumerable.Range(0, _reader.RowGroups.Count)
+            .SelectMany(groupIndex => Enumerable.Range(0, 22)
+                .Select(ordinal => (groupIndex, ordinal)))
+            .AsParallel()
+            .WithDegreeOfParallelism(_readWorkerCount)
+            .Select(work =>
+            {
+                _parallelism.ObserveCurrentThread();
+                return ReadColumn(work.ordinal, work.groupIndex);
+            })
+            .Sum();
         if (count != (long)Rows * 22)
             throw new InvalidDataException($"Expected {(long)Rows * 22} values, got {count}.");
-        _readThreads = _parallelism.LastObserved;
+        _readThreads = _parallelism.EndObservation();
         return count;
     }
 
@@ -722,7 +685,7 @@ public class SyntheticInt64DictionaryColumnMultiPlankBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker("SyntheticInt64DictionaryColumnMultiPlankBenchmarks", "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("SyntheticInt64DictionaryColumnMultiPlankBenchmarks", "read", _readWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])

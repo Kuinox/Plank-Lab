@@ -28,9 +28,9 @@ public class RealInt32ByteStreamSplitColumnMultiPlankBenchmarks
     readonly ColumnParallelism.Tracker _parallelism = new();
     int _writeThreads;
     int _readThreads;
+    int _readWorkerCount;
     MemoryReadSource[] _columnSources = null!;
     Plank.Reading.Logical.ParquetReader[] _columnReaders = null!;
-    long[] _columnCounts = null!;
 
     const int RowsPerRowGroup = 1048576;
     RealInt32ByteStreamSplitRow[] _rows = null!;
@@ -116,7 +116,6 @@ public class RealInt32ByteStreamSplitColumnMultiPlankBenchmarks
         var file = BenchmarkFixtures.LoadReadFile("RealInt32ByteStreamSplit");
         _columnSources = new MemoryReadSource[3];
         _columnReaders = new Plank.Reading.Logical.ParquetReader[3];
-        _columnCounts = new long[3];
         for (var index = 0; index < 3; index++)
         {
             _columnSources[index] = new MemoryReadSource(file);
@@ -126,6 +125,7 @@ public class RealInt32ByteStreamSplitColumnMultiPlankBenchmarks
         _source = _columnSources[0];
         _reader = _columnReaders[0];
         _columnWorkerCount = ColumnParallelism.WorkerCount(3);
+        _readWorkerCount = Environment.ProcessorCount;
     }
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
@@ -159,68 +159,69 @@ public class RealInt32ByteStreamSplitColumnMultiPlankBenchmarks
         return sum;
     }
 
-    long ReadColumn0()
+    long ReadColumn0(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[0].RowGroups)
+        var group = _columnReaders[0].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<int?>(0))
         {
-            foreach (var buffer in group.Column<int?>(0))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn1()
+    long ReadColumn1(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[1].RowGroups)
+        var group = _columnReaders[1].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<int?>(1))
         {
-            foreach (var buffer in group.Column<int?>(1))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn2()
+    long ReadColumn2(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[2].RowGroups)
+        var group = _columnReaders[2].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<int?>(2))
         {
-            foreach (var buffer in group.Column<int?>(2))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn(int ordinal)
+    long ReadColumn(int ordinal, int groupIndex)
         => ordinal switch
         {
-            0 => ReadColumn0(),
-            1 => ReadColumn1(),
-            2 => ReadColumn2(),
+            0 => ReadColumn0(groupIndex),
+            1 => ReadColumn1(groupIndex),
+            2 => ReadColumn2(groupIndex),
             _ => throw new ArgumentOutOfRangeException(nameof(ordinal))
         };
 
     [Benchmark]
     public long Read()
     {
-        _parallelism.Run(3, _columnWorkerCount,
-            index => _columnCounts[index] = ReadColumn(index));
-        long count = 0;
-        for (var index = 0; index < 3; index++)
-            count += _columnCounts[index];
+        _parallelism.BeginObservation();
+        var count = Enumerable.Range(0, _reader.RowGroups.Count)
+            .SelectMany(groupIndex => Enumerable.Range(0, 3)
+                .Select(ordinal => (groupIndex, ordinal)))
+            .AsParallel()
+            .WithDegreeOfParallelism(_readWorkerCount)
+            .Select(work =>
+            {
+                _parallelism.ObserveCurrentThread();
+                return ReadColumn(work.ordinal, work.groupIndex);
+            })
+            .Sum();
         if (count != (long)Rows * 3)
             throw new InvalidDataException($"Expected {(long)Rows * 3} values, got {count}.");
-        _readThreads = _parallelism.LastObserved;
+        _readThreads = _parallelism.EndObservation();
         return count;
     }
 
@@ -228,7 +229,7 @@ public class RealInt32ByteStreamSplitColumnMultiPlankBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker("RealInt32ByteStreamSplitColumnMultiPlankBenchmarks", "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("RealInt32ByteStreamSplitColumnMultiPlankBenchmarks", "read", _readWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])

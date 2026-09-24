@@ -28,9 +28,9 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
     readonly ColumnParallelism.Tracker _parallelism = new();
     int _writeThreads;
     int _readThreads;
+    int _readWorkerCount;
     MemoryReadSource[] _columnSources = null!;
     Plank.Reading.Logical.ParquetReader[] _columnReaders = null!;
-    long[] _columnCounts = null!;
 
     const int RowsPerRowGroup = 1048576;
     RealTimestampsDictionaryRow[] _rows = null!;
@@ -115,7 +115,6 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
         var file = BenchmarkFixtures.LoadReadFile("RealTimestampsDictionary");
         _columnSources = new MemoryReadSource[2];
         _columnReaders = new Plank.Reading.Logical.ParquetReader[2];
-        _columnCounts = new long[2];
         for (var index = 0; index < 2; index++)
         {
             _columnSources[index] = new MemoryReadSource(file);
@@ -125,6 +124,7 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
         _source = _columnSources[0];
         _reader = _columnReaders[0];
         _columnWorkerCount = ColumnParallelism.WorkerCount(2);
+        _readWorkerCount = Environment.ProcessorCount;
     }
     [IterationSetup(Target = nameof(Read))]
     public void SetupRead()
@@ -153,53 +153,56 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
         return sum;
     }
 
-    long ReadColumn0()
+    long ReadColumn0(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[0].RowGroups)
+        var group = _columnReaders[0].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<DateTime?>(0))
         {
-            foreach (var buffer in group.Column<DateTime?>(0))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn1()
+    long ReadColumn1(int groupIndex)
     {
         long count = 0;
-        foreach (var group in _columnReaders[1].RowGroups)
+        var group = _columnReaders[1].RowGroups[groupIndex];
+        foreach (var buffer in group.Column<DateTime?>(1))
         {
-            foreach (var buffer in group.Column<DateTime?>(1))
-            {
-                ReadConsumption.Consume(buffer.Values);
-                count += buffer.Count;
-            }
+            ReadConsumption.Consume(buffer.Values);
+            count += buffer.Count;
         }
         return count;
     }
 
-    long ReadColumn(int ordinal)
+    long ReadColumn(int ordinal, int groupIndex)
         => ordinal switch
         {
-            0 => ReadColumn0(),
-            1 => ReadColumn1(),
+            0 => ReadColumn0(groupIndex),
+            1 => ReadColumn1(groupIndex),
             _ => throw new ArgumentOutOfRangeException(nameof(ordinal))
         };
 
     [Benchmark]
     public long Read()
     {
-        _parallelism.Run(2, _columnWorkerCount,
-            index => _columnCounts[index] = ReadColumn(index));
-        long count = 0;
-        for (var index = 0; index < 2; index++)
-            count += _columnCounts[index];
+        _parallelism.BeginObservation();
+        var count = Enumerable.Range(0, _reader.RowGroups.Count)
+            .SelectMany(groupIndex => Enumerable.Range(0, 2)
+                .Select(ordinal => (groupIndex, ordinal)))
+            .AsParallel()
+            .WithDegreeOfParallelism(_readWorkerCount)
+            .Select(work =>
+            {
+                _parallelism.ObserveCurrentThread();
+                return ReadColumn(work.ordinal, work.groupIndex);
+            })
+            .Sum();
         if (count != (long)Rows * 2)
             throw new InvalidDataException($"Expected {(long)Rows * 2} values, got {count}.");
-        _readThreads = _parallelism.LastObserved;
+        _readThreads = _parallelism.EndObservation();
         return count;
     }
 
@@ -207,7 +210,7 @@ public class RealTimestampsDictionaryColumnMultiPlankBenchmarks
     public void Cleanup()
     {
         if (_readThreads > 0)
-            ColumnParallelism.WriteMarker("RealTimestampsDictionaryColumnMultiPlankBenchmarks", "read", _columnWorkerCount, _readThreads);
+            ColumnParallelism.WriteMarker("RealTimestampsDictionaryColumnMultiPlankBenchmarks", "read", _readWorkerCount, _readThreads);
         foreach (var reader in _columnReaders ?? [])
             reader?.Dispose();
         foreach (var source in _columnSources ?? [])

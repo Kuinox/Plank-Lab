@@ -73,10 +73,12 @@ the suite. Use `--rows`, `--taxi-rows`, or `--data-file` to override input. The 
 Synthetic cases use 1,000,000 flat rows and 22 columns and produce 22 row groups. Taxi-derived cases
 use all 2,964,624 rows and produce three row groups. Column inputs are transposed into typed arrays
 outside timing. Streams, capacities, reusable Plank writer/reader setup, worker startup, and pinning
-stay outside the timed method. Single column cases remain sequential. Wide schemas additionally
+stay outside the timed method where the API permits it. Plank's multi-column read schedules PLINQ
+workers inside the timed method. Single column cases remain sequential. Wide schemas additionally
 generate `ColumnMulti` adapters: Plank serializes independent columns in parallel before ordered
-schema emission, while Plank and ParquetSharp read independent columns through one reader/source per
-column. ParquetSharp multi write and all Parquet.Net multi cases are intentionally unavailable.
+schema emission. Plank reads every row-group/column pair through PLINQ using the available CPU count;
+ParquetSharp reads columns in parallel through one reader/source per column. ParquetSharp multi write
+and all Parquet.Net multi cases are intentionally unavailable.
 
 Read and write have separate targeted global setups, neither of which invokes the timed method.
 Before launching measurements, preparation processes build one shared read fixture per selected
