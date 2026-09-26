@@ -37,6 +37,12 @@ public static class CorpusGenerator
     // mutation to find it.
     const byte VerifyCrcSelector = 0x10;
 
+    // A stream source cannot lend the reader an input span. It drives the
+    // buffered page-header and payload reads that memory-backed seeds skip.
+    const byte StreamSelector = 0x40;
+
+    const byte NonStrictSelector = 0x20;
+
     // Bit 7 sends the input to a decompressor instead of the Parquet reader.
     const byte DecompressorSelector = 0x80;
 
@@ -58,6 +64,18 @@ public static class CorpusGenerator
             if (IsUncompressed(name))
                 written += WriteSeed(outputDirectory, $"gen-rowapi-{name}",
                     (byte)(RowApiSelector | (selector & VerifyCrcSelector)), bytes);
+
+            // These few page shapes cover the stream-specific read path without
+            // doubling the whole corpus. Include both page versions, compressed
+            // payloads, and V2 definition levels with CRC verification.
+            if (name is "i32-none" or "i32-snappy" or "i32-opt-none-v1" or
+                "crc-i32-opt-snappy-v2")
+                written += WriteSeed(outputDirectory, $"gen-stream-{name}",
+                    (byte)(selector | StreamSelector), bytes);
+
+            if (name == "i32-none")
+                written += WriteSeed(outputDirectory, "gen-nonstrict-i32-none", NonStrictSelector, bytes);
+
         }
 
         // The decompressors get fed directly rather than through a file, because

@@ -81,7 +81,7 @@ public static class PlankReaderFuzzTarget
         // measured 0% over a 14k-input corpus — neither fuzz target drove it.
         if ((selector & 3) == 2)
         {
-            DrainRowApi(source, options.VerifyPageCrc, binaryAsFixedWidth: (selector & 4) != 0);
+            DrainRowApi(source, options.VerifyPageCrc);
             return;
         }
 
@@ -153,7 +153,7 @@ public static class PlankReaderFuzzTarget
     // RowReaderCore is normally reached through source-generated row types, but
     // it is public and takes the schema and descriptors directly, so the fuzzer
     // can drive it over whatever schema the file declares.
-    static void DrainRowApi(IParquetReadSource source, bool verifyPageCrc, bool binaryAsFixedWidth)
+    static void DrainRowApi(IParquetReadSource source, bool verifyPageCrc)
     {
         ParquetSchema schema;
         using (var probe = new ParquetReader())
@@ -165,7 +165,7 @@ public static class PlankReaderFuzzTarget
         var descriptors = new RowApiColumnDescriptor[schema.LeafColumns.Length];
         for (var i = 0; i < descriptors.Length; i++)
         {
-            var descriptor = CreateRowApiDescriptor(schema.LeafColumns[i], i, binaryAsFixedWidth);
+            var descriptor = CreateRowApiDescriptor(schema.LeafColumns[i], i);
             // A leaf the fuzzer cannot describe (nesting deeper than two levels,
             // or a repeated binary leaf) would otherwise abort the whole file:
             // RowReaderCore requires one descriptor per leaf, in leaf order, so
@@ -187,7 +187,7 @@ public static class PlankReaderFuzzTarget
 
     // Returns null when the leaf has no describable shape, which the caller
     // treats as "skip this file's row-API pass".
-    static RowApiColumnDescriptor? CreateRowApiDescriptor(LeafColumn leaf, int index, bool binaryAsFixedWidth)
+    static RowApiColumnDescriptor? CreateRowApiDescriptor(LeafColumn leaf, int index)
     {
         var name = $"p{index}";
 
@@ -198,20 +198,9 @@ public static class PlankReaderFuzzTarget
         if (leaf.MaxRepetitionLevel > 0)
             return CreateNestedDescriptor(leaf, name);
 
-        // A binary leaf has two legitimate descriptions and they reach different
-        // read states, so selector bit 2 picks between them rather than the
-        // target settling on one. Bit 2 because this path leaves it unused —
-        // bits 1-3 only index the requested schema, which the row API ignores:
-        //
-        //   byte[] -> RowApiBinaryColumnReadState, the variable-length state.
-        //             This is the one the target could never reach: it used to
-        //             pass byte, whose CreateState builds a fixed-width state,
-        //             so GetCurrentBinary threw "not a variable-length byte
-        //             column" — caught and swallowed — and the whole row-API
-        //             pass aborted on every binary file. 0/82 lines.
-        //   byte   -> RowApiColumnReadState<byte>, the fixed-width state over
-        //             the same column. Odd but supported, and it enumerates
-        //             buffers through a different ColumnChunkReader entry point.
+        // Binary leaves require the variable-length read state. A descriptor
+        // of byte reaches the fixed-width state, which cannot decode BYTE_ARRAY
+        // pages and used to abort this fuzz case before any binary values ran.
         return leaf.PhysicalType switch
         {
             ParquetPhysicalType.Boolean => new RowApiColumnDescriptor<bool>(name, leaf),
@@ -219,9 +208,7 @@ public static class PlankReaderFuzzTarget
             ParquetPhysicalType.Int64 => new RowApiColumnDescriptor<long>(name, leaf),
             ParquetPhysicalType.Float => new RowApiColumnDescriptor<float>(name, leaf),
             ParquetPhysicalType.Double => new RowApiColumnDescriptor<double>(name, leaf),
-            _ => binaryAsFixedWidth
-                ? new RowApiColumnDescriptor<byte>(name, leaf)
-                : new RowApiColumnDescriptor<byte[]>(name, leaf)
+            _ => new RowApiColumnDescriptor<byte[]>(name, leaf)
         };
     }
 
@@ -282,7 +269,6 @@ public static class PlankReaderFuzzTarget
             case RowApiColumnDescriptor<float> typed: _ = rows.GetCurrent(typed); break;
             case RowApiColumnDescriptor<double> typed: _ = rows.GetCurrent(typed); break;
             case RowApiColumnDescriptor<byte[]> typed: Consume(rows.GetCurrentBinary(typed).Value); break;
-            case RowApiColumnDescriptor<byte> typed: _ = rows.GetCurrent(typed); break;
 
             // The materialized shape is what the repetition-level bookkeeping
             // produces, so walking it is what checks that bookkeeping.
