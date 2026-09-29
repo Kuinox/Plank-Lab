@@ -1,0 +1,78 @@
+{
+  "portable-int32-all-width-candidate": [
+    {
+      "label": "Width 1",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-1.png"
+    },
+    {
+      "label": "Width 8",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-8.png"
+    },
+    {
+      "label": "Width 12",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-12.png"
+    },
+    {
+      "label": "Width 24",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-24.png"
+    },
+    {
+      "label": "Width 31",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-31.png"
+    },
+    {
+      "label": "Width 32",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-32.png"
+    },
+    {
+      "label": "Width 33",
+      "path": "iteration-curves/portable-int32-all-width-candidate-width-33.png"
+    },
+    {
+      "label": "Mixed widths 1\u201322",
+      "path": "iteration-curves/portable-int32-all-width-candidate-mixed-widths-1-22.png"
+    }
+  ],
+  "portable-int32-arm-pr153": [
+    {
+      "label": "Width 12",
+      "path": "iteration-curves/portable-int32-arm-pr153-width-12.png"
+    },
+    {
+      "label": "Mixed 1\u201322",
+      "path": "iteration-curves/portable-int32-arm-pr153-mixed-1-22.png"
+    },
+    {
+      "label": "Width 33 (alternating INT32 extremes)",
+      "path": "iteration-curves/portable-int32-arm-pr153-width-33-alternating-int32-extremes.png"
+    }
+  ],
+  "portable-integer-other-types-pr153": [
+    {
+      "label": "Real nullable INT32",
+      "path": "iteration-curves/portable-integer-other-types-pr153-real-nullable-int32.png"
+    },
+    {
+      "label": "Synthetic INT64",
+      "path": "iteration-curves/portable-integer-other-types-pr153-synthetic-int64.png"
+    },
+    {
+      "label": "Real nullable INT64",
+      "path": "iteration-curves/portable-integer-other-types-pr153-real-nullable-int64.png"
+    }
+  ],
+  "portable-integer-other-types-arm-pr153": [
+    {
+      "label": "Real nullable INT32",
+      "path": "iteration-curves/portable-integer-other-types-arm-pr153-real-nullable-int32.png"
+    },
+    {
+      "label": "Synthetic INT64",
+      "path": "iteration-curves/portable-integer-other-types-arm-pr153-synthetic-int64.png"
+    },
+    {
+      "label": "Real nullable INT64",
+      "path": "iteration-curves/portable-integer-other-types-arm-pr153-real-nullable-int64.png"
+    }
+  ]
+}
