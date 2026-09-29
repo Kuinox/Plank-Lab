@@ -1,0 +1,2243 @@
+; Assembly listing for method Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFast(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int]) (Tier0)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; Tier0 code
+; rbp based frame
+; partially interruptible
+; compiling with minopt
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       sub      rsp, 64
+       lea      rbp, [rsp+0x40]
+       xor      eax, eax
+       mov      qword ptr [rbp-0x30], rax
+       mov      qword ptr [rbp-0x38], rax
+       mov      bword ptr [rbp-0x10], rdi
+       mov      qword ptr [rbp-0x08], rsi
+       mov      dword ptr [rbp-0x14], edx
+       mov      qword ptr [rbp-0x20], rcx
+       mov      bword ptr [rbp-0x28], r8
+ 
+G_M000_IG02:                ;; offset=0x0027
+       mov      eax, dword ptr [rbp-0x14]
+       dec      eax
+       mov      dword ptr [rbp-0x3C], eax
+       cmp      dword ptr [rbp-0x3C], 55
+       ja       SHORT G_M000_IG04
+ 
+G_M000_IG03:                ;; offset=0x0035
+       mov      eax, dword ptr [rbp-0x3C]
+       lea      rcx, [reloc @RWD00]
+       mov      ecx, dword ptr [rcx+4*rax]
+       lea      rdx, G_M000_IG02
+       add      rcx, rdx
+       jmp      rcx
+ 
+G_M000_IG04:                ;; offset=0x004E
+       jmp      G_M000_IG61
+ 
+G_M000_IG05:                ;; offset=0x0053
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW1(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG06:                ;; offset=0x0076
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW2(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG07:                ;; offset=0x0099
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW3(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG08:                ;; offset=0x00BC
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW4(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG09:                ;; offset=0x00DF
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW5(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG10:                ;; offset=0x0102
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW6(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG11:                ;; offset=0x0125
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW7(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG12:                ;; offset=0x0148
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW8(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG13:                ;; offset=0x016B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW9(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG14:                ;; offset=0x018E
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW10(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG15:                ;; offset=0x01B1
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW11(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG16:                ;; offset=0x01D4
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW12(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG17:                ;; offset=0x01F7
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW13(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG18:                ;; offset=0x021A
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW14(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG19:                ;; offset=0x023D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW15(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG20:                ;; offset=0x0260
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW16(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG21:                ;; offset=0x0283
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW17(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG22:                ;; offset=0x02A6
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW18(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG23:                ;; offset=0x02C9
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW19(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG24:                ;; offset=0x02EC
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW20(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG25:                ;; offset=0x030F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW21(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG26:                ;; offset=0x0332
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW22(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG27:                ;; offset=0x0355
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW23(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG28:                ;; offset=0x0378
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW24(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG29:                ;; offset=0x039B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW25(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG30:                ;; offset=0x03BE
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW26(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG31:                ;; offset=0x03E1
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW27(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG32:                ;; offset=0x0404
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW28(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG33:                ;; offset=0x0427
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW29(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG34:                ;; offset=0x044A
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW30(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG35:                ;; offset=0x046D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW31(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG36:                ;; offset=0x0490
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW32(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG37:                ;; offset=0x04B3
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW33(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG38:                ;; offset=0x04D6
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW34(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG39:                ;; offset=0x04F9
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW35(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG40:                ;; offset=0x051C
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW36(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG41:                ;; offset=0x053F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW37(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG42:                ;; offset=0x0562
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW38(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG43:                ;; offset=0x0585
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW39(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG44:                ;; offset=0x05A8
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW40(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG45:                ;; offset=0x05CB
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW41(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG46:                ;; offset=0x05EE
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW42(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG47:                ;; offset=0x0611
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW43(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG48:                ;; offset=0x0634
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW44(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG49:                ;; offset=0x0657
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW45(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG50:                ;; offset=0x067A
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW46(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG51:                ;; offset=0x069D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW47(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG52:                ;; offset=0x06C0
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW48(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG53:                ;; offset=0x06E3
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW49(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG54:                ;; offset=0x0706
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW50(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG55:                ;; offset=0x0729
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW51(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG56:                ;; offset=0x074C
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW52(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG57:                ;; offset=0x076F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW53(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG58:                ;; offset=0x0792
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW54(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG59:                ;; offset=0x07B5
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW55(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      SHORT G_M000_IG62
+ 
+G_M000_IG60:                ;; offset=0x07D5
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW56(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      SHORT G_M000_IG62
+ 
+G_M000_IG61:                ;; offset=0x07F5
+       mov      rdi, 0x7FF608AB7E90
+       call     CORINFO_HELP_NEWSFAST
+       mov      gword ptr [rbp-0x30], rax
+       mov      edi, 0x5FAB
+       mov      rsi, 0x7FF608BB1980
+       call     [CORINFO_HELP_STRCNS]
+       mov      gword ptr [rbp-0x38], rax
+       mov      rsi, gword ptr [rbp-0x38]
+       mov      rdi, gword ptr [rbp-0x30]
+       call     [System.ArgumentOutOfRangeException:.ctor(System.String):this]
+       mov      rdi, gword ptr [rbp-0x30]
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+G_M000_IG62:                ;; offset=0x0839
+       add      rsp, 64
+       pop      rbp
+       ret      
+ 
+RWD00  	dd	0000002Ch ; case G_M000_IG05
+       	dd	0000004Fh ; case G_M000_IG06
+       	dd	00000072h ; case G_M000_IG07
+       	dd	00000095h ; case G_M000_IG08
+       	dd	000000B8h ; case G_M000_IG09
+       	dd	000000DBh ; case G_M000_IG10
+       	dd	000000FEh ; case G_M000_IG11
+       	dd	00000121h ; case G_M000_IG12
+       	dd	00000144h ; case G_M000_IG13
+       	dd	00000167h ; case G_M000_IG14
+       	dd	0000018Ah ; case G_M000_IG15
+       	dd	000001ADh ; case G_M000_IG16
+       	dd	000001D0h ; case G_M000_IG17
+       	dd	000001F3h ; case G_M000_IG18
+       	dd	00000216h ; case G_M000_IG19
+       	dd	00000239h ; case G_M000_IG20
+       	dd	0000025Ch ; case G_M000_IG21
+       	dd	0000027Fh ; case G_M000_IG22
+       	dd	000002A2h ; case G_M000_IG23
+       	dd	000002C5h ; case G_M000_IG24
+       	dd	000002E8h ; case G_M000_IG25
+       	dd	0000030Bh ; case G_M000_IG26
+       	dd	0000032Eh ; case G_M000_IG27
+       	dd	00000351h ; case G_M000_IG28
+       	dd	00000374h ; case G_M000_IG29
+       	dd	00000397h ; case G_M000_IG30
+       	dd	000003BAh ; case G_M000_IG31
+       	dd	000003DDh ; case G_M000_IG32
+       	dd	00000400h ; case G_M000_IG33
+       	dd	00000423h ; case G_M000_IG34
+       	dd	00000446h ; case G_M000_IG35
+       	dd	00000469h ; case G_M000_IG36
+       	dd	0000048Ch ; case G_M000_IG37
+       	dd	000004AFh ; case G_M000_IG38
+       	dd	000004D2h ; case G_M000_IG39
+       	dd	000004F5h ; case G_M000_IG40
+       	dd	00000518h ; case G_M000_IG41
+       	dd	0000053Bh ; case G_M000_IG42
+       	dd	0000055Eh ; case G_M000_IG43
+       	dd	00000581h ; case G_M000_IG44
+       	dd	000005A4h ; case G_M000_IG45
+       	dd	000005C7h ; case G_M000_IG46
+       	dd	000005EAh ; case G_M000_IG47
+       	dd	0000060Dh ; case G_M000_IG48
+       	dd	00000630h ; case G_M000_IG49
+       	dd	00000653h ; case G_M000_IG50
+       	dd	00000676h ; case G_M000_IG51
+       	dd	00000699h ; case G_M000_IG52
+       	dd	000006BCh ; case G_M000_IG53
+       	dd	000006DFh ; case G_M000_IG54
+       	dd	00000702h ; case G_M000_IG55
+       	dd	00000725h ; case G_M000_IG56
+       	dd	00000748h ; case G_M000_IG57
+       	dd	0000076Bh ; case G_M000_IG58
+       	dd	0000078Eh ; case G_M000_IG59
+       	dd	000007AEh ; case G_M000_IG60
+
+; Total bytes of code 2111
+
+; Assembly listing for method Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFast(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int]) (Instrumented Tier0)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; Instrumented Tier0 code
+; rbp based frame
+; partially interruptible
+; compiling with minopt
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       sub      rsp, 64
+       lea      rbp, [rsp+0x40]
+       xor      eax, eax
+       mov      qword ptr [rbp-0x30], rax
+       mov      qword ptr [rbp-0x38], rax
+       mov      bword ptr [rbp-0x10], rdi
+       mov      qword ptr [rbp-0x08], rsi
+       mov      dword ptr [rbp-0x14], edx
+       mov      qword ptr [rbp-0x20], rcx
+       mov      bword ptr [rbp-0x28], r8
+ 
+G_M000_IG02:                ;; offset=0x0027
+       mov      eax, dword ptr [rbp-0x14]
+       dec      eax
+       mov      dword ptr [rbp-0x3C], eax
+       cmp      dword ptr [rbp-0x3C], 55
+       ja       SHORT G_M000_IG04
+ 
+G_M000_IG03:                ;; offset=0x0035
+       mov      eax, dword ptr [rbp-0x3C]
+       lea      rcx, [reloc @RWD00]
+       mov      ecx, dword ptr [rcx+4*rax]
+       lea      rdx, G_M000_IG02
+       add      rcx, rdx
+       jmp      rcx
+ 
+G_M000_IG04:                ;; offset=0x004E
+       jmp      G_M000_IG61
+ 
+G_M000_IG05:                ;; offset=0x0053
+       mov      rdi, 0x7FF6090AB2A8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW1(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG06:                ;; offset=0x0085
+       mov      rdi, 0x7FF6090AB2AC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW2(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG07:                ;; offset=0x00B7
+       mov      rdi, 0x7FF6090AB2B0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW3(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG08:                ;; offset=0x00E9
+       mov      rdi, 0x7FF6090AB2B4
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW4(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG09:                ;; offset=0x011B
+       mov      rdi, 0x7FF6090AB2B8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW5(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG10:                ;; offset=0x014D
+       mov      rdi, 0x7FF6090AB2BC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW6(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG11:                ;; offset=0x017F
+       mov      rdi, 0x7FF6090AB2C0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW7(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG12:                ;; offset=0x01B1
+       mov      rdi, 0x7FF6090AB2C4
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW8(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG13:                ;; offset=0x01E3
+       mov      rdi, 0x7FF6090AB2C8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW9(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG14:                ;; offset=0x0215
+       mov      rdi, 0x7FF6090AB2CC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW10(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG15:                ;; offset=0x0247
+       mov      rdi, 0x7FF6090AB2D0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW11(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG16:                ;; offset=0x0279
+       mov      rdi, 0x7FF6090AB2D4
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW12(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG17:                ;; offset=0x02AB
+       mov      rdi, 0x7FF6090AB2D8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW13(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG18:                ;; offset=0x02DD
+       mov      rdi, 0x7FF6090AB2DC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW14(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG19:                ;; offset=0x030F
+       mov      rdi, 0x7FF6090AB2E0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW15(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG20:                ;; offset=0x0341
+       mov      rdi, 0x7FF6090AB2E4
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW16(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG21:                ;; offset=0x0373
+       mov      rdi, 0x7FF6090AB2E8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW17(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG22:                ;; offset=0x03A5
+       mov      rdi, 0x7FF6090AB2EC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW18(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG23:                ;; offset=0x03D7
+       mov      rdi, 0x7FF6090AB2F0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW19(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG24:                ;; offset=0x0409
+       mov      rdi, 0x7FF6090AB2F4
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW20(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG25:                ;; offset=0x043B
+       mov      rdi, 0x7FF6090AB2F8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW21(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG26:                ;; offset=0x046D
+       mov      rdi, 0x7FF6090AB2FC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW22(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG27:                ;; offset=0x049F
+       mov      rdi, 0x7FF6090AB300
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW23(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG28:                ;; offset=0x04D1
+       mov      rdi, 0x7FF6090AB304
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW24(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG29:                ;; offset=0x0503
+       mov      rdi, 0x7FF6090AB308
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW25(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG30:                ;; offset=0x0535
+       mov      rdi, 0x7FF6090AB30C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW26(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG31:                ;; offset=0x0567
+       mov      rdi, 0x7FF6090AB310
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW27(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG32:                ;; offset=0x0599
+       mov      rdi, 0x7FF6090AB314
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW28(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG33:                ;; offset=0x05CB
+       mov      rdi, 0x7FF6090AB318
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW29(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG34:                ;; offset=0x05FD
+       mov      rdi, 0x7FF6090AB31C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW30(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG35:                ;; offset=0x062F
+       mov      rdi, 0x7FF6090AB320
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW31(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG36:                ;; offset=0x0661
+       mov      rdi, 0x7FF6090AB324
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW32(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG37:                ;; offset=0x0693
+       mov      rdi, 0x7FF6090AB328
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW33(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG38:                ;; offset=0x06C5
+       mov      rdi, 0x7FF6090AB32C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW34(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG39:                ;; offset=0x06F7
+       mov      rdi, 0x7FF6090AB330
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW35(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG40:                ;; offset=0x0729
+       mov      rdi, 0x7FF6090AB334
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW36(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG41:                ;; offset=0x075B
+       mov      rdi, 0x7FF6090AB338
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW37(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG42:                ;; offset=0x078D
+       mov      rdi, 0x7FF6090AB33C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW38(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG43:                ;; offset=0x07BF
+       mov      rdi, 0x7FF6090AB340
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW39(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG44:                ;; offset=0x07F1
+       mov      rdi, 0x7FF6090AB344
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW40(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG45:                ;; offset=0x0823
+       mov      rdi, 0x7FF6090AB348
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW41(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG46:                ;; offset=0x0855
+       mov      rdi, 0x7FF6090AB34C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW42(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG47:                ;; offset=0x0887
+       mov      rdi, 0x7FF6090AB350
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW43(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG48:                ;; offset=0x08B9
+       mov      rdi, 0x7FF6090AB354
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW44(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG49:                ;; offset=0x08EB
+       mov      rdi, 0x7FF6090AB358
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW45(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG50:                ;; offset=0x091D
+       mov      rdi, 0x7FF6090AB35C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW46(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG51:                ;; offset=0x094F
+       mov      rdi, 0x7FF6090AB360
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW47(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG52:                ;; offset=0x0981
+       mov      rdi, 0x7FF6090AB364
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW48(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG53:                ;; offset=0x09B3
+       mov      rdi, 0x7FF6090AB368
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW49(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG54:                ;; offset=0x09E5
+       mov      rdi, 0x7FF6090AB36C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW50(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG55:                ;; offset=0x0A17
+       mov      rdi, 0x7FF6090AB370
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW51(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG56:                ;; offset=0x0A49
+       mov      rdi, 0x7FF6090AB374
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW52(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG57:                ;; offset=0x0A7B
+       mov      rdi, 0x7FF6090AB378
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW53(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG58:                ;; offset=0x0AAD
+       mov      rdi, 0x7FF6090AB37C
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW54(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      G_M000_IG62
+ 
+G_M000_IG59:                ;; offset=0x0ADF
+       mov      rdi, 0x7FF6090AB380
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW55(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      SHORT G_M000_IG62
+ 
+G_M000_IG60:                ;; offset=0x0B0E
+       mov      rdi, 0x7FF6090AB384
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9, qword ptr [rbp+0x18]
+       mov      rdi, bword ptr [rbp-0x10]
+       mov      rsi, qword ptr [rbp-0x08]
+       mov      rdx, qword ptr [rbp-0x20]
+       mov      rcx, bword ptr [rbp-0x28]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW56(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+       jmp      SHORT G_M000_IG62
+ 
+G_M000_IG61:                ;; offset=0x0B3D
+       mov      rdi, 0x7FF608AB7E90
+       call     CORINFO_HELP_NEWSFAST
+       mov      gword ptr [rbp-0x30], rax
+       mov      edi, 0x5FAB
+       mov      rsi, 0x7FF608BB1980
+       call     [CORINFO_HELP_STRCNS]
+       mov      gword ptr [rbp-0x38], rax
+       mov      rsi, gword ptr [rbp-0x38]
+       mov      rdi, gword ptr [rbp-0x30]
+       call     [System.ArgumentOutOfRangeException:.ctor(System.String):this]
+       mov      rdi, gword ptr [rbp-0x30]
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+G_M000_IG62:                ;; offset=0x0B81
+       add      rsp, 64
+       pop      rbp
+       ret      
+ 
+RWD00  	dd	0000002Ch ; case G_M000_IG05
+       	dd	0000005Eh ; case G_M000_IG06
+       	dd	00000090h ; case G_M000_IG07
+       	dd	000000C2h ; case G_M000_IG08
+       	dd	000000F4h ; case G_M000_IG09
+       	dd	00000126h ; case G_M000_IG10
+       	dd	00000158h ; case G_M000_IG11
+       	dd	0000018Ah ; case G_M000_IG12
+       	dd	000001BCh ; case G_M000_IG13
+       	dd	000001EEh ; case G_M000_IG14
+       	dd	00000220h ; case G_M000_IG15
+       	dd	00000252h ; case G_M000_IG16
+       	dd	00000284h ; case G_M000_IG17
+       	dd	000002B6h ; case G_M000_IG18
+       	dd	000002E8h ; case G_M000_IG19
+       	dd	0000031Ah ; case G_M000_IG20
+       	dd	0000034Ch ; case G_M000_IG21
+       	dd	0000037Eh ; case G_M000_IG22
+       	dd	000003B0h ; case G_M000_IG23
+       	dd	000003E2h ; case G_M000_IG24
+       	dd	00000414h ; case G_M000_IG25
+       	dd	00000446h ; case G_M000_IG26
+       	dd	00000478h ; case G_M000_IG27
+       	dd	000004AAh ; case G_M000_IG28
+       	dd	000004DCh ; case G_M000_IG29
+       	dd	0000050Eh ; case G_M000_IG30
+       	dd	00000540h ; case G_M000_IG31
+       	dd	00000572h ; case G_M000_IG32
+       	dd	000005A4h ; case G_M000_IG33
+       	dd	000005D6h ; case G_M000_IG34
+       	dd	00000608h ; case G_M000_IG35
+       	dd	0000063Ah ; case G_M000_IG36
+       	dd	0000066Ch ; case G_M000_IG37
+       	dd	0000069Eh ; case G_M000_IG38
+       	dd	000006D0h ; case G_M000_IG39
+       	dd	00000702h ; case G_M000_IG40
+       	dd	00000734h ; case G_M000_IG41
+       	dd	00000766h ; case G_M000_IG42
+       	dd	00000798h ; case G_M000_IG43
+       	dd	000007CAh ; case G_M000_IG44
+       	dd	000007FCh ; case G_M000_IG45
+       	dd	0000082Eh ; case G_M000_IG46
+       	dd	00000860h ; case G_M000_IG47
+       	dd	00000892h ; case G_M000_IG48
+       	dd	000008C4h ; case G_M000_IG49
+       	dd	000008F6h ; case G_M000_IG50
+       	dd	00000928h ; case G_M000_IG51
+       	dd	0000095Ah ; case G_M000_IG52
+       	dd	0000098Ch ; case G_M000_IG53
+       	dd	000009BEh ; case G_M000_IG54
+       	dd	000009F0h ; case G_M000_IG55
+       	dd	00000A22h ; case G_M000_IG56
+       	dd	00000A54h ; case G_M000_IG57
+       	dd	00000A86h ; case G_M000_IG58
+       	dd	00000AB8h ; case G_M000_IG59
+       	dd	00000AE7h ; case G_M000_IG60
+
+; Total bytes of code 2951
+
+; Assembly listing for method Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFast(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int]) (Tier1)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; Tier1 code
+; optimized code
+; optimized using Synthesized PGO
+; rbp based frame
+; fully interruptible
+; with Synthesized PGO: fgCalledCount is 201152
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     rbx
+       push     rax
+       lea      rbp, [rsp+0x10]
+       mov      r10, rcx
+       mov      rax, r8
+ 
+G_M000_IG02:                ;; offset=0x000E
+       dec      edx
+       cmp      edx, 11
+       jne      SHORT G_M000_IG05
+ 
+G_M000_IG03:                ;; offset=0x0015
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG04:                ;; offset=0x0023
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW12(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG05:                ;; offset=0x002F
+       cmp      edx, 55
+       ja       SHORT G_M000_IG06
+       mov      r8d, edx
+       lea      r9, [reloc @RWD00]
+       mov      r9d, dword ptr [r9+4*r8]
+       lea      rdx, G_M000_IG02
+       add      r9, rdx
+       jmp      r9
+ 
+G_M000_IG06:                ;; offset=0x004F
+       mov      rdi, 0x7FF608AB7E90
+       call     CORINFO_HELP_NEWSFAST
+       mov      rbx, rax
+       mov      edi, 0x5FAB
+       mov      rsi, 0x7FF608BB1980
+       call     [CORINFO_HELP_STRCNS]
+       mov      rsi, rax
+       mov      rdi, rbx
+       call     [System.ArgumentOutOfRangeException:.ctor(System.String):this]
+       mov      rdi, rbx
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+G_M000_IG07:                ;; offset=0x008B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG08:                ;; offset=0x0099
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW1(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG09:                ;; offset=0x00A5
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG10:                ;; offset=0x00B3
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW2(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG11:                ;; offset=0x00BF
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG12:                ;; offset=0x00CD
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW3(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG13:                ;; offset=0x00D9
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG14:                ;; offset=0x00E7
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW4(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG15:                ;; offset=0x00F3
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG16:                ;; offset=0x0101
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW5(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG17:                ;; offset=0x010D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG18:                ;; offset=0x011B
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW6(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG19:                ;; offset=0x0127
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG20:                ;; offset=0x0135
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW7(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG21:                ;; offset=0x0141
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG22:                ;; offset=0x014F
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW8(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG23:                ;; offset=0x015B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG24:                ;; offset=0x0169
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW9(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG25:                ;; offset=0x0175
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG26:                ;; offset=0x0183
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW10(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG27:                ;; offset=0x018F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG28:                ;; offset=0x019D
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW11(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG29:                ;; offset=0x01A9
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG30:                ;; offset=0x01B7
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW13(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG31:                ;; offset=0x01C3
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG32:                ;; offset=0x01D1
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW14(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG33:                ;; offset=0x01DD
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG34:                ;; offset=0x01EB
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW15(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG35:                ;; offset=0x01F7
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG36:                ;; offset=0x0205
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW16(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG37:                ;; offset=0x0211
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG38:                ;; offset=0x021F
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW17(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG39:                ;; offset=0x022B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG40:                ;; offset=0x0239
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW18(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG41:                ;; offset=0x0245
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG42:                ;; offset=0x0253
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW19(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG43:                ;; offset=0x025F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG44:                ;; offset=0x026D
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW20(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG45:                ;; offset=0x0279
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG46:                ;; offset=0x0287
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW21(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG47:                ;; offset=0x0293
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG48:                ;; offset=0x02A1
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW22(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG49:                ;; offset=0x02AD
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG50:                ;; offset=0x02BB
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW23(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG51:                ;; offset=0x02C7
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG52:                ;; offset=0x02D5
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW24(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG53:                ;; offset=0x02E1
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG54:                ;; offset=0x02EF
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW25(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG55:                ;; offset=0x02FB
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG56:                ;; offset=0x0309
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW26(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG57:                ;; offset=0x0315
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG58:                ;; offset=0x0323
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW27(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG59:                ;; offset=0x032F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG60:                ;; offset=0x033D
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW28(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG61:                ;; offset=0x0349
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG62:                ;; offset=0x0357
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW29(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG63:                ;; offset=0x0363
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG64:                ;; offset=0x0371
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW30(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG65:                ;; offset=0x037D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG66:                ;; offset=0x038B
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW31(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG67:                ;; offset=0x0397
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG68:                ;; offset=0x03A5
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW32(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG69:                ;; offset=0x03B1
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG70:                ;; offset=0x03BF
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW33(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG71:                ;; offset=0x03CB
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG72:                ;; offset=0x03D9
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW34(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG73:                ;; offset=0x03E5
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG74:                ;; offset=0x03F3
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW35(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG75:                ;; offset=0x03FF
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG76:                ;; offset=0x040D
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW36(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG77:                ;; offset=0x0419
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG78:                ;; offset=0x0427
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW37(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG79:                ;; offset=0x0433
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG80:                ;; offset=0x0441
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW38(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG81:                ;; offset=0x044D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG82:                ;; offset=0x045B
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW39(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG83:                ;; offset=0x0467
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG84:                ;; offset=0x0475
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW40(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG85:                ;; offset=0x0481
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG86:                ;; offset=0x048F
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW41(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG87:                ;; offset=0x049B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG88:                ;; offset=0x04A9
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW42(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG89:                ;; offset=0x04B5
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG90:                ;; offset=0x04C3
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW43(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG91:                ;; offset=0x04CF
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG92:                ;; offset=0x04DD
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW44(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG93:                ;; offset=0x04E9
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG94:                ;; offset=0x04F7
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW45(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG95:                ;; offset=0x0503
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG96:                ;; offset=0x0511
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW46(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG97:                ;; offset=0x051D
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG98:                ;; offset=0x052B
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW47(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG99:                ;; offset=0x0537
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG100:                ;; offset=0x0545
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW48(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG101:                ;; offset=0x0551
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG102:                ;; offset=0x055F
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW49(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG103:                ;; offset=0x056B
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG104:                ;; offset=0x0579
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW50(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG105:                ;; offset=0x0585
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG106:                ;; offset=0x0593
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW51(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG107:                ;; offset=0x059F
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG108:                ;; offset=0x05AD
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW52(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG109:                ;; offset=0x05B9
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG110:                ;; offset=0x05C7
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW53(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG111:                ;; offset=0x05D3
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG112:                ;; offset=0x05E1
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW54(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG113:                ;; offset=0x05ED
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG114:                ;; offset=0x05FB
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW55(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+G_M000_IG115:                ;; offset=0x0607
+       mov      r8, bword ptr [rbp+0x10]
+       mov      r9d, dword ptr [rbp+0x18]
+       mov      rdx, r10
+       mov      rcx, rax
+ 
+G_M000_IG116:                ;; offset=0x0615
+       add      rsp, 8
+       pop      rbx
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFastW56(System.ReadOnlySpan`1[byte],long,byref,System.Span`1[int])]
+ 
+RWD00  	dd	0000007Dh ; case G_M000_IG07
+       	dd	00000097h ; case G_M000_IG09
+       	dd	000000B1h ; case G_M000_IG11
+       	dd	000000CBh ; case G_M000_IG13
+       	dd	000000E5h ; case G_M000_IG15
+       	dd	000000FFh ; case G_M000_IG17
+       	dd	00000119h ; case G_M000_IG19
+       	dd	00000133h ; case G_M000_IG21
+       	dd	0000014Dh ; case G_M000_IG23
+       	dd	00000167h ; case G_M000_IG25
+       	dd	00000181h ; case G_M000_IG27
+       	dd	00000007h ; case G_M000_IG03
+       	dd	0000019Bh ; case G_M000_IG29
+       	dd	000001B5h ; case G_M000_IG31
+       	dd	000001CFh ; case G_M000_IG33
+       	dd	000001E9h ; case G_M000_IG35
+       	dd	00000203h ; case G_M000_IG37
+       	dd	0000021Dh ; case G_M000_IG39
+       	dd	00000237h ; case G_M000_IG41
+       	dd	00000251h ; case G_M000_IG43
+       	dd	0000026Bh ; case G_M000_IG45
+       	dd	00000285h ; case G_M000_IG47
+       	dd	0000029Fh ; case G_M000_IG49
+       	dd	000002B9h ; case G_M000_IG51
+       	dd	000002D3h ; case G_M000_IG53
+       	dd	000002EDh ; case G_M000_IG55
+       	dd	00000307h ; case G_M000_IG57
+       	dd	00000321h ; case G_M000_IG59
+       	dd	0000033Bh ; case G_M000_IG61
+       	dd	00000355h ; case G_M000_IG63
+       	dd	0000036Fh ; case G_M000_IG65
+       	dd	00000389h ; case G_M000_IG67
+       	dd	000003A3h ; case G_M000_IG69
+       	dd	000003BDh ; case G_M000_IG71
+       	dd	000003D7h ; case G_M000_IG73
+       	dd	000003F1h ; case G_M000_IG75
+       	dd	0000040Bh ; case G_M000_IG77
+       	dd	00000425h ; case G_M000_IG79
+       	dd	0000043Fh ; case G_M000_IG81
+       	dd	00000459h ; case G_M000_IG83
+       	dd	00000473h ; case G_M000_IG85
+       	dd	0000048Dh ; case G_M000_IG87
+       	dd	000004A7h ; case G_M000_IG89
+       	dd	000004C1h ; case G_M000_IG91
+       	dd	000004DBh ; case G_M000_IG93
+       	dd	000004F5h ; case G_M000_IG95
+       	dd	0000050Fh ; case G_M000_IG97
+       	dd	00000529h ; case G_M000_IG99
+       	dd	00000543h ; case G_M000_IG101
+       	dd	0000055Dh ; case G_M000_IG103
+       	dd	00000577h ; case G_M000_IG105
+       	dd	00000591h ; case G_M000_IG107
+       	dd	000005ABh ; case G_M000_IG109
+       	dd	000005C5h ; case G_M000_IG111
+       	dd	000005DFh ; case G_M000_IG113
+       	dd	000005F9h ; case G_M000_IG115
+
+; Total bytes of code 1569
+

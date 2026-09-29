@@ -1,0 +1,733 @@
+; Assembly listing for method Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlock(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int]) (Instrumented Tier0)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; Instrumented Tier0 code
+; rbp based frame
+; fully interruptible
+; compiling with minopt
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       sub      rsp, 176
+       lea      rbp, [rsp+0xB0]
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqu  ymmword ptr [rbp-0x90], ymm8
+       vmovdqu  ymmword ptr [rbp-0x70], ymm8
+       mov      bword ptr [rbp-0x38], rdi
+       mov      qword ptr [rbp-0x30], rsi
+       mov      dword ptr [rbp-0x3C], edx
+       mov      qword ptr [rbp-0x48], rcx
+       mov      bword ptr [rbp-0x50], r8
+ 
+G_M000_IG02:                ;; offset=0x0035
+       mov      dword ptr [rbp-0x98], 0x3E8
+       cmp      dword ptr [rbp-0x3C], 0
+       jne      G_M000_IG08
+       xor      eax, eax
+       mov      dword ptr [rbp-0x70], eax
+       jmp      SHORT G_M000_IG04
+ 
+G_M000_IG03:                ;; offset=0x0050
+       mov      rdi, 0x7F37BAED5890
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      rax, qword ptr [rbp-0x48]
+       mov      rcx, bword ptr [rbp-0x50]
+       add      qword ptr [rcx], rax
+       mov      eax, dword ptr [rbp+0x18]
+       cmp      dword ptr [rbp-0x70], eax
+       jae      G_M000_IG21
+       mov      eax, dword ptr [rbp-0x70]
+       mov      rcx, bword ptr [rbp+0x10]
+       mov      rdx, bword ptr [rbp-0x50]
+       mov      edx, dword ptr [rdx]
+       mov      dword ptr [rcx+4*rax], edx
+       mov      eax, dword ptr [rbp-0x70]
+       inc      eax
+       mov      dword ptr [rbp-0x70], eax
+ 
+G_M000_IG04:                ;; offset=0x008E
+       mov      eax, dword ptr [rbp-0x98]
+       dec      eax
+       mov      dword ptr [rbp-0x98], eax
+       cmp      dword ptr [rbp-0x98], 0
+       jg       SHORT G_M000_IG06
+ 
+G_M000_IG05:                ;; offset=0x00A5
+       lea      rdi, [rbp-0x98]
+       mov      esi, 33
+       call     CORINFO_HELP_PATCHPOINT
+ 
+G_M000_IG06:                ;; offset=0x00B6
+       mov      eax, dword ptr [rbp-0x70]
+       cmp      eax, dword ptr [rbp+0x18]
+       jl       SHORT G_M000_IG03
+       mov      rdi, 0x7F37BAED5894
+       call     CORINFO_HELP_COUNTPROFILE32
+       nop      
+ 
+G_M000_IG07:                ;; offset=0x00CE
+       add      rsp, 176
+       pop      rbp
+       ret      
+ 
+G_M000_IG08:                ;; offset=0x00D7
+       cmp      dword ptr [rbp-0x3C], 0
+       jle      G_M000_IG13
+       cmp      dword ptr [rbp-0x3C], 56
+       jg       G_M000_IG12
+       cmp      dword ptr [rbp+0x18], 32
+       jne      SHORT G_M000_IG11
+       mov      eax, dword ptr [rbp-0x3C]
+       lea      eax, [4*rax+0x07]
+       cmp      dword ptr [rbp-0x30], eax
+       jl       SHORT G_M000_IG10
+       mov      rdi, 0x7F37BAED5898
+       call     CORINFO_HELP_COUNTPROFILE32
+       lea      rdi, [rsp]
+       lea      rsi, [rbp+0x10]
+       mov      rcx, bword ptr [rsi]
+       mov      bword ptr [rsp], rcx
+       add      rsi, 8
+       add      rdi, 8
+       movsq    
+       mov      rdi, bword ptr [rbp-0x38]
+       mov      rsi, qword ptr [rbp-0x30]
+       mov      edx, dword ptr [rbp-0x3C]
+       mov      rcx, qword ptr [rbp-0x48]
+       mov      r8, bword ptr [rbp-0x50]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFast(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int])]
+       nop      
+ 
+G_M000_IG09:                ;; offset=0x0142
+       add      rsp, 176
+       pop      rbp
+       ret      
+ 
+G_M000_IG10:                ;; offset=0x014B
+       mov      rdi, 0x7F37BAED589C
+       call     CORINFO_HELP_COUNTPROFILE32
+       jmp      SHORT G_M000_IG13
+ 
+G_M000_IG11:                ;; offset=0x015C
+       mov      rdi, 0x7F37BAED58A0
+       call     CORINFO_HELP_COUNTPROFILE32
+       jmp      SHORT G_M000_IG13
+ 
+G_M000_IG12:                ;; offset=0x016D
+       mov      rdi, 0x7F37BAED58A4
+       call     CORINFO_HELP_COUNTPROFILE32
+ 
+G_M000_IG13:                ;; offset=0x017C
+       mov      eax, 1
+       mov      ecx, dword ptr [rbp-0x3C]
+       shl      rax, cl
+       dec      rax
+       mov      qword ptr [rbp-0x58], rax
+       mov      eax, dword ptr [rbp-0x3C]
+       shl      eax, 2
+       mov      dword ptr [rbp-0x5C], eax
+       xor      eax, eax
+       mov      dword ptr [rbp-0x60], eax
+       xor      eax, eax
+       mov      qword ptr [rbp-0x68], rax
+       xor      eax, eax
+       mov      dword ptr [rbp-0x6C], eax
+       xor      eax, eax
+       mov      dword ptr [rbp-0x74], eax
+       jmp      G_M000_IG17
+ 
+G_M000_IG14:                ;; offset=0x01B1
+       mov      eax, dword ptr [rbp-0x6C]
+       cmp      eax, dword ptr [rbp-0x3C]
+       jge      G_M000_IG16
+       mov      eax, dword ptr [rbp-0x5C]
+       mov      esi, eax
+       sub      esi, dword ptr [rbp-0x60]
+       mov      eax, dword ptr [rbp-0x6C]
+       neg      eax
+       add      eax, 64
+       mov      dword ptr [rbp-0x9C], eax
+       mov      eax, dword ptr [rbp-0x9C]
+       sar      eax, 31
+       and      eax, 7
+       add      eax, dword ptr [rbp-0x9C]
+       mov      edi, eax
+       sar      edi, 3
+       call     [System.Math:Min(int,int):int]
+       mov      dword ptr [rbp-0x84], eax
+       mov      rdi, bword ptr [rbp-0x38]
+       mov      rsi, qword ptr [rbp-0x30]
+       mov      edx, dword ptr [rbp-0x60]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:ReadPackedWord(System.ReadOnlySpan`1[byte],int):ulong]
+       mov      qword ptr [rbp-0x90], rax
+       cmp      dword ptr [rbp-0x84], 8
+       jge      SHORT G_M000_IG15
+       mov      rdi, 0x7F37BAED58A8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      eax, 1
+       mov      ecx, dword ptr [rbp-0x84]
+       shl      ecx, 3
+       shl      rax, cl
+       dec      rax
+       and      rax, qword ptr [rbp-0x90]
+       mov      qword ptr [rbp-0x90], rax
+ 
+G_M000_IG15:                ;; offset=0x0248
+       mov      rdi, 0x7F37BAED58AC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      rax, qword ptr [rbp-0x90]
+       mov      ecx, dword ptr [rbp-0x6C]
+       shl      rax, cl
+       or       rax, qword ptr [rbp-0x68]
+       mov      qword ptr [rbp-0x68], rax
+       mov      eax, dword ptr [rbp-0x60]
+       add      eax, dword ptr [rbp-0x84]
+       mov      dword ptr [rbp-0x60], eax
+       mov      eax, dword ptr [rbp-0x6C]
+       mov      ecx, dword ptr [rbp-0x84]
+       lea      eax, [rax+8*rcx]
+       mov      dword ptr [rbp-0x6C], eax
+ 
+G_M000_IG16:                ;; offset=0x0287
+       mov      rdi, 0x7F37BAED58B0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      rax, qword ptr [rbp-0x68]
+       and      rax, qword ptr [rbp-0x58]
+       mov      qword ptr [rbp-0x80], rax
+       mov      rax, qword ptr [rbp-0x68]
+       mov      ecx, dword ptr [rbp-0x3C]
+       shr      rax, cl
+       mov      qword ptr [rbp-0x68], rax
+       mov      eax, dword ptr [rbp-0x6C]
+       sub      eax, dword ptr [rbp-0x3C]
+       mov      dword ptr [rbp-0x6C], eax
+       mov      rax, bword ptr [rbp-0x50]
+       mov      rax, qword ptr [rax]
+       add      rax, qword ptr [rbp-0x48]
+       add      rax, qword ptr [rbp-0x80]
+       mov      rcx, bword ptr [rbp-0x50]
+       mov      qword ptr [rcx], rax
+       mov      eax, dword ptr [rbp+0x18]
+       cmp      dword ptr [rbp-0x74], eax
+       jae      SHORT G_M000_IG21
+       mov      eax, dword ptr [rbp-0x74]
+       mov      rcx, bword ptr [rbp+0x10]
+       mov      rdx, bword ptr [rbp-0x50]
+       mov      edx, dword ptr [rdx]
+       mov      dword ptr [rcx+4*rax], edx
+       mov      eax, dword ptr [rbp-0x74]
+       inc      eax
+       mov      dword ptr [rbp-0x74], eax
+ 
+G_M000_IG17:                ;; offset=0x02EF
+       mov      eax, dword ptr [rbp-0x98]
+       dec      eax
+       mov      dword ptr [rbp-0x98], eax
+       cmp      dword ptr [rbp-0x98], 0
+       jg       SHORT G_M000_IG19
+ 
+G_M000_IG18:                ;; offset=0x0306
+       lea      rdi, [rbp-0x98]
+       mov      esi, 244
+       call     CORINFO_HELP_PATCHPOINT
+ 
+G_M000_IG19:                ;; offset=0x0317
+       mov      eax, dword ptr [rbp-0x74]
+       cmp      eax, dword ptr [rbp+0x18]
+       jl       G_M000_IG14
+       mov      rdi, 0x7F37BAED58B4
+       call     CORINFO_HELP_COUNTPROFILE32
+       nop      
+ 
+G_M000_IG20:                ;; offset=0x0333
+       add      rsp, 176
+       pop      rbp
+       ret      
+ 
+G_M000_IG21:                ;; offset=0x033C
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 834
+
+; Assembly listing for method Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlock(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int]) (Instrumented Tier0)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; Instrumented Tier0 code
+; rbp based frame
+; fully interruptible
+; compiling with minopt
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       sub      rsp, 176
+       lea      rbp, [rsp+0xB0]
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqu  ymmword ptr [rbp-0x90], ymm8
+       vmovdqu  ymmword ptr [rbp-0x70], ymm8
+       mov      bword ptr [rbp-0x38], rdi
+       mov      qword ptr [rbp-0x30], rsi
+       mov      dword ptr [rbp-0x3C], edx
+       mov      qword ptr [rbp-0x48], rcx
+       mov      bword ptr [rbp-0x50], r8
+ 
+G_M000_IG02:                ;; offset=0x0035
+       mov      dword ptr [rbp-0x98], 0x3E8
+       cmp      dword ptr [rbp-0x3C], 0
+       jne      G_M000_IG08
+       xor      eax, eax
+       mov      dword ptr [rbp-0x70], eax
+       jmp      SHORT G_M000_IG04
+ 
+G_M000_IG03:                ;; offset=0x0050
+       mov      rdi, 0x7F37BAED5890
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      rax, qword ptr [rbp-0x48]
+       mov      rcx, bword ptr [rbp-0x50]
+       add      qword ptr [rcx], rax
+       mov      eax, dword ptr [rbp+0x18]
+       cmp      dword ptr [rbp-0x70], eax
+       jae      G_M000_IG21
+       mov      eax, dword ptr [rbp-0x70]
+       mov      rcx, bword ptr [rbp+0x10]
+       mov      rdx, bword ptr [rbp-0x50]
+       mov      edx, dword ptr [rdx]
+       mov      dword ptr [rcx+4*rax], edx
+       mov      eax, dword ptr [rbp-0x70]
+       inc      eax
+       mov      dword ptr [rbp-0x70], eax
+ 
+G_M000_IG04:                ;; offset=0x008E
+       mov      eax, dword ptr [rbp-0x98]
+       dec      eax
+       mov      dword ptr [rbp-0x98], eax
+       cmp      dword ptr [rbp-0x98], 0
+       jg       SHORT G_M000_IG06
+ 
+G_M000_IG05:                ;; offset=0x00A5
+       lea      rdi, [rbp-0x98]
+       mov      esi, 33
+       call     CORINFO_HELP_PATCHPOINT
+ 
+G_M000_IG06:                ;; offset=0x00B6
+       mov      eax, dword ptr [rbp-0x70]
+       cmp      eax, dword ptr [rbp+0x18]
+       jl       SHORT G_M000_IG03
+       mov      rdi, 0x7F37BAED5894
+       call     CORINFO_HELP_COUNTPROFILE32
+       nop      
+ 
+G_M000_IG07:                ;; offset=0x00CE
+       add      rsp, 176
+       pop      rbp
+       ret      
+ 
+G_M000_IG08:                ;; offset=0x00D7
+       cmp      dword ptr [rbp-0x3C], 0
+       jle      G_M000_IG13
+       cmp      dword ptr [rbp-0x3C], 56
+       jg       G_M000_IG12
+       cmp      dword ptr [rbp+0x18], 32
+       jne      SHORT G_M000_IG11
+       mov      eax, dword ptr [rbp-0x3C]
+       lea      eax, [4*rax+0x07]
+       cmp      dword ptr [rbp-0x30], eax
+       jl       SHORT G_M000_IG10
+       mov      rdi, 0x7F37BAED5898
+       call     CORINFO_HELP_COUNTPROFILE32
+       lea      rdi, [rsp]
+       lea      rsi, [rbp+0x10]
+       mov      rcx, bword ptr [rsi]
+       mov      bword ptr [rsp], rcx
+       add      rsi, 8
+       add      rdi, 8
+       movsq    
+       mov      rdi, bword ptr [rbp-0x38]
+       mov      rsi, qword ptr [rbp-0x30]
+       mov      edx, dword ptr [rbp-0x3C]
+       mov      rcx, qword ptr [rbp-0x48]
+       mov      r8, bword ptr [rbp-0x50]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFast(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int])]
+       nop      
+ 
+G_M000_IG09:                ;; offset=0x0142
+       add      rsp, 176
+       pop      rbp
+       ret      
+ 
+G_M000_IG10:                ;; offset=0x014B
+       mov      rdi, 0x7F37BAED589C
+       call     CORINFO_HELP_COUNTPROFILE32
+       jmp      SHORT G_M000_IG13
+ 
+G_M000_IG11:                ;; offset=0x015C
+       mov      rdi, 0x7F37BAED58A0
+       call     CORINFO_HELP_COUNTPROFILE32
+       jmp      SHORT G_M000_IG13
+ 
+G_M000_IG12:                ;; offset=0x016D
+       mov      rdi, 0x7F37BAED58A4
+       call     CORINFO_HELP_COUNTPROFILE32
+ 
+G_M000_IG13:                ;; offset=0x017C
+       mov      eax, 1
+       mov      ecx, dword ptr [rbp-0x3C]
+       shl      rax, cl
+       dec      rax
+       mov      qword ptr [rbp-0x58], rax
+       mov      eax, dword ptr [rbp-0x3C]
+       shl      eax, 2
+       mov      dword ptr [rbp-0x5C], eax
+       xor      eax, eax
+       mov      dword ptr [rbp-0x60], eax
+       xor      eax, eax
+       mov      qword ptr [rbp-0x68], rax
+       xor      eax, eax
+       mov      dword ptr [rbp-0x6C], eax
+       xor      eax, eax
+       mov      dword ptr [rbp-0x74], eax
+       jmp      G_M000_IG17
+ 
+G_M000_IG14:                ;; offset=0x01B1
+       mov      eax, dword ptr [rbp-0x6C]
+       cmp      eax, dword ptr [rbp-0x3C]
+       jge      G_M000_IG16
+       mov      eax, dword ptr [rbp-0x5C]
+       mov      esi, eax
+       sub      esi, dword ptr [rbp-0x60]
+       mov      eax, dword ptr [rbp-0x6C]
+       neg      eax
+       add      eax, 64
+       mov      dword ptr [rbp-0x9C], eax
+       mov      eax, dword ptr [rbp-0x9C]
+       sar      eax, 31
+       and      eax, 7
+       add      eax, dword ptr [rbp-0x9C]
+       mov      edi, eax
+       sar      edi, 3
+       call     [System.Math:Min(int,int):int]
+       mov      dword ptr [rbp-0x84], eax
+       mov      rdi, bword ptr [rbp-0x38]
+       mov      rsi, qword ptr [rbp-0x30]
+       mov      edx, dword ptr [rbp-0x60]
+       call     [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:ReadPackedWord(System.ReadOnlySpan`1[byte],int):ulong]
+       mov      qword ptr [rbp-0x90], rax
+       cmp      dword ptr [rbp-0x84], 8
+       jge      SHORT G_M000_IG15
+       mov      rdi, 0x7F37BAED58A8
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      eax, 1
+       mov      ecx, dword ptr [rbp-0x84]
+       shl      ecx, 3
+       shl      rax, cl
+       dec      rax
+       and      rax, qword ptr [rbp-0x90]
+       mov      qword ptr [rbp-0x90], rax
+ 
+G_M000_IG15:                ;; offset=0x0248
+       mov      rdi, 0x7F37BAED58AC
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      rax, qword ptr [rbp-0x90]
+       mov      ecx, dword ptr [rbp-0x6C]
+       shl      rax, cl
+       or       rax, qword ptr [rbp-0x68]
+       mov      qword ptr [rbp-0x68], rax
+       mov      eax, dword ptr [rbp-0x60]
+       add      eax, dword ptr [rbp-0x84]
+       mov      dword ptr [rbp-0x60], eax
+       mov      eax, dword ptr [rbp-0x6C]
+       mov      ecx, dword ptr [rbp-0x84]
+       lea      eax, [rax+8*rcx]
+       mov      dword ptr [rbp-0x6C], eax
+ 
+G_M000_IG16:                ;; offset=0x0287
+       mov      rdi, 0x7F37BAED58B0
+       call     CORINFO_HELP_COUNTPROFILE32
+       mov      rax, qword ptr [rbp-0x68]
+       and      rax, qword ptr [rbp-0x58]
+       mov      qword ptr [rbp-0x80], rax
+       mov      rax, qword ptr [rbp-0x68]
+       mov      ecx, dword ptr [rbp-0x3C]
+       shr      rax, cl
+       mov      qword ptr [rbp-0x68], rax
+       mov      eax, dword ptr [rbp-0x6C]
+       sub      eax, dword ptr [rbp-0x3C]
+       mov      dword ptr [rbp-0x6C], eax
+       mov      rax, bword ptr [rbp-0x50]
+       mov      rax, qword ptr [rax]
+       add      rax, qword ptr [rbp-0x48]
+       add      rax, qword ptr [rbp-0x80]
+       mov      rcx, bword ptr [rbp-0x50]
+       mov      qword ptr [rcx], rax
+       mov      eax, dword ptr [rbp+0x18]
+       cmp      dword ptr [rbp-0x74], eax
+       jae      SHORT G_M000_IG21
+       mov      eax, dword ptr [rbp-0x74]
+       mov      rcx, bword ptr [rbp+0x10]
+       mov      rdx, bword ptr [rbp-0x50]
+       mov      edx, dword ptr [rdx]
+       mov      dword ptr [rcx+4*rax], edx
+       mov      eax, dword ptr [rbp-0x74]
+       inc      eax
+       mov      dword ptr [rbp-0x74], eax
+ 
+G_M000_IG17:                ;; offset=0x02EF
+       mov      eax, dword ptr [rbp-0x98]
+       dec      eax
+       mov      dword ptr [rbp-0x98], eax
+       cmp      dword ptr [rbp-0x98], 0
+       jg       SHORT G_M000_IG19
+ 
+G_M000_IG18:                ;; offset=0x0306
+       lea      rdi, [rbp-0x98]
+       mov      esi, 244
+       call     CORINFO_HELP_PATCHPOINT
+ 
+G_M000_IG19:                ;; offset=0x0317
+       mov      eax, dword ptr [rbp-0x74]
+       cmp      eax, dword ptr [rbp+0x18]
+       jl       G_M000_IG14
+       mov      rdi, 0x7F37BAED58B4
+       call     CORINFO_HELP_COUNTPROFILE32
+       nop      
+ 
+G_M000_IG20:                ;; offset=0x0333
+       add      rsp, 176
+       pop      rbp
+       ret      
+ 
+G_M000_IG21:                ;; offset=0x033C
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 834
+
+; Assembly listing for method Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlock(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int]) (Tier1)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; Tier1 code
+; optimized code
+; optimized using Synthesized PGO
+; rbp based frame
+; fully interruptible
+; with Synthesized PGO: fgCalledCount is 5.397984e+07
+; 3 inlinees with PGO data; 3 single block inlinees; 1 inlinees without PGO data
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 72
+       lea      rbp, [rsp+0x70]
+       mov      rax, rcx
+       mov      r9, bword ptr [rbp+0x10]
+       mov      ebx, dword ptr [rbp+0x18]
+ 
+G_M000_IG02:                ;; offset=0x001D
+       test     edx, edx
+       je       G_M000_IG12
+ 
+G_M000_IG03:                ;; offset=0x0025
+       mov      ecx, edx
+       sub      ecx, 1
+       cmp      ecx, 55
+       ja       G_M000_IG15
+ 
+G_M000_IG04:                ;; offset=0x0033
+       cmp      ebx, 32
+       jne      G_M000_IG15
+ 
+G_M000_IG05:                ;; offset=0x003C
+       lea      ecx, [4*rdx+0x07]
+       cmp      esi, ecx
+       jl       G_M000_IG15
+ 
+G_M000_IG06:                ;; offset=0x004B
+       mov      ecx, 32
+ 
+G_M000_IG07:                ;; offset=0x0050
+       mov      bword ptr [rbp+0x10], r9
+       mov      dword ptr [rbp+0x18], ecx
+       mov      rcx, rax
+ 
+G_M000_IG08:                ;; offset=0x005A
+       add      rsp, 72
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       tail.jmp [Plank.Reading.Logical.Internal.DeltaBinaryPackedDecoder:DecodeInt32MiniBlockFast(System.ReadOnlySpan`1[byte],int,long,byref,System.Span`1[int])]
+ 
+G_M000_IG09:                ;; offset=0x006E
+       mov      r11, qword ptr [rbp-0x30]
+       mov      rcx, r13
+       and      rcx, r11
+       mov      qword ptr [rbp-0x40], rcx
+       mov      ecx, r10d
+       shr      r13, cl
+       sub      r12d, edx
+       mov      rcx, rax
+       add      rcx, qword ptr [r8]
+       add      rcx, qword ptr [rbp-0x40]
+       mov      qword ptr [r8], rcx
+       mov      ecx, dword ptr [r8]
+       mov      r15, qword ptr [rbp-0x68]
+       mov      dword ptr [r9+4*r15], ecx
+       inc      r15d
+       mov      rcx, r15
+ 
+G_M000_IG10:                ;; offset=0x00A3
+       mov      qword ptr [rbp-0x68], rcx
+       cmp      ecx, ebx
+       jge      G_M000_IG27
+ 
+G_M000_IG11:                ;; offset=0x00AF
+       cmp      r12d, edx
+       jge      SHORT G_M000_IG09
+       jmp      SHORT G_M000_IG16
+ 
+G_M000_IG12:                ;; offset=0x00B6
+       test     ebx, ebx
+       jle      G_M000_IG27
+ 
+G_M000_IG13:                ;; offset=0x00BE
+       xor      ecx, ecx
+ 
+G_M000_IG14:                ;; offset=0x00C0
+       add      qword ptr [r8], rax
+       mov      edx, dword ptr [r8]
+       mov      dword ptr [r9+rcx], edx
+       add      rcx, 4
+       dec      ebx
+       jne      SHORT G_M000_IG14
+       jmp      G_M000_IG27
+ 
+G_M000_IG15:                ;; offset=0x00D7
+       mov      r10d, edx
+       and      r10d, 63
+       mov      r11d, 1
+       mov      ecx, r10d
+       shl      r11, cl
+       dec      r11
+       mov      qword ptr [rbp-0x30], r11
+       lea      r15d, [4*rdx]
+       mov      dword ptr [rbp-0x34], r15d
+       xor      r14d, r14d
+       xor      r13d, r13d
+       xor      r12d, r12d
+       xor      ecx, ecx
+       jmp      SHORT G_M000_IG10
+ 
+G_M000_IG16:                ;; offset=0x010A
+       mov      r15d, r12d
+       neg      r15d
+       add      r15d, 64
+       mov      r11d, r15d
+       sar      r11d, 31
+       and      r11d, 7
+       add      r11d, r15d
+       sar      r11d, 3
+       mov      r15d, dword ptr [rbp-0x34]
+       sub      r15d, r14d
+       cmp      r11d, r15d
+       jle      SHORT G_M000_IG18
+ 
+G_M000_IG17:                ;; offset=0x0132
+       mov      r11d, r15d
+ 
+G_M000_IG18:                ;; offset=0x0135
+       mov      r15d, esi
+       add      r15d, -8
+       cmp      r14d, r15d
+       jg       SHORT G_M000_IG19
+       mov      r15d, r14d
+       mov      qword ptr [rbp-0x60], r15
+       add      r15, 8
+       mov      qword ptr [rbp-0x70], r15
+       mov      r15d, esi
+       cmp      qword ptr [rbp-0x70], r15
+       ja       G_M000_IG25
+       mov      r15, qword ptr [rbp-0x60]
+       add      r15, rdi
+       mov      r15, qword ptr [r15]
+       jmp      SHORT G_M000_IG22
+ 
+G_M000_IG19:                ;; offset=0x0169
+       xor      r15d, r15d
+       mov      qword ptr [rbp-0x50], r15
+       mov      r15d, r14d
+       cmp      r15d, esi
+       jge      SHORT G_M000_IG21
+ 
+G_M000_IG20:                ;; offset=0x0178
+       cmp      r15d, esi
+       jae      G_M000_IG28
+       mov      dword ptr [rbp-0x54], r15d
+       mov      r15d, r15d
+       movzx    r15, byte  ptr [rdi+r15]
+       mov      qword ptr [rbp-0x70], r15
+       mov      r15d, dword ptr [rbp-0x54]
+       sub      r15d, r14d
+       lea      ecx, [8*r15]
+       mov      r15, qword ptr [rbp-0x70]
+       shl      r15, cl
+       or       r15, qword ptr [rbp-0x50]
+       mov      ecx, dword ptr [rbp-0x54]
+       inc      ecx
+       cmp      ecx, esi
+       mov      qword ptr [rbp-0x50], r15
+       jl       SHORT G_M000_IG26
+ 
+G_M000_IG21:                ;; offset=0x01B8
+       mov      r15, qword ptr [rbp-0x50]
+ 
+G_M000_IG22:                ;; offset=0x01BC
+       mov      qword ptr [rbp-0x48], r15
+       mov      rcx, r15
+       cmp      r11d, 8
+       jge      SHORT G_M000_IG24
+ 
+G_M000_IG23:                ;; offset=0x01C9
+       lea      ecx, [8*r11]
+       mov      r15d, 1
+       shl      r15, cl
+       dec      r15
+       mov      rcx, r15
+       and      rcx, qword ptr [rbp-0x48]
+       mov      r15, rcx
+ 
+G_M000_IG24:                ;; offset=0x01E7
+       mov      r15, rcx
+       mov      ecx, r12d
+       shl      r15, cl
+       or       r13, r15
+       add      r14d, r11d
+       lea      r12d, [r12+8*r11]
+       jmp      G_M000_IG09
+ 
+G_M000_IG25:                ;; offset=0x01FF
+       call     [System.ThrowHelper:ThrowArgumentOutOfRangeException()]
+       int3     
+ 
+G_M000_IG26:                ;; offset=0x0206
+       mov      r15d, ecx
+       jmp      G_M000_IG20
+ 
+G_M000_IG27:                ;; offset=0x020E
+       add      rsp, 72
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG28:                ;; offset=0x021D
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 547
+
