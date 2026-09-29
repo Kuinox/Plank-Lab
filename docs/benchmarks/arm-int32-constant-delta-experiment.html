@@ -8,6 +8,6 @@ a{color:#147ca0}table{border-collapse:collapse;width:100%;font-variant-numeric:t
 <p>September 29, 2026 · Neoverse N1 · Plank base <code>60c4749</code> · Plank-Lab <code>067763e</code>.
 The candidate reconstructs zero-bit-width INT32 mini-blocks with 128-bit vectors. The published public API read ran on one CPU with 100 ordered cold-start iterations per source.</p>
 <table><thead><tr><th>Source</th><th>First ten sum (ms)</th><th>Middle sixty sum (ms)</th><th>Late twenty median (ms)</th></tr></thead><tbody><tr><th>Baseline</th><td>3323.1</td><td>4732.8</td><td>70.1</td></tr><tr><th>Candidate</th><td>3260.8</td><td>4858.8</td><td>71.6</td></tr></tbody></table>
-<p><strong>Rejected:</strong> first ten improved 1.9%, while middle throughput regressed 2.7% and late throughput regressed 2.1%. No performance PR was opened for this candidate.</p>
+<p><strong>Inconclusive workload:</strong> the synthetic values advance by 37 modulo 2048. The resulting blocks use 12-bit residuals and do not exercise this candidate's zero-bit-width path. The 1.9% first-use difference and 2–3% middle/late difference cannot establish the effect of the source change. No performance PR was opened for this candidate.</p>
 <p><a href="arm-int32-constant-delta-experiment.json">Ordered samples and exact source metadata (JSON)</a></p>
 </main></body></html>
