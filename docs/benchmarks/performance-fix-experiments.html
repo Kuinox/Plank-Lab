@@ -7,6 +7,7 @@ th{position:sticky;top:0;background:var(--bs-body-bg)}.numeric{white-space:nowra
 @media(prefers-color-scheme:dark){a{color:#64c6e6}}
 </style></head><body><main><p><a href="current-master-rechecks.html">← Current-master rechecks</a></p>
 <h1>Performance fix experiments</h1>
+<p class="intro"><a href="general-int32-width-screens.html">Portable INT32 width screens</a>: ordered public-API results for widths 1, 8, 12, 24, 31, and 32. The two generalized candidates were rejected after sustained regressions.</p>
 <p class="intro"><strong>Width-12 experiment:</strong> <a href="arm-int32-12bit-read.html">ARM INT32 decoder timing</a> improved this specific case, but the PR is being generalized across widths. The page retains the ordered samples and source revisions.</p>
 <p class="intro">Focused Ryzen 7900X source experiments from September 29, 2026, against Plank <code>60c4749</code> and Plank-Lab <code>067763e</code>. All numbers are milliseconds for the Plank public library API, isolated to one CPU. Each run has 100 ordered iterations. Candidate values appear first, followed by two baseline runs. First ten is their sum, middle sixty is the sum of iterations 21–80, and late twenty is the median of iterations 81–100.</p>
 <p class="intro">These are diagnostic screens, not accepted fixes. Every candidate had a middle or late regression, or failed to clear its first-use loss. None was opened as a performance PR. <a href="performance-fix-experiments-v1.json">Download ordered samples and run metadata (JSON)</a>.</p>
