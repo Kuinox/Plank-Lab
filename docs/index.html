@@ -8,7 +8,7 @@
     if (new URLSearchParams(location.search).get("embed") === "docs")
       document.documentElement.dataset.embedded = "true";
   </script>
-  <link rel="stylesheet" href="benchmarks/write-benchmarks-v16.css?v=5">
+  <link rel="stylesheet" href="benchmarks/benchmark-comparison-v17.css?v=1">
 </head>
 <body>
   <main>
@@ -20,11 +20,29 @@
       This full-fleet matrix is from September 21.
       <a href="benchmarks/current-master-rechecks.html" target="_blank" rel="noopener">View the September 29 current-master focused rechecks</a>.
     </aside>
-    <div id="write-benchmarks" class="write-benchmarks" data-machines="benchmarks/machines-v1.json">
-      <p class="benchmark-loading" role="status">Loading benchmark results…</p>
-    </div>
+    <div id="plank-compare-preview">
+
+<main class="pc-main">
+<div class="pc-mode-toolbar">
+<div class="pc-field"><span class="pc-label">Operation</span><div class="pc-segments"><button type="button" class="cursor-interaction" data-binary="operation" data-value="read" aria-pressed="false">Read</button><button type="button" class="cursor-interaction" data-binary="operation" data-value="write" aria-pressed="true">Write</button></div><input type="hidden" data-field="operation" value="write"></div>
+<div class="pc-field"><span class="pc-label">API workload</span><div class="pc-segments"><button type="button" class="cursor-interaction" data-binary="workload" data-value="row" aria-pressed="true">Row-oriented</button><button type="button" class="cursor-interaction" data-binary="workload" data-value="column" aria-pressed="false">Column-oriented</button></div><input type="hidden" data-field="workload" value="row"></div>
+<label class="pc-field pc-dataset"><span>Dataset</span><select data-field="suite"><optgroup label="Real-world"><option value="real-world">NYC yellow taxi · January 2024</option></optgroup><optgroup label="Synthetic"><option value="synthetic">Deterministic generated data</option></optgroup></select></label>
+<label class="pc-field" hidden><span>Data type / case</span><select data-field="type"></select></label>
+<label class="pc-field" hidden><span>Encoding</span><select data-field="encoding"></select></label>
+<input type="hidden" data-field="parallel" value="single">
+</div>
+<fieldset class="pc-cpus"><legend>CPUs</legend><div class="pc-cpu-options" data-machine-menu></div></fieldset><div class="pc-libraries" aria-label="Libraries and execution modes">
+<fieldset><legend><span class="pc-dot" style="--pc-color:var(--pc-green)"></span> Plank</legend><label class="pc-lib"><input type="checkbox" value="plank-single" checked><span class="pc-dot" style="--pc-color:var(--pc-green)"></span> Single threaded</label><label class="pc-lib"><input type="checkbox" value="plank-multi"><span class="pc-dot" style="--pc-color:var(--pc-green-multi)"></span> Multi threaded</label></fieldset>
+<fieldset><legend><span class="pc-dot" style="--pc-color:var(--pc-blue)"></span> ParquetSharp</legend><label class="pc-lib"><input type="checkbox" value="parquetsharp-single" checked><span class="pc-dot" style="--pc-color:var(--pc-blue)"></span> Single threaded</label><label class="pc-lib"><input type="checkbox" value="parquetsharp-multi"><span class="pc-dot" style="--pc-color:var(--pc-blue-multi)"></span> Multi threaded</label></fieldset>
+<fieldset><legend><span class="pc-dot" style="--pc-color:var(--pc-gray)"></span> Parquet.Net</legend><label class="pc-lib"><input type="checkbox" value="parquetnet-single" checked><span class="pc-dot" style="--pc-color:var(--pc-gray)"></span> Single threaded</label><span class="pc-unavailable">Multi threaded · unavailable</span></fieldset></div>
+<section class="pc-matrix" aria-label="Scenario picker"><div class="pc-matrix-head"><h2 data-matrix-title>Scenarios</h2><p class="pc-note">Plank vs fastest alternative · + faster / − slower</p></div><div class="pc-matrix-scroll" data-matrix></div></section>
+<div class="pc-chart-head"><h2 data-title>Complete taxi file · Plain</h2><label class="pc-lib pc-log"><input type="checkbox" data-log> Log scale</label><div class="pc-segments" role="group" aria-label="Graph view"><button type="button" class="cursor-interaction" data-view="bars" aria-pressed="false">Bar summary</button><button type="button" class="cursor-interaction" data-view="iterations" aria-pressed="true">Per-iteration</button></div></div>
+<p class="pc-note" data-case-meta></p><div data-chart role="img" aria-label="Per-iteration latency comparison"></div><div data-legend class="pc-legend"></div><div data-hover class="pc-hover" hidden></div><div data-missing aria-live="polite"></div>
+<div class="pc-source">Published September 21 fleet snapshot · 100 ordered iterations per series · <a href="https://kuinox.github.io/Plank-Lab/" target="_blank" rel="noopener">Source data and methodology</a><details><summary class="cursor-interaction">Snapshot and library versions</summary><div data-provenance></div></details></div>
+</main></div>
   </main>
-  <script src="benchmarks/write-benchmarks-v16.js?v=3" defer></script>
+  <script src="benchmarks/d3-7.9.0.min.js" defer></script>
+  <script src="benchmarks/benchmark-comparison-v17.js?v=1" defer></script>
   <script>
     if (document.documentElement.dataset.embedded === "true") {
       const root = document.documentElement;

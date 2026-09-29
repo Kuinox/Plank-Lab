@@ -102,3 +102,14 @@ test("matrix displays Plank's value for wins, losses, and unavailable results", 
   assert.match(dom, /<span[^>]*class="benchmark-matrix-result"[^>]*>Unavailable<\/span>/);
   assert.match(dom, /title="Plank used 100% more time than Competitor"/);
 });
+
+test("comparison picker uses published samples and updates CPU selections", async t => {
+  const browser = findBrowser();
+  if (!browser) { t.skip("Chromium is not installed"); return; }
+  const server = serveDocs();
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { stdout } = await runFile(browser, ["--headless=new", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage", "--virtual-time-budget=10000", "--dump-dom", `http://127.0.0.1:${server.address().port}/benchmarks/tests/comparison-fixture.html`], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024, timeout: 20000 });
+  assert.match(stdout, /<p id="result">passed<\/p>/);
+});
