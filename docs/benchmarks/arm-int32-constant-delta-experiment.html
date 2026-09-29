@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARM INT32 decoder experiment · Plank Lab</title><link rel="stylesheet" href="write-benchmarks-v16.css?v=3"><style>
+main{max-width:900px;margin:0 auto;padding:1.5rem;color:var(--bs-body-color);font-family:var(--docs-font-family);line-height:1.45}
+a{color:#147ca0}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:.6rem;border-bottom:1px solid var(--bs-border-color);text-align:left}
+@media(prefers-color-scheme:dark){a{color:#64c6e6}}</style></head><body><main>
+<p><a href="performance-fix-experiments.html">← Performance fix experiments</a></p>
+<h1>ARM INT32 constant-delta decoder experiment</h1>
+<p>September 29, 2026 · Neoverse N1 · Plank base <code>60c4749</code> · Plank-Lab <code>067763e</code>.
+The candidate reconstructs zero-bit-width INT32 mini-blocks with 128-bit vectors. The published public API read ran on one CPU with 100 ordered cold-start iterations per source.</p>
+<table><thead><tr><th>Source</th><th>First ten sum (ms)</th><th>Middle sixty sum (ms)</th><th>Late twenty median (ms)</th></tr></thead><tbody><tr><th>Baseline</th><td>3323.1</td><td>4732.8</td><td>70.1</td></tr><tr><th>Candidate</th><td>3260.8</td><td>4858.8</td><td>71.6</td></tr></tbody></table>
+<p><strong>Rejected:</strong> first ten improved 1.9%, while middle throughput regressed 2.7% and late throughput regressed 2.1%. No performance PR was opened for this candidate.</p>
+<p><a href="arm-int32-constant-delta-experiment.json">Ordered samples and exact source metadata (JSON)</a></p>
+</main></body></html>
