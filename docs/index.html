@@ -8,7 +8,7 @@
     if (new URLSearchParams(location.search).get("embed") === "docs")
       document.documentElement.dataset.embedded = "true";
   </script>
-  <link rel="stylesheet" href="benchmarks/write-benchmarks-v16.css?v=4">
+  <link rel="stylesheet" href="benchmarks/write-benchmarks-v16.css?v=5">
 </head>
 <body>
   <main>
@@ -28,10 +28,12 @@
   <script>
     if (document.documentElement.dataset.embedded === "true") {
       const root = document.documentElement;
+      let parentOrigin;
 
       window.addEventListener("message", event => {
         if (event.source !== parent || event.data?.type !== "plank-benchmarks-theme") return;
 
+        parentOrigin = event.origin;
         root.dataset.bsTheme = event.data.theme === "dark" ? "dark" : "light";
         const styles = event.data.styles ?? {};
         const variables = {
@@ -46,16 +48,20 @@
 
         for (const [name, value] of Object.entries(variables))
           if (value) root.style.setProperty(name, value);
+        reportHeight();
       });
 
-      const reportHeight = () => parent.postMessage({
-        type: "plank-benchmarks-resize",
-        height: document.documentElement.scrollHeight
-      }, location.origin);
+      const reportHeight = () => {
+        if (!parentOrigin) return;
+        parent.postMessage({
+          type: "plank-benchmarks-resize",
+          height: Math.ceil(document.body.getBoundingClientRect().height)
+        }, parentOrigin);
+      };
 
       new ResizeObserver(reportHeight).observe(document.body);
       window.addEventListener("load", reportHeight);
-      parent.postMessage({ type: "plank-benchmarks-ready" }, location.origin);
+      parent.postMessage({ type: "plank-benchmarks-ready" }, "*");
     }
   </script>
 </body>

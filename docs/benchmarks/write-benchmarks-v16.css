@@ -661,3 +661,22 @@ main {
   padding: .45rem .75rem;
 }
 .benchmark-workload-select option { color: #171717; background: #fff; }
+
+/* Give CPU names enough room on phones instead of squeezing equal-width tabs. */
+@media (max-width: 700px) {
+  .benchmark-machine-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .benchmark-machine-tab {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 374.98px) {
+  .benchmark-machine-tabs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
