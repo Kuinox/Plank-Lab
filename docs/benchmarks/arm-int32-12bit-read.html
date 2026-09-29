@@ -4,12 +4,12 @@ main{max-width:1000px;margin:0 auto;padding:1.5rem;color:var(--bs-body-color);fo
 a{color:#147ca0}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:.6rem;border-bottom:1px solid var(--bs-border-color);text-align:left}
 @media(prefers-color-scheme:dark){a{color:#64c6e6}}</style></head><body><main>
 <p><a href="performance-fix-experiments.html">← Performance fix experiments</a></p>
-<h1>ARM INT32 12-bit decoder fix</h1>
+<h1>ARM INT32 12-bit decoder experiment</h1>
 <p>September 29, 2026 · Neoverse N1 · Plank base <code>60c4749</code> · patch <code>06e0f6a</code> · Plank-Lab <code>067763e</code>.
-The patch decodes four 12-bit residuals from each six-byte packed group on the portable INT32 delta path.
+This experimental patch decodes four 12-bit residuals from each six-byte packed group on the portable INT32 delta path.
 This is the path used by the synthetic benchmark's values, which advance by 37 modulo 2048.</p>
 <p>The published Plank column read used 1,000,000 rows, one pinned CPU, 100 ordered ColdStart iterations per run, and no warmups. Runs were serial A/B/B/A.</p>
 <table><thead><tr><th>Run</th><th>First ten sum (ms)</th><th>Middle sixty sum (ms)</th><th>Late twenty median (ms)</th><th>All 100 sum (ms)</th></tr></thead><tbody><tr><th>Base A1</th><td>3256.3</td><td>4731.0</td><td>69.4</td><td>10094.2</td></tr><tr><th>Patch B1</th><td>2041.3</td><td>4436.8</td><td>65.8</td><td>8657.2</td></tr><tr><th>Patch B2</th><td>1976.3</td><td>4481.4</td><td>65.2</td><td>8568.8</td></tr><tr><th>Base A2</th><td>3203.4</td><td>4716.8</td><td>69.3</td><td>10066.6</td></tr></tbody></table>
-<p>Both patch runs improved first use, middle throughput, and late throughput against both bracketing baselines. On the closer baseline, first ten improved 37%, middle sixty 5–6%, and late median 5–6%. The patch passed 1,095 tests with AVX2 disabled and 1,095 tests with default x64 settings. <a href="https://github.com/Kuinox/Plank/pull/152">Review performance fix PR #152</a>.</p>
+<p><strong>Scope limitation:</strong> this code handled only width 12. PR #152 is now a draft while the decoder is generalized across widths. These measurements remain a record of this exact experiment.</p><p>Both patch runs improved first use, middle throughput, and late throughput against both bracketing baselines. On the closer baseline, first ten improved 37%, middle sixty 5–6%, and late median 5–6%. The patch passed 1,095 tests with AVX2 disabled and 1,095 tests with default x64 settings. <a href="https://github.com/Kuinox/Plank/pull/152">Review performance fix PR #152</a>.</p>
 <p><a href="arm-int32-12bit-read-v1.json">Download all 400 ordered samples and source metadata (JSON)</a></p>
 </main></body></html>
