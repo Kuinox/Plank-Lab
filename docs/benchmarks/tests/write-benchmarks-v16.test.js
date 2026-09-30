@@ -40,7 +40,9 @@ function serveDocs() {
         ? "application/json"
         : requestedPath.endsWith(".js")
           ? "text/javascript"
-          : "text/html";
+          : requestedPath.endsWith(".css")
+            ? "text/css"
+            : "text/html";
       response.writeHead(200, { "connection": "close", "content-type": contentType });
       response.end(body);
     } catch {

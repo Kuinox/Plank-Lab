@@ -109,3 +109,4 @@ body{color:light-dark(#13201c,#eef4ef);font-family:var(--docs-font-family,system
   #plank-compare-preview .pc-unavailable{padding:0;justify-content:center}
   #plank-compare-preview .pc-cpu-options .pc-lib{font-size:11px;gap:5px}
 }
+@media(max-width:600px){#plank-compare-preview .pc-log{min-height:44px}}
