@@ -74,3 +74,38 @@ body{margin:0;background:light-dark(#fff,#0f1512);color-scheme:light dark}html[d
 #plank-compare-preview .pc-hover table{table-layout:fixed}#plank-compare-preview .pc-hover th,#plank-compare-preview .pc-hover td{overflow-wrap:anywhere}
 body{color:light-dark(#13201c,#eef4ef);font-family:var(--docs-font-family,system-ui)}
 #plank-compare-preview .pc-hover{width:520px;max-width:calc(100% - 16px)}
+/* Keep the full scenario summary visible without turning it into a tall card list. */
+@media(max-width:600px){
+  #plank-compare-preview .pc-mode-toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:10px;margin-bottom:12px}
+  #plank-compare-preview .pc-mode-toolbar>.pc-dataset{grid-column:1/-1}
+  #plank-compare-preview .pc-field{gap:4px}
+  #plank-compare-preview .pc-segments button{min-height:44px;padding:6px 4px}
+  #plank-compare-preview .pc-cpus{width:100%;padding:0 8px 4px;margin-bottom:10px}
+  #plank-compare-preview .pc-cpu-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 8px}
+  #plank-compare-preview .pc-cpu-options .pc-lib{min-height:44px;margin:0;overflow-wrap:anywhere}
+  #plank-compare-preview .pc-libraries{gap:8px;margin-bottom:16px}
+  #plank-compare-preview .pc-libraries fieldset{width:100%;padding:0 8px 2px;gap:4px 12px}
+  #plank-compare-preview .pc-libraries .pc-lib,#plank-compare-preview .pc-unavailable{min-height:44px;align-items:center;display:flex}
+  #plank-compare-preview .pc-libraries .pc-lib{flex:1}
+  #plank-compare-preview .pc-unavailable{flex:1}
+  #plank-compare-preview .pc-matrix{margin-bottom:16px}
+  #plank-compare-preview .pc-matrix-head{margin-bottom:6px;gap:4px}
+  #plank-compare-preview .pc-matrix tbody tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:6px 0}
+  #plank-compare-preview .pc-matrix tbody th:first-child{grid-column:1/-1;padding:0;font-weight:500}
+  #plank-compare-preview .pc-matrix tbody td{min-width:0}
+  #plank-compare-preview .pc-scenario-cell{width:100%;min-height:44px;padding:3px 2px;gap:0;white-space:nowrap;letter-spacing:-.01em}
+  #plank-compare-preview .pc-scenario-cell::after{content:attr(data-short-encoding);font-size:11px}
+  #plank-compare-preview .pc-chart-head{padding-top:14px}
+  #plank-compare-preview .pc-chart-head .pc-segments button{padding:6px 8px}
+}
+#plank-compare-preview .pc-compact-label{display:none}
+@media(max-width:600px){#plank-compare-preview .pc-wide-label{display:none}#plank-compare-preview .pc-compact-label{display:inline}}
+@media(min-width:361px) and (max-width:600px){#plank-compare-preview .pc-cpu-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:0 6px}}
+@media(max-width:600px){
+  #plank-compare-preview .pc-libraries{display:block}
+  #plank-compare-preview .pc-libraries fieldset{display:grid;grid-template-columns:90px minmax(0,1fr) minmax(0,1fr);gap:0 8px;border:0;border-bottom:1px solid var(--pc-line);border-radius:0;padding:0}
+  #plank-compare-preview .pc-libraries legend{float:left;display:flex;gap:5px;align-items:center;padding:0;min-height:44px}
+  #plank-compare-preview .pc-libraries .pc-lib{margin:0;gap:5px}
+  #plank-compare-preview .pc-unavailable{padding:0;justify-content:center}
+  #plank-compare-preview .pc-cpu-options .pc-lib{font-size:11px;gap:5px}
+}
