@@ -10,9 +10,9 @@
         "logicalProcessors": 22,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-21T08:19:04.843522Z",
+      "generatedAt": "2026-09-29T23:17:12.113656Z",
       "write": "write-ryzen-9-7900x-v1.json",
       "read": "read-ryzen-9-7900x-v1.json"
     },
@@ -24,9 +24,9 @@
         "logicalProcessors": 6,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-21T02:43:57.272939Z",
+      "generatedAt": "2026-09-30T00:03:02.154042Z",
       "write": "write-xeon-e3-1230-v6-v1.json",
       "read": "read-xeon-e3-1230-v6-v1.json"
     },
@@ -38,9 +38,9 @@
         "logicalProcessors": 14,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-21T00:33:50.469035Z",
+      "generatedAt": "2026-09-29T23:46:26.553042Z",
       "write": "write-xeon-e-2288g-v1.json",
       "read": "read-xeon-e-2288g-v1.json"
     },
@@ -52,9 +52,9 @@
         "logicalProcessors": 7,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-20T21:31:23.226823Z",
+      "generatedAt": "2026-09-29T23:13:00.108654Z",
       "write": "write-scaleway-epyc-9555p-compute3-v1.json",
       "read": "read-scaleway-epyc-9555p-compute3-v1.json"
     },
@@ -66,9 +66,9 @@
         "logicalProcessors": 7,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-21T03:44:38.654315Z",
+      "generatedAt": "2026-09-30T00:06:08.309007Z",
       "write": "write-scaleway-gp1-s-v1.json",
       "read": "read-scaleway-gp1-s-v1.json"
     },
@@ -80,9 +80,9 @@
         "logicalProcessors": 7,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-21T11:45:11.375822Z",
+      "generatedAt": "2026-09-30T00:51:05.001745Z",
       "write": "write-scaleway-basic2-a8c-v1.json",
       "read": "read-scaleway-basic2-a8c-v1.json"
     },
@@ -91,12 +91,12 @@
       "label": "Apple M2 Pro (10-core)",
       "environment": {
         "cpu": "Blizzard-M2-Pro",
-        "logicalProcessors": 6,
+        "logicalProcessors": 3,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
       },
-      "generatedAt": "2026-09-20T23:34:42.003904Z",
+      "generatedAt": "2026-09-30T00:53:06.182007Z",
       "write": "write-scaleway-apple-m2-pro-v1.json",
       "read": "read-scaleway-apple-m2-pro-v1.json"
     }
