@@ -91,12 +91,12 @@
       "label": "Apple M2 Pro (10-core)",
       "environment": {
         "cpu": "Blizzard-M2-Pro",
-        "logicalProcessors": 3,
+        "logicalProcessors": 6,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7"
+        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
       },
-      "generatedAt": "2026-09-30T00:53:06.182007Z",
+      "generatedAt": "2026-09-20T23:34:42.003904Z",
       "write": "write-scaleway-apple-m2-pro-v1.json",
       "read": "read-scaleway-apple-m2-pro-v1.json"
     }
