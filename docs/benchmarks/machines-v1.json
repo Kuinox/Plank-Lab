@@ -94,9 +94,20 @@
         "logicalProcessors": 6,
         "operatingSystem": "Linux",
         "dotNetVersion": ".NET 10.0.10",
-        "commit": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        "commit": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7",
+        "libraries": {
+          "Plank": "local source",
+          "ParquetSharp": "24.0.0",
+          "Parquet.Net": "6.0.3",
+          "BenchmarkDotNet": "0.15.8"
+        },
+        "comparisonSources": {
+          "Plank": "a6db9461aa813c9a5c2616b12b71ee9ee39b1889; Plank 8fb3348b9a1cfae094844a5d9fec6da89867e1e7",
+          "competitors": "f4559d794aa05618ee3c4f690260638ee9d8233b; Plank f43c30482d626dd821cd3c0134c6da794901ec09"
+        },
+        "competitorResultsNote": "Competitor measurements retained from the prior published fleet snapshot; only Plank was rerun."
       },
-      "generatedAt": "2026-09-20T23:34:42.003904Z",
+      "generatedAt": "2026-09-30T10:27:33.718964Z",
       "write": "write-scaleway-apple-m2-pro-v1.json",
       "read": "read-scaleway-apple-m2-pro-v1.json"
     }
