@@ -72,8 +72,16 @@ static class Program
                 continue;
             }
 
-            if (!Replay(target, data))
-                faulted++;
+            try
+            {
+                if (!Replay(target, data))
+                    faulted++;
+            }
+            catch (ReaderAcceptanceMismatchException mismatch)
+            {
+                Console.Error.WriteLine($"reader acceptance mismatch in {files[i]}: {mismatch.InnerException}");
+                return 1;
+            }
 
             if ((i + 1) % 2000 == 0)
                 Console.WriteLine($"  {i + 1}/{files.Count} ({stopwatch.Elapsed.TotalSeconds:F0}s)");
@@ -107,6 +115,10 @@ static class Program
             return true;
         }
         catch (ArgumentException)
+        {
+            throw;
+        }
+        catch (ReaderAcceptanceMismatchException)
         {
             throw;
         }
