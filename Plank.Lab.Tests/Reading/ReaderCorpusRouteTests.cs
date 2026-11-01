@@ -34,4 +34,25 @@ internal sealed class ReaderCorpusRouteTests
                 Directory.Delete(directory, recursive: true);
         }
     }
+
+    [Test]
+    public void CorruptedOpeningMagicIsNotCompared()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"plank-reader-magic-{Guid.NewGuid():N}");
+        try
+        {
+            CorpusGenerator.Generate(directory);
+            var input = File.ReadAllBytes(Path.Combine(directory, "gen-i32-dict-none-v1.bin"));
+            input[3] ^= 0x10; // PAR1 -> PAB1, after the fuzzer's selector byte.
+
+            // Plank may accept this or reject it directly. A differing policy
+            // about the opening marker must not become an oracle finding.
+            PlankReaderFuzzTarget.Execute(input);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
 }

@@ -96,12 +96,47 @@ public static class PlankReaderFuzzTarget
             ? OpenWithFileSchema(source, options)
             : Schemas[(selector >> 1) % Schemas.Length].CreateReader(source, options);
 
+        // Parquet.Net's generic reader is a useful second opinion for simple
+        // flat columns, but its handling of newer encodings and nested shapes
+        // differs. Do not treat unsupported features as file rejections.
+        var canCompareWithParquetNet = (selector & 1) == 0
+            && reader.Schema.LeafColumns.Length > 0
+            && reader.Schema.LeafColumns.All(static column =>
+                column.MaxDefinitionLevel == 0 && column.MaxRepetitionLevel == 0
+                && column.LogicalType is null
+                && column.PhysicalType is ParquetPhysicalType.Boolean or ParquetPhysicalType.Int32
+                    or ParquetPhysicalType.Int64 or ParquetPhysicalType.Float or ParquetPhysicalType.Double);
+
         foreach (var group in reader.RowGroups)
+        {
+            if (group.RowCount > 4096)
+                canCompareWithParquetNet = false;
             foreach (var column in reader.Schema.LeafColumns)
             {
                 DrainMetadata(group, column);
+                if (canCompareWithParquetNet)
+                    foreach (var encoding in group.GetColumnMetadata(column).Encodings)
+                        if (encoding is not (EncodingKind.Plain or EncodingKind.Rle
+                            or EncodingKind.PlainDictionary or EncodingKind.RleDictionary))
+                            canCompareWithParquetNet = false;
                 DrainColumn(group, column);
             }
+        }
+
+        // Only the file-schema route has read every column in the file. A
+        // projection can succeed while the columns it omitted are corrupt.
+        // The row API and decompressor routes return above this point.
+        if ((selector & 1) == 0 && ReaderAcceptanceOracle.HasParquetHeader(fileBytes))
+        {
+            ReaderAcceptanceOracle.VerifyWithParquetSharp(fileBytes);
+            if (canCompareWithParquetNet)
+            {
+                var types = new ParquetPhysicalType[reader.Schema.LeafColumns.Length];
+                for (var i = 0; i < types.Length; i++)
+                    types[i] = reader.Schema.LeafColumns[i].PhysicalType;
+                ReaderAcceptanceOracle.VerifyWithParquetNet(fileBytes, types);
+            }
+        }
     }
 
     // Draining values only ever exercised the value decoders. Everything a
