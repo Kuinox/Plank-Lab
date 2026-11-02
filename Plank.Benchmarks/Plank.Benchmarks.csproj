@@ -1,8 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PlankRoot Condition="'$(PlankRoot)' == ''">$(MSBuildThisFileDirectory)..\library\Plank</PlankRoot>
+  </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\library\Plank\Plank\Plank.csproj" />
-    <ProjectReference Include="..\library\Plank\Plank.SourceGen\Plank.SourceGen.csproj"
+    <ProjectReference Include="$(PlankRoot)\Plank\Plank.csproj" />
+    <ProjectReference Include="$(PlankRoot)\Plank.SourceGen\Plank.SourceGen.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
@@ -24,7 +27,7 @@
        their reusable cursor API, without reflection in the measured loop.
        Override PlankUseRowCursor=false to measure the compatibility API. -->
   <PropertyGroup>
-    <PlankUseRowCursor Condition="'$(PlankUseRowCursor)' == '' and Exists('..\library\Plank\Plank.SourceGen\RowCursorEmitter.cs')">true</PlankUseRowCursor>
+    <PlankUseRowCursor Condition="'$(PlankUseRowCursor)' == '' and Exists('$(PlankRoot)\Plank.SourceGen\RowCursorEmitter.cs')">true</PlankUseRowCursor>
     <DefineConstants Condition="'$(PlankUseRowCursor)' == 'true'">$(DefineConstants);PLANK_ROW_CURSOR</DefineConstants>
   </PropertyGroup>
 

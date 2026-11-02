@@ -24,6 +24,74 @@ dotnet run -c Release --project Plank.Benchmarks -- --encoding-regression-compar
 The encoded-byte comparison is the exact signal; timings are a coarse regression net. Override the
 defaults with `--rows`, `--warmups`, `--iterations`, or `--output`.
 
+## Metadata regression suite
+
+The metadata suite uses only Plank public APIs and loads fixture bytes into memory before timing.
+Build it against the **reader revision under test**, but generate the files only once with a fixed
+Plank writer revision and reuse the same directory for every reader. Never regenerate the fixtures
+between revisions. `--generate-fixtures` refuses a nonempty directory. For example, from the repo root:
+
+```bash
+# PLANK_ROOT is an absolute path to a detached checkout of the desired Plank revision.
+dotnet build -c Release Plank.Benchmarks -p:PlankRoot="$PLANK_ROOT"
+dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll \
+  --metadata-regression --generate-fixtures --fixtures artifacts/metadata-fixtures
+# Optional, small real-world examples; first initialise the parquet-testing submodule.
+cp library/Plank/third_party/parquet-testing/data/{alltypes_plain.parquet,nested_lists.snappy.parquet,nested_maps.snappy.parquet} artifacts/metadata-fixtures/
+# Calibrate once on the baseline build, then use this exact file for all comparisons.
+DOTNET_TieredCompilation=0 DOTNET_gcConcurrent=0 taskset -c 20 \
+  dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll --metadata-regression \
+  --calibrate --fixtures artifacts/metadata-fixtures --output artifacts/metadata-calibration.json
+DOTNET_TieredCompilation=0 DOTNET_gcConcurrent=0 taskset -c 20 \
+  dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll \
+  --metadata-regression --fixtures artifacts/metadata-fixtures --label baseline --revision "$PLANK_SHA" \
+  --calibration artifacts/metadata-calibration.json
+dotnet Plank.Benchmarks/bin/Release/net10.0/Plank.Benchmarks.dll \
+  --metadata-regression-compare artifacts/benchmarks/metadata-regression-baseline.json \
+  artifacts/benchmarks/metadata-regression-current.json \
+  --noise-baseline artifacts/metadata-results/noise-a.json --noise-current artifacts/metadata-results/noise-b.json
+```
+
+Choose an allowed, otherwise idle core (including its SMT sibling); `20` is just an example.
+`--quick` selects smaller generated fixtures and three samples/one warmup for harness validation;
+it is not a performance result. `--iterations`, `--warmups`, `--output`, `--fixtures` and
+`--revision` override defaults. Each case is calibrated by doubling its operation count until the
+fastest of three batches takes at least 1 ms (up to 65,536 operations); operations already taking
+1 ms or longer remain single-invocation. Use `--calibrate --output FILE` once, then pass
+`--calibration FILE` to every run; otherwise each run calibrates independently and the comparer
+rejects incompatible operation counts. Calibration is tied to fixture hashes. Reports contain
+per-operation time, exact batch allocated-byte totals and operation counts, and Linux one-minute
+load. The runner pauses on load over 10; it does not require privileged isolation. The optional
+`scripts/run_metadata_matrix.py --core 20 --calibration artifacts/metadata-calibration.json` runs
+A/B/A/B processes and preserves raw rounds. It determines each PR's merge-base with master and
+expects separate `artifacts/metadata-worktrees/{master,prN,base-SHA}` checkouts and matching
+`artifacts/metadata-builds/{master,prN,base-SHA}` binaries (master itself is used when it is the
+merge-base). Build each with a fresh restore/rebuild and a separate `-o` directory, initialise
+required submodules, and use one shared fixture directory.
+
+Cases include 1,200 columns × 3 row groups, 1,200 row groups × 3 columns, nested lists and maps
+with a date logical type and key-value metadata, and V1/V2 chunks with small pages, statistics,
+indexes and bloom filters. Optional parquet-testing files add independently produced nested and
+flat schemas. An untimed SHA-256 of a canonical public-metadata dump and the fixture byte SHA-256
+are recorded for every case/operation. This is a regression signal, not proof that every private
+field was decoded identically. A missing case, changed fixture or changed digest is reported.
+
+Operations separately cover physical footer reset, logical reader reset (which also decodes the
+footer; public API does not expose binding alone), pre-opened logical metadata walking, first-chunk
+physical page cursor scanning, first-chunk logical `OpenPages()` where both indexes exist,
+bloom-filter opening when present, and out-of-place merging to an in-memory destination. The public
+physical cursor also loads and may decompress page payloads; it is not a header-only API. Page
+header statistic bytes are not public; logical chunk and page-index statistic bytes are included in
+the digest. Merge includes copying/rebuilding the file, not a metadata-only public operation.
+Open/index/bloom/merge allocations include their setup and disposal. Digests are computed outside
+timing. Allocation batch totals are exact for the measuring thread, not process-wide totals; the
+comparer divides them by the operation count using exact fractions (a batch average, not an
+individual-operation measurement). All raw samples are retained. Time is normalized per operation
+and reported as min/median/p90, with the p10–p90 spread. A timing
+verdict requires both master/master snapshots and a delta exceeding the larger of their measured
+median shift, their p10–p90 spreads, and the compared runs' spreads. Without noise snapshots time is
+unclassified; small samples, JIT, GC, CPU frequency and contention can still dominate results.
+
 ## Published direct benchmarks
 
 The homepage results come from the BenchmarkDotNet cases in `Published/Cases`. Every data type and

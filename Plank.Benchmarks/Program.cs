@@ -2,12 +2,19 @@ using BenchmarkDotNet.Running;
 using Plank.Benchmarks;
 using Plank.Benchmarks.EncodingRegression;
 using Plank.Benchmarks.Published;
+using Plank.Benchmarks.MetadataRegression;
 
 if (args is ["--prepare-published-fixture", var stem, var read, .. var writers])
 {
     await BenchmarkFixtures.Prepare(stem, bool.Parse(read), writers);
     return 0;
 }
+
+if (args is ["--metadata-regression", ..])
+    return MetadataRegressionCommand.Run(args[1..]);
+
+if (args is ["--metadata-regression-compare", ..])
+    return MetadataRegressionCommand.Compare(args[1..]);
 
 if (args is ["--encoding-regression", ..])
 {
