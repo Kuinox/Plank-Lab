@@ -249,10 +249,12 @@ public static class PlankReaderFuzzTarget
         // The row reader has its own page cursor and so its own CRC call sites,
         // separate from the columnar reader's.
         //
-        // Bit 2 runs the reader's worker pool (read-ahead is capped at one row
-        // group by design). WorkerCount defaults to Environment.ProcessorCount,
-        // which honours CPU affinity, so a worker pinned to one core never
-        // started a worker (RowReaderWorkers and StartReadAhead measured 0%).
+        // The worker pool stays off (WorkerCount 1). Its default,
+        // Environment.ProcessorCount, honours CPU affinity, so it is already off
+        // on a pinned worker; turning it on made several threads run
+        // instrumented code at once, and SharpFuzz's previous-location state is
+        // shared, so the edge map scrambled and AFL's stability fell from 92% to
+        // 55%. Thread interleavings are not something this fuzzer explores well.
         //
         // Bit 3 resets the reader onto the same file and reads it again, as a
         // caller reusing one reader would; the second pass must return exactly
@@ -260,7 +262,7 @@ public static class PlankReaderFuzzTarget
         var rowOptions = new RowReaderOptions
         {
             VerifyPageCrc = verifyPageCrc,
-            Execution = new ParquetExecutionOptions { WorkerCount = (selector & 4) != 0 ? 3 : 1 }
+            Execution = new ParquetExecutionOptions { WorkerCount = 1 }
         };
         var compareAfterReset = (selector & 8) != 0;
         using var rows = new RowReaderCore(source, schema, descriptors, projection: null,
