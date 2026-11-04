@@ -28,8 +28,11 @@
   <Target Name="SharpFuzzInstrument" AfterTargets="Build">
     <Exec Command="sharpfuzz &quot;$(OutDir)Plank.dll&quot;" />
     <Exec Command="sharpfuzz &quot;$(OutDir)Plank.Fuzzing.dll&quot;" />
-    <!-- Coverage of the reference reader too: inputs that reach new Parquet.Net paths are kept even when Plank sees nothing new. -->
-    <Exec Command="sharpfuzz &quot;$(OutDir)Parquet.dll&quot;" />
+    <!-- Parquet.dll is deliberately not instrumented. Its paths mostly led to
+         Parquet.Net's own bugs, and a Parquet.Net comparison that overruns its
+         time budget keeps running on a background thread: instrumented, it
+         wrote into the coverage map during later inputs and stability fell
+         from 93% to 55%. -->
   </Target>
 
 </Project>
