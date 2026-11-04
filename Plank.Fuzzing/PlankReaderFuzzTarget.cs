@@ -677,9 +677,10 @@ public static class PlankReaderFuzzTarget
     static void RequireSameReads(string what,
         string firstName, (object?[]? Values, Exception? Error) first,
         string secondName, (object?[]? Values, Exception? Error) second,
-        bool skipNullsOfFirst = false)
+        bool skipNullsOfFirst = false, bool secondMayRejectMore = false)
     {
-        if ((first.Error is CorruptParquetException) != (second.Error is CorruptParquetException))
+        if ((first.Error is CorruptParquetException) != (second.Error is CorruptParquetException)
+            && !(secondMayRejectMore && second.Error is CorruptParquetException))
             throw new ReaderAcceptanceMismatchException(
                 $"Plank read paths disagree on corruption for {what}: " +
                 $"{firstName} {Describe(first.Error)}, {secondName} {Describe(second.Error)}.",
@@ -730,7 +731,11 @@ public static class PlankReaderFuzzTarget
                 RequireSameReads($"column '{column.Path}'",
                     "plain scan", TryReadPath(() => ReadPhysical(plain.RowGroups[groupIndex], column)),
                     "pruned scan", TryReadPath(() =>
-                        ReadPhysical(pruned.RowGroups[groupIndex], pruned.Schema.LeafColumns[columnIndex])));
+                        ReadPhysical(pruned.RowGroups[groupIndex], pruned.Schema.LeafColumns[columnIndex])),
+                    // The pruned scan reads the offset index and the plain scan
+                    // does not, so an inconsistent index is the pruned scan's to
+                    // reject. Returning different data silently is still a bug.
+                    secondMayRejectMore: true);
                 _ = TryReadPath(() => ReadPhysical(sparse.RowGroups[groupIndex], sparse.Schema.LeafColumns[columnIndex]));
             }
         }
