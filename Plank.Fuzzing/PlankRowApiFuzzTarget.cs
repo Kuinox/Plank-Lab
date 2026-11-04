@@ -154,7 +154,7 @@ public static class PlankRowApiFuzzTarget
             var row = reader.Current;
             var want = expected[index];
             Check(row.Id == want.Id, "Id", index);
-            Check(row.Payload.SequenceEqual(want.Payload), "Payload", index);
+            Check(row.Payload.Value.SequenceEqual(want.Payload), "Payload", index);
             Check(string.Equals(row.Label, want.Label, StringComparison.Ordinal), "Label", index);
             index++;
         }

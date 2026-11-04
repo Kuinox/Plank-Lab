@@ -19,6 +19,20 @@ static class Program
             return;
         }
 
+        if (args is ["--replay", var replayDirectory])
+        {
+            AflPersistentHarness.PinDummyCoverageBuffer();
+            foreach (var path in Directory.GetFiles(replayDirectory).Order())
+            {
+                try { PlankReaderFuzzTarget.Execute(File.ReadAllBytes(path)); }
+                catch (Exception error)
+                {
+                    throw new InvalidOperationException($"Replay failed for {path}.", error);
+                }
+            }
+            return;
+        }
+
         if (Environment.GetEnvironmentVariable("FUZZ_OOP") == "1")
         {
             Fuzzer.OutOfProcess.Run(stream =>
@@ -39,7 +53,11 @@ static class Program
         }
         else
         {
-            AflPersistentHarness.Run("reader", data => PlankReaderFuzzTarget.Execute(data));
+            AflPersistentHarness.Run("reader", data =>
+            {
+                try { PlankReaderFuzzTarget.Execute(data); }
+                catch (Exception error) when (error is not OutOfMemoryException && DisagreementLog.TryRecord(error, data)) { }
+            });
         }
     }
 }

@@ -39,8 +39,10 @@ internal static unsafe class AflPersistentHarness
 
         if (!TryGetEnvInt("__AFL_SHM_ID", out int shmId))
         {
-            // Running outside AFL++ — execute once from stdin.
+            // Match the AFL loop's warm-up so state-dependent findings also
+            // reproduce with the simple standalone stdin command.
             PinDummyCoverageBuffer();
+            try { execute([]); } catch { }
             execute(ReadTestcase());
             return;
         }
@@ -135,7 +137,11 @@ internal static unsafe class AflPersistentHarness
 
             int fault = FaultNone;
             try { execute(input); }
-            catch { fault = FaultCrash; }
+            catch (Exception ex)
+            {
+                fault = FaultCrash;
+                TryWriteAllText($"/tmp/plank-fuzz-{targetName}-last-exception.txt", ex.ToString());
+            }
 
             WriteU32(StFd, (uint)fault);
 

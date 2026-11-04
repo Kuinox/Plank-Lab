@@ -28,6 +28,8 @@
   <Target Name="SharpFuzzInstrument" AfterTargets="Build">
     <Exec Command="sharpfuzz &quot;$(OutDir)Plank.dll&quot;" />
     <Exec Command="sharpfuzz &quot;$(OutDir)Plank.Fuzzing.dll&quot;" />
+    <!-- Coverage of the reference reader too: inputs that reach new Parquet.Net paths are kept even when Plank sees nothing new. -->
+    <Exec Command="sharpfuzz &quot;$(OutDir)Parquet.dll&quot;" />
   </Target>
 
 </Project>

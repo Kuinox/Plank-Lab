@@ -58,6 +58,7 @@ static class Program
         Console.WriteLine($"replaying {files.Count} inputs through '{target}'");
         var stopwatch = Stopwatch.StartNew();
         var faulted = 0;
+        var mismatches = 0;
         for (var i = 0; i < files.Count; i++)
         {
             byte[] data;
@@ -79,15 +80,19 @@ static class Program
             }
             catch (ReaderAcceptanceMismatchException mismatch)
             {
-                Console.Error.WriteLine($"reader acceptance mismatch in {files[i]}: {mismatch.InnerException}");
-                return 1;
+                // The fleet buckets these; a coverage measurement has to keep
+                // going or it only measures the queue up to the first finding.
+                mismatches++;
+                var detail = mismatch.InnerException?.Message ?? mismatch.Message;
+                Console.Error.WriteLine($"MISMATCH\t{files[i]}\t{detail.Replace('\n', '\t')}");
             }
 
             if ((i + 1) % 2000 == 0)
                 Console.WriteLine($"  {i + 1}/{files.Count} ({stopwatch.Elapsed.TotalSeconds:F0}s)");
         }
 
-        Console.WriteLine($"done: {files.Count} inputs, {faulted} threw outside the expected set, "
+        Console.WriteLine($"done: {files.Count} inputs, {faulted} threw outside the expected set, {mismatches} oracle mismatches, "
+            + $"{ColumnTrace.ComparedColumns} columns / {ColumnTrace.ComparedValues} values compared with Arrow, "
             + $"{stopwatch.Elapsed.TotalSeconds:F0}s");
         return 0;
     }

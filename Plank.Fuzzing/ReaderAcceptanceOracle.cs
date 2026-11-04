@@ -19,7 +19,16 @@ internal static class ReaderAcceptanceOracle
         => fileBytes.StartsWith("PAR1"u8);
 
     public static void VerifyWithParquetSharp(byte[] fileBytes)
+        => VerifyWithParquetSharp(fileBytes, plankTraces: null);
+
+    /// <param name="plankTraces">
+    /// What Plank decoded, per row group then per leaf column (null entries are
+    /// not compared). When given, Arrow's levels and values are compared with it;
+    /// otherwise Arrow only has to read the file without failing.
+    /// </param>
+    public static void VerifyWithParquetSharp(byte[] fileBytes, IReadOnlyList<ColumnTrace?[]>? plankTraces)
     {
+        string? valueMismatch = null;
         using var stream = new MemoryStream(fileBytes, writable: false);
         Ps.ParquetFileReader reader;
         try
@@ -36,6 +45,9 @@ internal static class ReaderAcceptanceOracle
         using var openedReader = reader;
         try
         {
+            if (plankTraces is not null && plankTraces.Count != reader.FileMetaData.NumRowGroups)
+                valueMismatch = "row group count differs"
+                    + $"\nPlank={plankTraces.Count}, Arrow={reader.FileMetaData.NumRowGroups}";
             for (var groupIndex = 0; groupIndex < reader.FileMetaData.NumRowGroups; groupIndex++)
             {
                 using var group = reader.RowGroup(groupIndex);
@@ -49,6 +61,28 @@ internal static class ReaderAcceptanceOracle
                         continue;
 
                     using var column = group.Column(columnIndex);
+                    var plank = valueMismatch is null && plankTraces is not null
+                        && groupIndex < plankTraces.Count && columnIndex < plankTraces[groupIndex].Length
+                        ? plankTraces[groupIndex][columnIndex]
+                        : null;
+                    if (plank is not null)
+                    {
+                        var descriptor = column.ColumnDescriptor;
+                        var arrow = ColumnTrace.CaptureArrow(column, descriptor.MaxRepetitionLevel > 0,
+                            descriptor.MaxDefinitionLevel, descriptor.TypeLength);
+                        var difference = ColumnTrace.Difference(plank, arrow);
+                        if (difference is not null)
+                        {
+                            // First line is the bucket key: the kind of difference and
+                            // the column's shape, never the values themselves.
+                            var newline = difference.IndexOf('\n');
+                            valueMismatch = $"{difference[..newline]}: physical={column.Type}, "
+                                + $"encodings={string.Join(',', metadata.Encodings)}, "
+                                + $"maxDef={descriptor.MaxDefinitionLevel}, maxRep={descriptor.MaxRepetitionLevel}"
+                                + $"\nrow group {groupIndex}, column {columnIndex}, {difference[(newline + 1)..]}";
+                        }
+                        continue;
+                    }
                     // Physical readers avoid CLR logical-type conversions and
                     // decode even repeated and unannotated binary columns.
                     switch (column.Type)
@@ -72,29 +106,142 @@ internal static class ReaderAcceptanceOracle
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
+            if (IsKnownParquetSharpFinding(error))
+                return;
             throw new ReaderAcceptanceMismatchException("ParquetSharp rejected a file Plank read in full.", error);
         }
+
+        // Raised only after Arrow has read the whole file, so a later Arrow
+        // rejection is still reported as the rejection it is.
+        if (valueMismatch is not null)
+            throw new ReaderAcceptanceMismatchException("ParquetSharp decoded a file differently from Plank.",
+                new InvalidDataException("Decoded value mismatch (Arrow) — " + valueMismatch));
     }
 
-    public static void VerifyWithParquetNet(byte[] fileBytes, ParquetPhysicalType[] types)
+    static bool IsKnownParquetSharpFinding(Exception error)
     {
+        // Arrow rejects a negative/truncated footer length while Plank's footer
+        // bounds checks deliberately accept only the readable prefix.
+        if (error is ArgumentOutOfRangeException range
+            && string.Equals(range.ParamName, "footerLength", StringComparison.Ordinal))
+            return true;
+
+        // These are known page-header validation differences. Do not broaden
+        // these predicates to all Thrift or encoding failures: a decoded-value
+        // mismatch or a new decoder rejection must remain a finding.
+        if (error.Message.Contains("Deserializing page header failed", StringComparison.Ordinal)
+            && error.Message.Contains("TProtocolException: Invalid data", StringComparison.Ordinal))
+            return true;
+        if (error is Ps.ParquetException
+            && error.Message.Contains("Unknown encoding type for levels.", StringComparison.Ordinal))
+            return true;
+
+        // A short RLE run is legal input for Plank's bounded decoder but is
+        // rejected by Arrow. Keep this tied to Arrow's RLE-run diagnostic.
+        return error is Ps.ParquetException
+            && error.Message.Contains("RLE", StringComparison.OrdinalIgnoreCase)
+            && error.Message.Contains("run", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Parquet.Net can loop for seconds on a few hundred corrupt bytes: it skips
+    // an unknown list element by element and a bool element consumes nothing, so
+    // a garbage count of billions never runs out of input; it also fills value
+    // buffers from page num_values. Neither shows in Plank's view of the file,
+    // because Parquet.Net ignores wire types and reads out of step with the bytes.
+    // A run past AFL's timeout kills SharpFuzz's fork server, and on resume the
+    // same queue entry kills it again, so the comparison gets a time budget. A
+    // thread cannot be stopped, so an overrun comparison is left to finish in
+    // the background and Parquet.Net comparisons are skipped until it has; at
+    // most one is ever running behind.
+    static readonly TimeSpan ParquetNetBudget = TimeSpan.FromMilliseconds(300);
+    static Task? _overrunningParquetNet;
+
+    public static void VerifyWithParquetNet(
+        byte[] fileBytes, ParquetPhysicalType[] types, IReadOnlyList<Array> plankColumns)
+    {
+        // A previous comparison is still running past its budget; skip until it
+        // ends rather than start another (see ParquetNetBudget).
+        if (_overrunningParquetNet is { IsCompleted: false })
+            return;
         try
         {
-            VerifyWithParquetNetAsync(fileBytes, types).GetAwaiter().GetResult();
+            var comparison = Task.Run(() => VerifyWithParquetNetAsync(fileBytes, types, plankColumns));
+            if (!comparison.Wait(ParquetNetBudget))
+            {
+                _overrunningParquetNet = comparison;
+                _ = comparison.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                return;
+            }
+            comparison.GetAwaiter().GetResult();
         }
         catch (NotSupportedException)
         {
             // The oracle cannot judge a feature it does not implement.
         }
-        catch (Exception error) when (error is not OutOfMemoryException)
+        catch (OutOfMemoryException)
         {
-            throw new ReaderAcceptanceMismatchException("Parquet.Net rejected a file Plank read in full.", error);
+            // Plank has already decoded its columns, so this OOM is Parquet.Net's.
+            // It ignores wire types: a mistyped field puts it out of step with the
+            // bytes, and it then pre-sizes a list from whatever varint it lands on.
+            // Under the fleet's GC heap limit that fails fast instead of becoming
+            // a multi-GB allocation that outlasts AFL's timeout. The oracle cannot
+            // judge such a file. OOMs from Plank itself still crash the worker.
+        }
+        catch (Exception error) when (error is not OutOfMemoryException && !IsKnownParquetNetFinding(error))
+        {
+            throw new ReaderAcceptanceMismatchException("Parquet.Net rejected or decoded a file differently from Plank.", error);
         }
     }
 
-    static async Task VerifyWithParquetNetAsync(byte[] fileBytes, ParquetPhysicalType[] types)
+    static readonly Type ParquetNetThriftReader = typeof(Parquet.Meta.FileMetaData).Assembly
+        .GetType("Parquet.Meta.Proto.ThriftCompactProtocolReader", throwOnError: true)!;
+    static readonly System.Reflection.MethodInfo ParquetNetReadFooter = typeof(Parquet.Meta.FileMetaData)
+        .GetMethod("Read", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+    /// <summary>
+    /// Parquet.Net decodes the footer from its own MemoryStream, where a varint
+    /// that runs off the end reads ReadByte's -1 as 0xFF, a continuation byte,
+    /// and loops forever. Replay that same parse over a guarded stream first;
+    /// a footer that would spin is one this oracle cannot judge.
+    /// </summary>
+    static bool ParquetNetFooterWouldSpin(byte[] fileBytes)
     {
-        using var stream = new MemoryStream(fileBytes, writable: false);
+        if (fileBytes.Length < 12) return false;
+        var length = BitConverter.ToInt32(fileBytes, fileBytes.Length - 8);
+        if (length <= 0 || length > fileBytes.Length - 12) return false;
+        using var footer = new EndOfStreamGuard(fileBytes[(fileBytes.Length - 8 - length)..(fileBytes.Length - 8)]);
+        try
+        {
+            ParquetNetReadFooter.Invoke(null, [Activator.CreateInstance(ParquetNetThriftReader, footer)]);
+            return false;
+        }
+        catch (System.Reflection.TargetInvocationException error) when (error.InnerException is EndOfStreamException)
+        {
+            return true;
+        }
+        catch (System.Reflection.TargetInvocationException)
+        {
+            // Any other footer error is Parquet.Net's ordinary verdict; let the
+            // real open report it.
+            return false;
+        }
+    }
+
+    static bool IsKnownParquetNetFinding(Exception error)
+        // Parquet.Net advertises dictionary support in some read paths but its
+        // generic primitive reader rejects dictionary-backed chunks.
+        => error is InvalidOperationException
+            && error.Message.Contains("dictionary", StringComparison.OrdinalIgnoreCase);
+
+    static async Task VerifyWithParquetNetAsync(
+        byte[] fileBytes, ParquetPhysicalType[] types, IReadOnlyList<Array> plankColumns)
+    {
+        // Parquet.Net's Thrift reader treats a zero-byte read as more data and
+        // spins forever on some truncated metadata. A hang kills the whole AFL
+        // worker, since the persistent harness is its own fork server.
+        using var stream = new EndOfStreamGuard(fileBytes);
+        if (ParquetNetFooterWouldSpin(fileBytes))
+            return;
         Parquet.ParquetReader reader;
         try
         {
@@ -110,38 +257,61 @@ internal static class ReaderAcceptanceOracle
         var fields = reader.Schema.GetDataFields();
         if (fields.Length != types.Length)
             throw new InvalidDataException("Parquet.Net and Plank disagree about the number of columns.");
+        var columnOrdinal = 0;
         for (var groupIndex = 0; groupIndex < reader.RowGroupCount; groupIndex++)
         {
             using var group = reader.OpenRowGroupReader(groupIndex);
             if (group.RowCount > 4096)
                 throw new InvalidDataException("Parquet.Net and Plank disagree about the row count limit.");
             for (var i = 0; i < fields.Length; i++)
+            {
+                if (columnOrdinal >= plankColumns.Count)
+                    throw new InvalidDataException("Plank did not supply every decoded column for comparison.");
+                var location = $"row group {groupIndex}, column {i}";
                 switch (types[i])
                 {
                     case ParquetPhysicalType.Boolean:
-                        await DrainParquetNet<bool>(group, fields[i], (int)group.RowCount).ConfigureAwait(false);
+                        await CompareParquetNet<bool>(group, fields[i], (bool[])plankColumns[columnOrdinal], location).ConfigureAwait(false);
                         break;
                     case ParquetPhysicalType.Int32:
-                        await DrainParquetNet<int>(group, fields[i], (int)group.RowCount).ConfigureAwait(false);
+                        await CompareParquetNet<int>(group, fields[i], (int[])plankColumns[columnOrdinal], location).ConfigureAwait(false);
                         break;
                     case ParquetPhysicalType.Int64:
-                        await DrainParquetNet<long>(group, fields[i], (int)group.RowCount).ConfigureAwait(false);
+                        await CompareParquetNet<long>(group, fields[i], (long[])plankColumns[columnOrdinal], location).ConfigureAwait(false);
                         break;
                     case ParquetPhysicalType.Float:
-                        await DrainParquetNet<float>(group, fields[i], (int)group.RowCount).ConfigureAwait(false);
+                        await CompareParquetNet<float>(group, fields[i], (float[])plankColumns[columnOrdinal], location).ConfigureAwait(false);
                         break;
                     case ParquetPhysicalType.Double:
-                        await DrainParquetNet<double>(group, fields[i], (int)group.RowCount).ConfigureAwait(false);
+                        await CompareParquetNet<double>(group, fields[i], (double[])plankColumns[columnOrdinal], location).ConfigureAwait(false);
                         break;
                 }
+                columnOrdinal++;
+            }
         }
+        if (columnOrdinal != plankColumns.Count)
+            throw new InvalidDataException("Parquet.Net and Plank disagree about the number of decoded row groups.");
     }
 
-    static async Task DrainParquetNet<T>(Parquet.ParquetRowGroupReader group, DataField field, int rowCount)
+    static async Task CompareParquetNet<T>(
+        Parquet.ParquetRowGroupReader group, DataField field, T[] plankValues, string location)
         where T : struct
     {
-        var values = new T?[rowCount];
+        // These columns are required, so use Parquet.Net 6's non-nullable
+        // overload. Its nullable overload can retain missing entries across
+        // successive reads even when every definition level is present.
+        var values = new T[plankValues.Length];
         await group.ReadAsync<T>(field, values, null, default).ConfigureAwait(false);
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (!EqualityComparer<T>.Default.Equals(values[i], plankValues[i]))
+            {
+                var encodings = group.GetMetadata(field)?.MetaData?.Encodings;
+                throw new InvalidDataException(
+                    $"Decoded value mismatch at {location}, row {i}: Plank={plankValues[i]}, Parquet.Net={values[i]}, " +
+                    $"encodings={string.Join(',', encodings ?? [])}.");
+            }
+        }
     }
 
     static void Drain<T>(Ps.ColumnReader<T> reader) where T : unmanaged
@@ -165,4 +335,35 @@ public sealed class ReaderAcceptanceMismatchException : Exception
     public ReaderAcceptanceMismatchException(string message) : base(message) { }
     public ReaderAcceptanceMismatchException(string message, Exception innerException)
         : base(message, innerException) { }
+}
+
+/// <summary>
+/// A read-only memory stream that throws once a reader keeps asking for bytes
+/// past the end, instead of answering zero forever.
+/// </summary>
+sealed class EndOfStreamGuard(byte[] bytes) : MemoryStream(bytes, writable: false)
+{
+    const int EmptyReadLimit = 64;
+    int _emptyReads;
+
+    public override int Read(byte[] buffer, int offset, int count) => Check(base.Read(buffer, offset, count), count);
+    public override int Read(Span<byte> buffer) => Check(base.Read(buffer), buffer.Length);
+    public override int ReadByte()
+    {
+        var value = base.ReadByte();
+        Check(value < 0 ? 0 : 1, 1);
+        return value;
+    }
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        => Task.FromResult(Read(buffer, offset, count));
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        => ValueTask.FromResult(Read(buffer.Span));
+
+    int Check(int read, int requested)
+    {
+        if (read > 0 || requested == 0) { _emptyReads = 0; return read; }
+        if (++_emptyReads > EmptyReadLimit)
+            throw new EndOfStreamException("Reader kept reading past the end of the file.");
+        return read;
+    }
 }

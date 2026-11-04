@@ -81,7 +81,7 @@ public static class PlankReaderFuzzTarget
         // measured 0% over a 14k-input corpus — neither fuzz target drove it.
         if ((selector & 3) == 2)
         {
-            DrainRowApi(source, options.VerifyPageCrc);
+            DrainRowApi(source, options.VerifyPageCrc, selector);
             return;
         }
 
@@ -107,34 +107,70 @@ public static class PlankReaderFuzzTarget
                 && column.PhysicalType is ParquetPhysicalType.Boolean or ParquetPhysicalType.Int32
                     or ParquetPhysicalType.Int64 or ParquetPhysicalType.Float or ParquetPhysicalType.Double);
 
+        var decodedColumns = new List<Array>();
+        // Only the file-schema route reads every column with the file's own
+        // types, so only it can be compared value-for-value with Arrow.
+        var traces = (selector & 1) == 0 ? new List<ColumnTrace?[]>() : null;
         foreach (var group in reader.RowGroups)
         {
             if (group.RowCount > 4096)
                 canCompareWithParquetNet = false;
-            foreach (var column in reader.Schema.LeafColumns)
+            var groupTraces = traces is null ? null : new ColumnTrace?[reader.Schema.LeafColumns.Length];
+            traces?.Add(groupTraces!);
+            for (var columnIndex = 0; columnIndex < reader.Schema.LeafColumns.Length; columnIndex++)
             {
+                var column = reader.Schema.LeafColumns[columnIndex];
                 DrainMetadata(group, column);
                 if (canCompareWithParquetNet)
                     foreach (var encoding in group.GetColumnMetadata(column).Encodings)
                         if (encoding is not (EncodingKind.Plain or EncodingKind.Rle
                             or EncodingKind.PlainDictionary or EncodingKind.RleDictionary))
                             canCompareWithParquetNet = false;
-                DrainColumn(group, column);
+
+                // The trace reads the physical values, which is the level Arrow
+                // can be compared at. An API refusal (not a file rejection) just
+                // leaves this column uncompared.
+                if (groupTraces is not null)
+                {
+                    try
+                    {
+                        groupTraces[columnIndex] = ColumnTrace.CapturePlank(group, column);
+                    }
+                    catch (InvalidOperationException) { }
+                }
+
+                if (canCompareWithParquetNet)
+                    decodedColumns.Add(DrainFlatColumnForComparison(group, column));
+                // Annotated columns still go through their logical CLR type, so
+                // the conversions (decimal, timestamps, ...) keep being fuzzed.
+                else if (groupTraces?[columnIndex] is null || column.LogicalType is not null)
+                    DrainColumn(group, column);
+
+                // Bit 2 (file-schema route only; bits 2-3 are otherwise unused
+                // there) reads the column a second time with the opposite
+                // nullability. See CrossCheckReadPaths.
+                if ((selector & 4) != 0 && (selector & 1) == 0)
+                    CrossCheckReadPaths(group, column);
             }
         }
+
+        // Bit 3 (file-schema route) reads the file again through a page pruner.
+        // See CrossCheckPrunedReads.
+        if ((selector & 8) != 0 && (selector & 1) == 0)
+            CrossCheckPrunedReads(fileBytes, options);
 
         // Only the file-schema route has read every column in the file. A
         // projection can succeed while the columns it omitted are corrupt.
         // The row API and decompressor routes return above this point.
         if ((selector & 1) == 0 && ReaderAcceptanceOracle.HasParquetHeader(fileBytes))
         {
-            ReaderAcceptanceOracle.VerifyWithParquetSharp(fileBytes);
+            ReaderAcceptanceOracle.VerifyWithParquetSharp(fileBytes, traces);
             if (canCompareWithParquetNet)
             {
                 var types = new ParquetPhysicalType[reader.Schema.LeafColumns.Length];
                 for (var i = 0; i < types.Length; i++)
                     types[i] = reader.Schema.LeafColumns[i].PhysicalType;
-                ReaderAcceptanceOracle.VerifyWithParquetNet(fileBytes, types);
+                ReaderAcceptanceOracle.VerifyWithParquetNet(fileBytes, types, decodedColumns);
             }
         }
     }
@@ -188,7 +224,7 @@ public static class PlankReaderFuzzTarget
     // RowReaderCore is normally reached through source-generated row types, but
     // it is public and takes the schema and descriptors directly, so the fuzzer
     // can drive it over whatever schema the file declares.
-    static void DrainRowApi(IParquetReadSource source, bool verifyPageCrc)
+    static void DrainRowApi(IParquetReadSource source, bool verifyPageCrc, byte selector)
     {
         ParquetSchema schema;
         using (var probe = new ParquetReader())
@@ -212,13 +248,67 @@ public static class PlankReaderFuzzTarget
 
         // The row reader has its own page cursor and so its own CRC call sites,
         // separate from the columnar reader's.
-        var rowOptions = verifyPageCrc ? new RowReaderOptions { VerifyPageCrc = true } : RowReaderOptions.Default;
+        //
+        // Bit 2 runs the reader's worker pool (read-ahead is capped at one row
+        // group by design). WorkerCount defaults to Environment.ProcessorCount,
+        // which honours CPU affinity, so a worker pinned to one core never
+        // started a worker (RowReaderWorkers and StartReadAhead measured 0%).
+        //
+        // Bit 3 resets the reader onto the same file and reads it again, as a
+        // caller reusing one reader would; the second pass must return exactly
+        // what the first did, which catches state carried across Reset.
+        var rowOptions = new RowReaderOptions
+        {
+            VerifyPageCrc = verifyPageCrc,
+            Execution = new ParquetExecutionOptions { WorkerCount = (selector & 4) != 0 ? 3 : 1 }
+        };
+        var compareAfterReset = (selector & 8) != 0;
         using var rows = new RowReaderCore(source, schema, descriptors, projection: null,
             rowOptions, schemaEvolution: null);
+        var first = ReadAllRows(rows, descriptors, compareAfterReset);
+        if (!compareAfterReset)
+            return;
+
+        rows.Reset(source, projection: null);
+        List<string>? second;
+        try
+        {
+            second = ReadAllRows(rows, descriptors, record: true);
+        }
+        catch (CorruptParquetException error)
+        {
+            throw new ReaderAcceptanceMismatchException(
+                "Plank row reader rejected a file after Reset that it read in full before.", error);
+        }
+        if (first!.Count != second!.Count)
+            throw new ReaderAcceptanceMismatchException(
+                $"Decoded value mismatch (Plank row reader reset) — {first.Count} values before Reset, {second.Count} after.");
+        for (var i = 0; i < first.Count; i++)
+            if (first[i] != second[i])
+                throw new ReaderAcceptanceMismatchException(
+                    $"Decoded value mismatch (Plank row reader reset) — value {i} differs: before {first[i]}, after {second[i]}.");
+    }
+
+    static List<string>? ReadAllRows(RowReaderCore rows, RowApiColumnDescriptor[] descriptors, bool record)
+    {
+        var values = record ? new List<string>() : null;
         while (rows.MoveNext())
             for (var i = 0; i < descriptors.Length; i++)
-                ReadCurrent(rows, descriptors[i]);
+            {
+                var value = ReadCurrent(rows, descriptors[i]);
+                values?.Add(FormatRowValue(value));
+            }
+        return values;
     }
+
+    static string FormatRowValue(object? value) => value switch
+    {
+        null => "null",
+        byte[] bytes => Convert.ToHexString(bytes),
+        Array array => "[" + string.Join(",", array.Cast<object?>().Select(FormatRowValue)) + "]",
+        IFormattable formattable => formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        _ => value.ToString() ?? ""
+    };
 
     // Returns null when the leaf has no describable shape, which the caller
     // treats as "skip this file's row-API pass".
@@ -294,41 +384,51 @@ public static class PlankReaderFuzzTarget
             };
     }
 
-    static void ReadCurrent(RowReaderCore rows, RowApiColumnDescriptor descriptor)
+    static object? ReadCurrent(RowReaderCore rows, RowApiColumnDescriptor descriptor)
     {
         switch (descriptor)
         {
-            case RowApiColumnDescriptor<bool> typed: _ = rows.GetCurrent(typed); break;
-            case RowApiColumnDescriptor<int> typed: _ = rows.GetCurrent(typed); break;
-            case RowApiColumnDescriptor<long> typed: _ = rows.GetCurrent(typed); break;
-            case RowApiColumnDescriptor<float> typed: _ = rows.GetCurrent(typed); break;
-            case RowApiColumnDescriptor<double> typed: _ = rows.GetCurrent(typed); break;
-            case RowApiColumnDescriptor<byte[]> typed: Consume(rows.GetCurrentBinary(typed).Value); break;
+            case RowApiColumnDescriptor<bool> typed: return rows.GetCurrent(typed);
+            case RowApiColumnDescriptor<int> typed: return rows.GetCurrent(typed);
+            case RowApiColumnDescriptor<long> typed: return rows.GetCurrent(typed);
+            case RowApiColumnDescriptor<float> typed: return rows.GetCurrent(typed);
+            case RowApiColumnDescriptor<double> typed: return rows.GetCurrent(typed);
+            case RowApiColumnDescriptor<byte[]> typed:
+            {
+                // A span into the reader's buffer: touch it, and copy it only
+                // because the caller may keep the value past the next row.
+                var current = rows.GetCurrentBinary(typed);
+                var span = current.Value;
+                for (var i = 0; i < span.Length; i++)
+                    _ = span[i];
+                return current.IsNull ? null : span.ToArray();
+            }
 
             // The materialized shape is what the repetition-level bookkeeping
             // produces, so walking it is what checks that bookkeeping.
-            case RowApiNestedColumnDescriptor<bool?[], bool> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<int?[], int> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<long?[], long> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<float?[], float> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<double?[], double> typed: Consume(rows.GetCurrentNested(typed)); break;
+            case RowApiNestedColumnDescriptor<bool?[], bool> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<int?[], int> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<long?[], long> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<float?[], float> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<double?[], double> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
 
-            case RowApiNestedColumnDescriptor<bool?[][], bool> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<int?[][], int> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<long?[][], long> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<float?[][], float> typed: Consume(rows.GetCurrentNested(typed)); break;
-            case RowApiNestedColumnDescriptor<double?[][], double> typed: Consume(rows.GetCurrentNested(typed)); break;
+            case RowApiNestedColumnDescriptor<bool?[][], bool> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<int?[][], int> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<long?[][], long> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<float?[][], float> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
+            case RowApiNestedColumnDescriptor<double?[][], double> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
 
-            case RowApiNestedColumnDescriptor<byte[][], byte[]> typed: ConsumeBinaryShape(rows.GetCurrentNested(typed)); break;
+            case RowApiNestedColumnDescriptor<byte[][], byte[]> typed: { var value = rows.GetCurrentNested(typed); ConsumeBinaryShape(value); return value; }
             case RowApiNestedColumnDescriptor<byte[][][], byte[]> typed:
             {
                 var shape = rows.GetCurrentNested(typed);
                 if (shape is not null)
                     for (var i = 0; i < shape.Length; i++)
                         ConsumeBinaryShape(shape[i]);
-                break;
+                return shape;
             }
         }
+        return null;
     }
 
     static void ConsumeBinaryShape(byte[][]? shape)
@@ -363,6 +463,30 @@ public static class PlankReaderFuzzTarget
             Consume(shape[i]);
     }
 
+    // Acceptance alone does not catch two readers successfully decoding the
+    // same bytes to different values. The Parquet.Net route is deliberately
+    // limited to required, flat, unannotated primitive columns, so their CLR
+    // representations and row layout are unambiguous.
+    static Array DrainFlatColumnForComparison(RowGroup rowGroup, LeafColumn column)
+        => column.PhysicalType switch
+        {
+            ParquetPhysicalType.Boolean => DrainValues<bool>(rowGroup.Column<bool>(column)),
+            ParquetPhysicalType.Int32 => DrainValues<int>(rowGroup.Column<int>(column)),
+            ParquetPhysicalType.Int64 => DrainValues<long>(rowGroup.Column<long>(column)),
+            ParquetPhysicalType.Float => DrainValues<float>(rowGroup.Column<float>(column)),
+            ParquetPhysicalType.Double => DrainValues<double>(rowGroup.Column<double>(column)),
+            _ => throw new InvalidOperationException("The decoded-value oracle received an unsupported column.")
+        };
+
+    static T[] DrainValues<T>(RowGroupColumn<T> buffers)
+    {
+        var values = new List<T>();
+        foreach (var buffer in buffers)
+            foreach (var value in buffer.Values)
+                values.Add(value);
+        return values.ToArray();
+    }
+
     static ParquetReader OpenWithFileSchema(IParquetReadSource source, ParquetReaderOptions options)
     {
         var reader = new ParquetReader(options);
@@ -377,6 +501,23 @@ public static class PlankReaderFuzzTarget
     // FLOAT, INT96 and FIXED_LEN_BYTE_ARRAY went unfuzzed.
     static void DrainColumn(RowGroup rowGroup, LeafColumn column)
     {
+        // A converter column only reads as its converted type.
+        switch (column.Converter)
+        {
+            case IntBoxConverter:
+                if (column.MaxDefinitionLevel > 0) DrainBuffers(rowGroup.Column<IntBox?>(column));
+                else DrainBuffers(rowGroup.Column<IntBox>(column));
+                return;
+            case LongBoxConverter:
+                if (column.MaxDefinitionLevel > 0) DrainBuffers(rowGroup.Column<LongBox?>(column));
+                else DrainBuffers(rowGroup.Column<LongBox>(column));
+                return;
+            case DoubleBoxConverter:
+                if (column.MaxDefinitionLevel > 0) DrainBuffers(rowGroup.Column<DoubleBox?>(column));
+                else DrainBuffers(rowGroup.Column<DoubleBox>(column));
+                return;
+        }
+
         // A repeated leaf has to go through NestedColumn<T>; the flat API refuses
         // it. Skipping them left the repetition-level decoding — the fiddliest
         // bookkeeping in the format — entirely unexercised.
@@ -479,6 +620,161 @@ public static class PlankReaderFuzzTarget
         }
     }
 
+    // Plank decodes a page through one of two families: the batched decoders
+    // (TryStartFixedWidthPageBatches / TryStartEncodedPageBatches) and the
+    // whole-page "IntoNative" decoders they fall back to. Reading with the
+    // column's natural type always takes the batched side for flat columns,
+    // so the whole-page decoders for every logical type and every encoding
+    // (hundreds of lines, e.g. TryDecodeByteStreamSplitIntoNative) only ever
+    // ran for nested columns. Asking for the other nullability (T? from a
+    // required column, T from an optional one) routes the same pages through
+    // the other family. The two are separate implementations of the same
+    // decoding, so they must agree: same values for the rows both return, and
+    // the same verdict on whether the page is corrupt. Either disagreement is a
+    // Plank bug, reported like an oracle mismatch.
+    static void CrossCheckReadPaths(RowGroup rowGroup, LeafColumn column)
+    {
+        if (column.MaxRepetitionLevel > 0)
+            return;
+        switch (column.LogicalType)
+        {
+            case LogicalType.Date: CrossCheck<DateOnly>(rowGroup, column); return;
+            case LogicalType.Time: CrossCheck<TimeOnly>(rowGroup, column); return;
+            case LogicalType.Timestamp: CrossCheck<DateTime>(rowGroup, column); return;
+            case LogicalType.Decimal: CrossCheck<decimal>(rowGroup, column); return;
+            case LogicalType.Uuid: CrossCheck<Guid>(rowGroup, column); return;
+            case LogicalType.Int { BitWidth: 8, IsSigned: false }: CrossCheck<byte>(rowGroup, column); return;
+            case LogicalType.Int { BitWidth: 16, IsSigned: false }: CrossCheck<ushort>(rowGroup, column); return;
+            case LogicalType.Int { BitWidth: 32, IsSigned: false }: CrossCheck<uint>(rowGroup, column); return;
+            case LogicalType.Int { BitWidth: 64, IsSigned: false }: CrossCheck<ulong>(rowGroup, column); return;
+        }
+        switch (column.PhysicalType)
+        {
+            case ParquetPhysicalType.Boolean: CrossCheck<bool>(rowGroup, column); return;
+            case ParquetPhysicalType.Int32: CrossCheck<int>(rowGroup, column); return;
+            case ParquetPhysicalType.Int64: CrossCheck<long>(rowGroup, column); return;
+            case ParquetPhysicalType.Float: CrossCheck<float>(rowGroup, column); return;
+            case ParquetPhysicalType.Double: CrossCheck<double>(rowGroup, column); return;
+        }
+    }
+
+    static void CrossCheck<T>(RowGroup rowGroup, LeafColumn column) where T : struct
+    {
+        // A null from the T? path is a row the T path cannot represent, so it is
+        // skipped rather than compared.
+        RequireSameReads($"{typeof(T).Name} column '{column.Path}'",
+            "T? path", TryReadPath(() => Array.ConvertAll(DrainValues(rowGroup.Column<T?>(column)), static v => (object?)v)),
+            "T path", TryReadPath(() => Array.ConvertAll(DrainValues(rowGroup.Column<T>(column)), static v => (object?)v)),
+            skipNullsOfFirst: true);
+    }
+
+    // Two Plank read paths over the same column must give the same verdict on
+    // corruption and the same values for the rows both return. The natural read
+    // already ran, so a corrupt page has been reported by now; this only checks
+    // that the paths agree with each other.
+    static void RequireSameReads(string what,
+        string firstName, (object?[]? Values, Exception? Error) first,
+        string secondName, (object?[]? Values, Exception? Error) second,
+        bool skipNullsOfFirst = false)
+    {
+        if ((first.Error is CorruptParquetException) != (second.Error is CorruptParquetException))
+            throw new ReaderAcceptanceMismatchException(
+                $"Plank read paths disagree on corruption for {what}: " +
+                $"{firstName} {Describe(first.Error)}, {secondName} {Describe(second.Error)}.",
+                first.Error ?? second.Error!);
+        if (first.Values is not { } a || second.Values is not { } b)
+            return;
+        if (a.Length != b.Length)
+            throw new ReaderAcceptanceMismatchException(
+                $"Decoded value mismatch (Plank read paths) — entry count differs for {what}: " +
+                $"{firstName} {a.Length}, {secondName} {b.Length}.");
+        for (var i = 0; i < a.Length; i++)
+            if (!(skipNullsOfFirst && a[i] is null) && !Equals(a[i], b[i]))
+                throw new ReaderAcceptanceMismatchException(
+                    $"Decoded value mismatch (Plank read paths) — value differs for {what} at row {i}: " +
+                    $"{firstName} {a[i]}, {secondName} {b[i]}.");
+    }
+
+    // A pruned scan (ParquetReader.Reset with a ParquetPagePruner) is a separate
+    // cursor: it walks the page metadata (offset index, or a header scan when
+    // there is none) and seeks to the pages the callback accepts, where the
+    // plain scan just walks the chunk. ParquetPageCursor.MoveNextPruned and the
+    // page-metadata handle had never run. A pruner that accepts every page must
+    // return exactly what the plain scan returns, with the same verdict on
+    // corruption. A pruner that skips every other page has no reference to
+    // compare with, but it reaches the seek-past-a-page branches and must not
+    // fail in any way other than rejecting the file.
+    static readonly ParquetPagePruner AcceptAllPages = static (in ParquetDataPageMetadata _) => true;
+    static readonly ParquetPagePruner AcceptEvenPages =
+        static (in ParquetDataPageMetadata page) => page.PageOrdinal % 2 == 0;
+
+    static void CrossCheckPrunedReads(byte[] fileBytes, ParquetReaderOptions options)
+    {
+        using var plain = new ParquetReader(options);
+        plain.Reset(new MemoryReadSource(fileBytes));
+        using var pruned = new ParquetReader(options);
+        pruned.Reset(new MemoryReadSource(fileBytes), AcceptAllPages);
+        using var sparse = new ParquetReader(options);
+        sparse.Reset(new MemoryReadSource(fileBytes), AcceptEvenPages);
+
+        for (var groupIndex = 0; groupIndex < plain.RowGroups.Count; groupIndex++)
+        {
+            // Each reader owns its LeafColumn instances; another reader's are refused.
+            for (var columnIndex = 0; columnIndex < plain.Schema.LeafColumns.Length; columnIndex++)
+            {
+                var column = plain.Schema.LeafColumns[columnIndex];
+                if (column.MaxRepetitionLevel > 0)
+                    continue;
+                RequireSameReads($"column '{column.Path}'",
+                    "plain scan", TryReadPath(() => ReadPhysical(plain.RowGroups[groupIndex], column)),
+                    "pruned scan", TryReadPath(() =>
+                        ReadPhysical(pruned.RowGroups[groupIndex], pruned.Schema.LeafColumns[columnIndex])));
+                _ = TryReadPath(() => ReadPhysical(sparse.RowGroups[groupIndex], sparse.Schema.LeafColumns[columnIndex]));
+            }
+        }
+    }
+
+    static object?[] ReadPhysical(RowGroup rowGroup, LeafColumn column)
+    {
+        var optional = column.MaxDefinitionLevel > 0;
+        return column.PhysicalType switch
+        {
+            ParquetPhysicalType.Boolean => optional ? Box(rowGroup.Column<bool?>(column)) : Box(rowGroup.Column<bool>(column)),
+            ParquetPhysicalType.Int32 => optional ? Box(rowGroup.Column<int?>(column)) : Box(rowGroup.Column<int>(column)),
+            ParquetPhysicalType.Int64 => optional ? Box(rowGroup.Column<long?>(column)) : Box(rowGroup.Column<long>(column)),
+            ParquetPhysicalType.Float => optional ? Box(rowGroup.Column<float?>(column)) : Box(rowGroup.Column<float>(column)),
+            ParquetPhysicalType.Double => optional ? Box(rowGroup.Column<double?>(column)) : Box(rowGroup.Column<double>(column)),
+            _ => BoxBinary(rowGroup.Column<byte>(column))
+        };
+    }
+
+    static object?[] Box<T>(RowGroupColumn<T> buffers)
+        => Array.ConvertAll(DrainValues(buffers), static value => (object?)value);
+
+    // Binary values are compared as hex so the comparison is by content.
+    static object?[] BoxBinary(RowGroupColumn<byte> buffers)
+    {
+        var values = new List<object?>();
+        foreach (var buffer in buffers)
+            for (var i = 0; i < buffer.Count; i++)
+                values.Add(buffer.IsNull(i) ? null : Convert.ToHexString(buffer.GetValue(i)));
+        return values.ToArray();
+    }
+
+    // An API refusal (asking for T from a column that holds nulls, a type the
+    // column cannot convert to) just means that path has nothing to compare.
+    // Anything else is a verdict on the file and is returned to the caller.
+    static (TValue[]? Values, Exception? Error) TryReadPath<TValue>(Func<TValue[]> read)
+    {
+        try { return (read(), null); }
+        catch (CorruptParquetException error) { return (null, error); }
+        catch (Exception error) when (error is InvalidOperationException or NotSupportedException
+            or ArgumentException or InvalidCastException) { return (null, null); }
+    }
+
+    static string Describe(Exception? error)
+        => error is null ? "read it" : $"rejected it ({error.GetType().Name})";
+
     static void DrainNestedColumn(RowGroup rowGroup, LeafColumn column)
     {
         switch (column.PhysicalType)
@@ -567,6 +863,14 @@ public static class PlankReaderFuzzTarget
                    Col("c4", ParquetPhysicalType.ByteArray, EncodingKind.Plain)),
             // 7: byte[] delta-byte-array
             Schema(Col("c0", ParquetPhysicalType.ByteArray, EncodingKind.DeltaByteArray)),
+            // 8: custom value converters. The converted decode family
+            // (TryDecodeConvertedRequired*, ParquetValueConverter's span
+            // conversions) only runs for a column that carries a converter, and
+            // no requested schema had one. c1 is requested optional, which also
+            // reads a required file through the nullable conversion.
+            Schema(ColumnDefinition.RequiredLeaf("c0", ParquetPhysicalType.Int32, converter: new IntBoxConverter()),
+                   ColumnDefinition.OptionalLeaf("c1", ParquetPhysicalType.Int64, converter: new LongBoxConverter()),
+                   ColumnDefinition.RequiredLeaf("c2", ParquetPhysicalType.Double, converter: new DoubleBoxConverter())),
         ];
 
     static ParquetSchema Schema(params ColumnDefinition[] columns)
@@ -574,4 +878,27 @@ public static class PlankReaderFuzzTarget
 
     static ColumnDefinition Col(string name, ParquetPhysicalType type, EncodingKind encoding)
         => ColumnDefinition.Leaf(name, type, new ColumnOptions(encodings: ImmutableArray.Create(encoding)));
+}
+
+// Value types that exist only to give schema 8 something to convert to.
+readonly record struct IntBox(int Value);
+readonly record struct LongBox(long Value);
+readonly record struct DoubleBox(double Value);
+
+sealed class IntBoxConverter : ParquetValueConverter<IntBox, int>
+{
+    public override int ConvertToPhysical(IntBox value) => value.Value;
+    public override IntBox ConvertFromPhysical(int value) => new(value);
+}
+
+sealed class LongBoxConverter : ParquetValueConverter<LongBox, long>
+{
+    public override long ConvertToPhysical(LongBox value) => value.Value;
+    public override LongBox ConvertFromPhysical(long value) => new(value);
+}
+
+sealed class DoubleBoxConverter : ParquetValueConverter<DoubleBox, double>
+{
+    public override double ConvertToPhysical(DoubleBox value) => value.Value;
+    public override DoubleBox ConvertFromPhysical(double value) => new(value);
 }
