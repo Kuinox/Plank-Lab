@@ -315,6 +315,13 @@ public static class PlankReaderFuzzTarget
             VerifyPageCrc = verifyPageCrc,
             Execution = new ParquetExecutionOptions { WorkerCount = 1 }
         };
+        // Bit 2 also reads the file through the source-generated row readers,
+        // with every schema-evolution allowance switched on. The generated
+        // readers (RowReaderBase, RowSchema, schema evolution) only ran in the
+        // separate row-API target, never on a corrupt or foreign file.
+        if ((selector & 4) != 0)
+            DrainGeneratedRows(source);
+
         var compareAfterReset = (selector & 8) != 0;
         using var rows = new RowReaderCore(source, schema, descriptors, projection: null,
             rowOptions, schemaEvolution: null);
@@ -340,6 +347,66 @@ public static class PlankReaderFuzzTarget
             if (first[i] != second[i])
                 throw new ReaderAcceptanceMismatchException(
                     $"Decoded value mismatch (Plank row reader reset) — value {i} differs: before {first[i]}, after {second[i]}.");
+    }
+
+    // One worker, as for RowReaderCore above: the default follows
+    // Environment.ProcessorCount, which differs between the pinned fuzz worker
+    // and a coverage run, and threads scramble SharpFuzz's edge map.
+    static readonly RowReaderOptions SingleWorker = new()
+    {
+        Execution = new ParquetExecutionOptions { WorkerCount = 1 }
+    };
+
+    static readonly ParquetSchemaEvolutionOptions PermissiveEvolution = new()
+    {
+        MissingColumns = MissingColumnEvolutionBehavior.MaterializeDefault,
+        Repetition = RepetitionEvolutionBehavior.AllowRequiredToOptionalAndOptionalToRequired,
+        PhysicalTypes = SchemaTypeEvolutionBehavior.AllowCompatible,
+        LogicalTypes = SchemaTypeEvolutionBehavior.AllowCompatible,
+        MaterializedTypes = SchemaTypeEvolutionBehavior.AllowCompatible,
+    };
+
+    // Each schema is tried on its own: a schema the file cannot bind to is an
+    // API refusal for that one only.
+    static void DrainGeneratedRows(IParquetReadSource source)
+    {
+        TryGenerated(() =>
+        {
+            using var reader = RowFuzzFixed.CreateRowReader(source, options: SingleWorker, schemaEvolution: PermissiveEvolution);
+            while (reader.MoveNext())
+            {
+                var row = reader.Current;
+                _ = row.Flag ^ (row.Id == 0) ^ (row.Sequence == 0) ^ double.IsNaN(row.Measure);
+            }
+        });
+        TryGenerated(() =>
+        {
+            using var reader = RowFuzzNullable.CreateRowReader(source, options: SingleWorker, schemaEvolution: PermissiveEvolution);
+            while (reader.MoveNext())
+            {
+                var row = reader.Current;
+                _ = row.Id.HasValue ^ row.Sequence.HasValue ^ row.Measure.HasValue ^ row.Flag.HasValue;
+            }
+        });
+        TryGenerated(() =>
+        {
+            using var reader = RowFuzzBinary.CreateRowReader(source, options: SingleWorker, schemaEvolution: PermissiveEvolution);
+            while (reader.MoveNext())
+            {
+                var row = reader.Current;
+                Consume(row.Payload.Value);
+                // A missing Label materializes as null although the property is
+                // a non-nullable string (raised as a question on Plank's API).
+                _ = row.Id + (row.Label?.Length ?? 0);
+            }
+        });
+    }
+
+    static void TryGenerated(Action read)
+    {
+        try { read(); }
+        catch (Exception error) when (error is InvalidOperationException or NotSupportedException
+            or CorruptParquetException) { }
     }
 
     static List<string>? ReadAllRows(RowReaderCore rows, RowApiColumnDescriptor[] descriptors, bool record)

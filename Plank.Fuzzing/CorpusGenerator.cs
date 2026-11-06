@@ -87,6 +87,9 @@ public static class CorpusGenerator
         foreach (var (name, selector, bytes) in ConverterSchemaCases())
             written += WriteSeed(outputDirectory, $"gen-{name}", selector, bytes);
 
+        foreach (var (name, selector, bytes) in EvolutionCases())
+            written += WriteSeed(outputDirectory, $"gen-{name}", selector, bytes);
+
         foreach (var (name, bytes) in DecompressorCorpus.BuildCases())
             written += WriteSeed(outputDirectory, $"gen-codec-{name}", DecompressorSelector, bytes);
 
@@ -659,6 +662,110 @@ public static class CorpusGenerator
                     foreach (var selector in (byte[])[0x11, 0x23, 0x47])
                         yield return ($"{name}-r{selector:x2}", selector, bytes);
                 }
+    }
+
+    // Files whose columns carry the names of the harness's generated row types
+    // (RowFuzzFixed/Nullable/Binary: Flag, Id, Sequence, Measure, Payload,
+    // Label) but not their exact shapes: optional where the type is required and
+    // the reverse, wider and narrower physical types, columns left out. Read on
+    // the row-API route with bit 2 (selector 0x06), they drive the generated
+    // readers' schema evolution: every other file only has a column named "c",
+    // so every generated column was simply missing.
+    static IEnumerable<(string Name, byte Selector, byte[] Bytes)> EvolutionCases()
+    {
+        (string Tag, Func<string, ParquetPhysicalType, bool, ColumnDefinition?> Shape)[] shapes =
+        [
+            ("exact", (name, type, optional) => Shaped(name, type, optional)),
+            ("flipped-nullability", (name, type, optional) => Shaped(name, type, !optional)),
+            ("wider", (name, type, optional) => Shaped(name, Wider(type), optional)),
+            ("narrower", (name, type, optional) => Shaped(name, Narrower(type), optional)),
+            ("sparse", (name, type, optional) => name is "Sequence" or "Label" ? null : Shaped(name, type, optional)),
+        ];
+        (string Name, ParquetPhysicalType Type, bool Optional)[] columns =
+        [
+            ("Flag", ParquetPhysicalType.Boolean, false), ("Id", ParquetPhysicalType.Int32, false),
+            ("Sequence", ParquetPhysicalType.Int64, false), ("Measure", ParquetPhysicalType.Double, false),
+            ("Payload", ParquetPhysicalType.ByteArray, false), ("Label", ParquetPhysicalType.ByteArray, false),
+        ];
+        foreach (var (tag, shape) in shapes)
+        {
+            var definitions = new List<ColumnDefinition>();
+            foreach (var (name, type, optional) in columns)
+                if (shape(name, type, optional) is { } definition)
+                    definitions.Add(definition);
+            byte[] bytes;
+            try
+            {
+                var schema = new ParquetSchema([.. definitions]);
+                using var stream = new MemoryStream();
+                var writer = schema.CreateWriter(stream, new ParquetWriterOptions { Compression = CompressionKind.None });
+                var group = writer.StartRowGroup();
+                foreach (var leaf in schema.LeafColumns)
+                    WriteEvolutionColumn(writer, group, leaf);
+                writer.CloseFile();
+                bytes = stream.ToArray();
+            }
+            catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException or ArgumentException)
+            {
+                Console.Error.WriteLine($"  skipped evolution-{tag}: {ex.GetType().Name}: {ex.Message}");
+                continue;
+            }
+            yield return ($"evolution-{tag}", 0x06, bytes);
+            yield return ($"evolution-{tag}-reset", 0x0E, bytes);
+        }
+    }
+
+    static ColumnDefinition Shaped(string name, ParquetPhysicalType type, bool optional)
+        => optional ? LeafOptional(name, type, EncodingKind.Plain) : Leaf(name, type, EncodingKind.Plain);
+
+    static ParquetPhysicalType Wider(ParquetPhysicalType type) => type switch
+    {
+        ParquetPhysicalType.Int32 => ParquetPhysicalType.Int64,
+        ParquetPhysicalType.Float => ParquetPhysicalType.Double,
+        _ => type
+    };
+
+    static ParquetPhysicalType Narrower(ParquetPhysicalType type) => type switch
+    {
+        ParquetPhysicalType.Int64 => ParquetPhysicalType.Int32,
+        ParquetPhysicalType.Double => ParquetPhysicalType.Float,
+        _ => type
+    };
+
+    static void WriteEvolutionColumn(ParquetWriter writer, RowGroupWriter group, LeafColumn leaf)
+    {
+        const int rows = 6;
+        var optional = leaf.MaxDefinitionLevel > 0;
+        switch (leaf.PhysicalType)
+        {
+            case ParquetPhysicalType.Boolean:
+                if (optional) Write(writer, group, leaf, new bool?[] { true, null, false, true, null, false });
+                else Write(writer, group, leaf, new[] { true, false, true, true, false, false });
+                break;
+            case ParquetPhysicalType.Int32:
+                if (optional) Write(writer, group, leaf, new int?[] { 1, null, -7, int.MaxValue, null, 0 });
+                else Write(writer, group, leaf, new[] { 1, 2, -7, int.MaxValue, int.MinValue, 0 });
+                break;
+            case ParquetPhysicalType.Int64:
+                if (optional) Write(writer, group, leaf, new long?[] { 1, null, -7, long.MaxValue, null, 0 });
+                else Write(writer, group, leaf, new[] { 1L, 2, -7, long.MaxValue, long.MinValue, 0 });
+                break;
+            case ParquetPhysicalType.Float:
+                if (optional) Write(writer, group, leaf, new float?[] { 1.5f, null, -2, float.NaN, null, 0 });
+                else Write(writer, group, leaf, new[] { 1.5f, 2, -2, float.NaN, float.MaxValue, 0 });
+                break;
+            case ParquetPhysicalType.Double:
+                if (optional) Write(writer, group, leaf, new double?[] { 1.5, null, -2, double.NaN, null, 0 });
+                else Write(writer, group, leaf, new[] { 1.5, 2, -2, double.NaN, double.MaxValue, 0 });
+                break;
+            default:
+                var values = new byte[]?[rows];
+                for (var i = 0; i < rows; i++)
+                    values[i] = optional && i % 3 == 1 ? null : System.Text.Encoding.UTF8.GetBytes($"v{i}");
+                if (optional) Write(writer, group, leaf, values);
+                else Write(writer, group, leaf, Array.ConvertAll(values, static v => v ?? []));
+                break;
+        }
     }
 
     static IEnumerable<(string, ColumnDefinition, Action<ParquetWriter, RowGroupWriter, LeafColumn>)> CrossPathColumns()
