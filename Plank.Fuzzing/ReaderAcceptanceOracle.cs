@@ -106,7 +106,8 @@ internal static class ReaderAcceptanceOracle
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            if (IsKnownParquetSharpFinding(error) || IsOmittedDefinitionLevels(error, fileBytes))
+            if (IsKnownParquetSharpFinding(error) || IsOmittedDefinitionLevels(error, fileBytes)
+                || IsUnknownAlpPage(error, fileBytes))
                 return;
             throw new ReaderAcceptanceMismatchException("ParquetSharp rejected a file Plank read in full.", error);
         }
@@ -126,10 +127,23 @@ internal static class ReaderAcceptanceOracle
     // Plank's own page headers so a level-count rejection of any other shape
     // still surfaces.
     static bool IsOmittedDefinitionLevels(Exception error, byte[] fileBytes)
+        => error is Ps.ParquetException
+            && error.Message.Contains("rep / def levels do not match num_values", StringComparison.Ordinal)
+            && AnyPage(fileBytes, static (header, maxDefinitionLevel) =>
+                maxDefinitionLevel > 0 && header.Type == Plank.Reading.PageHeaderType.DataPageV2
+                && header.DefinitionLevelsByteLength == 0 && header.NullCount == 0 && header.ValueCount > 0);
+
+    // ALP (encoding 10) is a preview encoding Plank reads and Arrow does not
+    // know. The column-metadata check in VerifyWithParquetSharp misses a page
+    // that uses it while the chunk's encoding list does not say so.
+    static bool IsUnknownAlpPage(Exception error, byte[] fileBytes)
+        => error is Ps.ParquetException
+            && error.Message.Contains("Unknown encoding type.", StringComparison.Ordinal)
+            && AnyPage(fileBytes, static (header, _) => header.Encoding == EncodingKind.Alp);
+
+    // Whether any page of the file, as Plank's own cursor reads it, matches.
+    static bool AnyPage(byte[] fileBytes, Func<Plank.Reading.PageHeader, int, bool> predicate)
     {
-        if (error is not Ps.ParquetException
-            || !error.Message.Contains("rep / def levels do not match num_values", StringComparison.Ordinal))
-            return false;
         try
         {
             using var reader = new Plank.Reading.Logical.ParquetReader();
@@ -138,17 +152,11 @@ internal static class ReaderAcceptanceOracle
             for (var group = 0; group < physical.Metadata.RowGroupCount; group++)
                 for (var column = 0; column < reader.Schema.LeafColumns.Length; column++)
                 {
-                    if (reader.Schema.LeafColumns[column].MaxDefinitionLevel == 0)
-                        continue;
+                    var maxDefinitionLevel = reader.Schema.LeafColumns[column].MaxDefinitionLevel;
                     using var pages = physical.OpenPages(group, column);
                     while (pages.MoveNext())
-                    {
-                        var header = pages.CurrentHeader;
-                        if (header.Type == Plank.Reading.PageHeaderType.DataPageV2
-                            && header.DefinitionLevelsByteLength == 0 && header.NullCount == 0
-                            && header.ValueCount > 0)
+                        if (predicate(pages.CurrentHeader, maxDefinitionLevel))
                             return true;
-                    }
                 }
         }
         catch (Exception scan) when (scan is Plank.CorruptParquetException or InvalidOperationException
@@ -283,7 +291,12 @@ internal static class ReaderAcceptanceOracle
             // width, which booleans do not have, so every such page divides by
             // zero (reader-issues/upstream/parquet-net-bool-rle-divide-by-zero).
             || (error is DivideByZeroException
-                && error.StackTrace?.Contains("RleBitpackedHybridEncoder", StringComparison.Ordinal) == true);
+                && error.StackTrace?.Contains("RleBitpackedHybridEncoder", StringComparison.Ordinal) == true)
+            // Encoding 10 is ALP, a preview encoding Plank reads and Parquet.Net
+            // does not know; a page can use it while the chunk's encoding list
+            // does not say so, which slips past the metadata-based gate.
+            || (error is Parquet.ParquetException
+                && error.Message.Contains("encoding 10 is not supported", StringComparison.Ordinal));
 
     static async Task VerifyWithParquetNetAsync(
         byte[] fileBytes, ParquetPhysicalType[] types, IReadOnlyList<Array> plankColumns)
