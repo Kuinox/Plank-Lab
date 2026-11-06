@@ -106,7 +106,7 @@ internal static class ReaderAcceptanceOracle
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            if (IsKnownParquetSharpFinding(error))
+            if (IsKnownParquetSharpFinding(error) || IsOmittedDefinitionLevels(error, fileBytes))
                 return;
             throw new ReaderAcceptanceMismatchException("ParquetSharp rejected a file Plank read in full.", error);
         }
@@ -116,6 +116,46 @@ internal static class ReaderAcceptanceOracle
         if (valueMismatch is not null)
             throw new ReaderAcceptanceMismatchException("ParquetSharp decoded a file differently from Plank.",
                 new InvalidDataException("Decoded value mismatch (Arrow) — " + valueMismatch));
+    }
+
+    // A DataPageV2 of an optional column with def_levels_byte_length 0 and
+    // num_nulls 0: Plank reads every value as present (the values are right),
+    // Arrow requires the levels and rejects the page. An acceptance difference
+    // pending a decision on whether Plank should reject it, not a decoding bug,
+    // and it made up nearly all of Arrow's disagreements. Checked against
+    // Plank's own page headers so a level-count rejection of any other shape
+    // still surfaces.
+    static bool IsOmittedDefinitionLevels(Exception error, byte[] fileBytes)
+    {
+        if (error is not Ps.ParquetException
+            || !error.Message.Contains("rep / def levels do not match num_values", StringComparison.Ordinal))
+            return false;
+        try
+        {
+            using var reader = new Plank.Reading.Logical.ParquetReader();
+            reader.Reset(new Plank.Reading.MemoryReadSource(fileBytes));
+            var physical = reader.PhysicalReader;
+            for (var group = 0; group < physical.Metadata.RowGroupCount; group++)
+                for (var column = 0; column < reader.Schema.LeafColumns.Length; column++)
+                {
+                    if (reader.Schema.LeafColumns[column].MaxDefinitionLevel == 0)
+                        continue;
+                    using var pages = physical.OpenPages(group, column);
+                    while (pages.MoveNext())
+                    {
+                        var header = pages.CurrentHeader;
+                        if (header.Type == Plank.Reading.PageHeaderType.DataPageV2
+                            && header.DefinitionLevelsByteLength == 0 && header.NullCount == 0
+                            && header.ValueCount > 0)
+                            return true;
+                    }
+                }
+        }
+        catch (Exception scan) when (scan is Plank.CorruptParquetException or InvalidOperationException
+            or NotSupportedException)
+        {
+        }
+        return false;
     }
 
     static bool IsKnownParquetSharpFinding(Exception error)
