@@ -111,6 +111,8 @@ public static class PlankReaderFuzzTarget
         // Only the file-schema route reads every column with the file's own
         // types, so only it can be compared value-for-value with Arrow.
         var traces = (selector & 1) == 0 ? new List<ColumnTrace?[]>() : null;
+        if ((selector & 1) == 0)
+            DrainFileMetadata(reader);
         foreach (var group in reader.RowGroups)
         {
             if (group.RowCount > 4096)
@@ -180,6 +182,55 @@ public static class PlankReaderFuzzTarget
     // column statistics, bloom filters — parses offsets and lengths straight
     // out of the footer and was never executed at all: PageMetadataReader and
     // BloomFilterReader measured 0% over a 14k-input corpus.
+    // Footer metadata that nothing reads unless asked: key/value pairs, sorting
+    // columns, created_by, schema node names, CRS strings and the geospatial
+    // statistics, which are parsed lazily on request. ParquetKeyValueMetadataInfo,
+    // ParquetSortingColumn and ParquetGeospatialStatistics.Read measured 0%
+    // because the harness never asked.
+    static void DrainFileMetadata(ParquetReader reader)
+    {
+        var metadata = reader.PhysicalReader.Metadata;
+        _ = metadata.FileVersion + (long)metadata.FooterOffset + metadata.FooterLength;
+        if (metadata.HasCreatedBy)
+            Consume(metadata.CreatedByUtf8);
+        for (var i = 0; i < metadata.KeyValueMetadataCount; i++)
+        {
+            Consume(metadata.KeyValueMetadataKeyUtf8(i));
+            Consume(metadata.KeyValueMetadataValueUtf8(i));
+        }
+        foreach (var sorting in metadata.SortingColumns)
+            _ = sorting.ColumnOrdinal + (sorting.Descending ? 1 : 0) + (sorting.NullsFirst ? 2 : 0);
+        for (var node = 0; node < metadata.SchemaNodeCount; node++)
+        {
+            Consume(metadata.SchemaNodeNameUtf8(node));
+            Consume(metadata.SchemaNodeLogicalTypeCrsUtf8(node));
+        }
+        for (var column = 0; column < metadata.ColumnCount; column++)
+        {
+            var schema = metadata.ColumnSchema(column);
+            for (var segment = 0; segment < schema.PathSegmentCount; segment++)
+                Consume(metadata.ColumnPathSegmentUtf8(column, segment));
+            Consume(metadata.ColumnLogicalTypeCrsUtf8(column));
+        }
+        for (var group = 0; group < metadata.RowGroupCount; group++)
+        {
+            foreach (var sorting in metadata.RowGroupSortingColumns(group))
+                _ = sorting.ColumnOrdinal;
+            for (var column = 0; column < metadata.ColumnCount; column++)
+            {
+                _ = metadata.ColumnChunk(group, column);
+                if (metadata.ReadGeospatialStatistics(group, column) is not { } geo)
+                    continue;
+                if (geo.BoundingBox is { } box)
+                    _ = box.XMin + box.XMax + box.YMin + box.YMax + (box.ZMin ?? 0) + (box.ZMax ?? 0)
+                        + (box.MMin ?? 0) + (box.MMax ?? 0);
+                if (geo.GeospatialTypes is { } types)
+                    foreach (var type in types)
+                        _ = type;
+            }
+        }
+    }
+
     static void DrainMetadata(RowGroup rowGroup, LeafColumn column)
     {
         var metadata = rowGroup.GetColumnMetadata(column);
