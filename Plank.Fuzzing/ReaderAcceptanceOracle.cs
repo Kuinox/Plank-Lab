@@ -190,7 +190,11 @@ internal static class ReaderAcceptanceOracle
             // a multi-GB allocation that outlasts AFL's timeout. The oracle cannot
             // judge such a file. OOMs from Plank itself still crash the worker.
         }
-        catch (Exception error) when (error is not OutOfMemoryException && !IsKnownParquetNetFinding(error))
+        catch (Exception error) when (IsKnownParquetNetFinding(error))
+        {
+            // A Parquet.Net bug already on file: nothing to compare.
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
         {
             throw new ReaderAcceptanceMismatchException("Parquet.Net rejected or decoded a file differently from Plank.", error);
         }
