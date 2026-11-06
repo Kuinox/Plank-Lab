@@ -166,7 +166,10 @@ internal static class ReaderAcceptanceOracle
         try
         {
             var comparison = Task.Run(() => VerifyWithParquetNetAsync(fileBytes, types, plankColumns));
-            if (!comparison.Wait(ParquetNetBudget))
+            // WaitAny, not Wait: Wait rethrows a faulted task as AggregateException,
+            // which hid NotSupportedException and the known findings from the
+            // catch clauses below and reported them as disagreements.
+            if (Task.WaitAny([comparison], ParquetNetBudget) < 0)
             {
                 _overrunningParquetNet = comparison;
                 _ = comparison.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
@@ -230,8 +233,13 @@ internal static class ReaderAcceptanceOracle
     static bool IsKnownParquetNetFinding(Exception error)
         // Parquet.Net advertises dictionary support in some read paths but its
         // generic primitive reader rejects dictionary-backed chunks.
-        => error is InvalidOperationException
-            && error.Message.Contains("dictionary", StringComparison.OrdinalIgnoreCase);
+        => (error is InvalidOperationException
+                && error.Message.Contains("dictionary", StringComparison.OrdinalIgnoreCase))
+            // It decodes RLE booleans with the schema's type_length as the bit
+            // width, which booleans do not have, so every such page divides by
+            // zero (reader-issues/upstream/parquet-net-bool-rle-divide-by-zero).
+            || (error is DivideByZeroException
+                && error.StackTrace?.Contains("RleBitpackedHybridEncoder", StringComparison.Ordinal) == true);
 
     static async Task VerifyWithParquetNetAsync(
         byte[] fileBytes, ParquetPhysicalType[] types, IReadOnlyList<Array> plankColumns)

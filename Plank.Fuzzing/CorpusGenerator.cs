@@ -666,7 +666,10 @@ public static class CorpusGenerator
         EncodingKind[] encodings =
         [
             EncodingKind.Plain, EncodingKind.ByteStreamSplit, EncodingKind.RleDictionary,
-            EncodingKind.DeltaBinaryPacked, EncodingKind.DeltaByteArray
+            EncodingKind.DeltaBinaryPacked, EncodingKind.DeltaByteArray,
+            // RLE as a value encoding (booleans): DecodeBooleanRle and its batched
+            // twin had no seed.
+            EncodingKind.Rle
         ];
         foreach (var encoding in encodings)
         {
