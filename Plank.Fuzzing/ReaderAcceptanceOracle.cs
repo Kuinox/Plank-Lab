@@ -184,6 +184,14 @@ internal static class ReaderAcceptanceOracle
             && error.Message.Contains("Unknown encoding type for levels.", StringComparison.Ordinal))
             return true;
 
+        // Snappier accepts a block whose literal overruns its input: it fills the
+        // output with the bytes that are there and reports success, so Plank reads
+        // what Arrow rejects as corrupt. Reported upstream; stop-gap until a fixed
+        // Snappier release, then remove (reader-issues/arrow-rejections, snappy-*).
+        if (error is Ps.ParquetException
+            && error.Message.Contains("Corrupt snappy compressed data", StringComparison.Ordinal))
+            return true;
+
         // A short RLE run is legal input for Plank's bounded decoder but is
         // rejected by Arrow. Keep this tied to Arrow's RLE-run diagnostic.
         return error is Ps.ParquetException
