@@ -106,8 +106,7 @@ internal static class ReaderAcceptanceOracle
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            if (IsKnownParquetSharpFinding(error) || IsOmittedDefinitionLevels(error, fileBytes)
-                || IsUnknownAlpPage(error, fileBytes))
+            if (IsKnownParquetSharpFinding(error) || IsUnknownAlpPage(error, fileBytes))
                 return;
             throw new ReaderAcceptanceMismatchException("ParquetSharp rejected a file Plank read in full.", error);
         }
@@ -118,20 +117,6 @@ internal static class ReaderAcceptanceOracle
             throw new ReaderAcceptanceMismatchException("ParquetSharp decoded a file differently from Plank.",
                 new InvalidDataException("Decoded value mismatch (Arrow) — " + valueMismatch));
     }
-
-    // A DataPageV2 of an optional column with def_levels_byte_length 0 and
-    // num_nulls 0: Plank reads every value as present (the values are right),
-    // Arrow requires the levels and rejects the page. An acceptance difference
-    // pending a decision on whether Plank should reject it, not a decoding bug,
-    // and it made up nearly all of Arrow's disagreements. Checked against
-    // Plank's own page headers so a level-count rejection of any other shape
-    // still surfaces.
-    static bool IsOmittedDefinitionLevels(Exception error, byte[] fileBytes)
-        => error is Ps.ParquetException
-            && error.Message.Contains("rep / def levels do not match num_values", StringComparison.Ordinal)
-            && AnyPage(fileBytes, static (header, maxDefinitionLevel) =>
-                maxDefinitionLevel > 0 && header.Type == Plank.Reading.PageHeaderType.DataPageV2
-                && header.DefinitionLevelsByteLength == 0 && header.NullCount == 0 && header.ValueCount > 0);
 
     // ALP (encoding 10) is a preview encoding Plank reads and Arrow does not
     // know. The column-metadata check in VerifyWithParquetSharp misses a page
