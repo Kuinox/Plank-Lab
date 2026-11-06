@@ -216,7 +216,9 @@ public static class PlankReaderFuzzTarget
         {
             foreach (var sorting in metadata.RowGroupSortingColumns(group))
                 _ = sorting.ColumnOrdinal;
-            for (var column = 0; column < metadata.ColumnCount; column++)
+            // A row group's chunk count comes from its own footer list, which a
+            // damaged file can make disagree with the schema's leaf count.
+            for (var column = 0; column < metadata.RowGroup(group).ColumnCount; column++)
             {
                 _ = metadata.ColumnChunk(group, column);
                 if (metadata.ReadGeospatialStatistics(group, column) is not { } geo)

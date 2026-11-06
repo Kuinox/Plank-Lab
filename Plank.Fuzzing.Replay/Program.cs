@@ -86,6 +86,12 @@ static class Program
                 var detail = mismatch.InnerException?.Message ?? mismatch.Message;
                 Console.Error.WriteLine($"MISMATCH\t{files[i]}\t{detail.Replace('\n', '\t')}");
             }
+            catch (Exception)
+            {
+                // The fleet would record this input as a crash; name it before the process dies.
+                Console.Error.WriteLine($"CRASH\t{files[i]}");
+                throw;
+            }
 
             if ((i + 1) % 2000 == 0)
                 Console.WriteLine($"  {i + 1}/{files.Count} ({stopwatch.Elapsed.TotalSeconds:F0}s)");
