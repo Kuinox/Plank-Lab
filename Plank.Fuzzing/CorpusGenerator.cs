@@ -228,7 +228,7 @@ public static class CorpusGenerator
         foreach (var pageVersion in (ParquetDataPageVersion[])[ParquetDataPageVersion.V2, ParquetDataPageVersion.V1])
         {
             var suffix = pageVersion == ParquetDataPageVersion.V1 ? "v1" : "v2";
-            foreach (var (name, column, writer) in KernelWidthColumns())
+            foreach (var (name, column, writer) in KernelWidthColumns().Concat(BatchSplitColumns()))
             {
                 if (TryBuild($"width-{name}-{suffix}", CompressionKind.None, column, writer, out var file,
                         pageVersion))
@@ -931,6 +931,55 @@ public static class CorpusGenerator
             (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => new byte[v % 17]))));
         yield return ("bin-deltabyte-large-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaByteArray),
             (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => BitConverter.GetBytes(v / 7)))));
+    }
+
+    // Pages that hold more values than one decode batch (ColumnChunkReader
+    // .DecodeBatchSizeBytes, 256 KiB of decoded values: 65,536 INT32). Every
+    // other seed fits in one batch, so the code that stops a batch part-way
+    // through an RLE run, a delta mini-block or a DELTA_BYTE_ARRAY pair
+    // (PlanRleBatch, PlanDeltaPairBatch, CountLogicalValuesThroughPhysical,
+    // the decoders' NextBatchCount) had never run. Long runs keep the files
+    // small: each is a few tens of KB.
+    static IEnumerable<(string, ColumnDefinition, Action<ParquetWriter, RowGroupWriter, LeafColumn>)> BatchSplitColumns()
+    {
+        const int Count = 70_000;
+        var runs = new long[Count];
+        for (var i = 0; i < Count; i++)
+            runs[i] = i / 997 % 5;
+        yield return ("split-i32-dict", Leaf("c", ParquetPhysicalType.Int32, EncodingKind.RleDictionary),
+            (w, g, c) => Write<int>(w, g, c, Array.ConvertAll(runs, static v => (int)v)));
+        yield return ("split-i32-dict-opt", LeafOptional("c", ParquetPhysicalType.Int32, EncodingKind.RleDictionary),
+            (w, g, c) => Write<int?>(w, g, c, WithNulls(Array.ConvertAll(runs, static v => (int)v))));
+        yield return ("split-i64-dict-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.RleDictionary),
+            (w, g, c) => Write<long?>(w, g, c, WithNulls(runs)));
+        yield return ("split-bin-dict-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.RleDictionary),
+            (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(runs, static v => new[] { (byte)('a' + v) }))));
+
+        var bools = new bool[300_000];
+        for (var i = 0; i < bools.Length; i++)
+            bools[i] = i / 1009 % 2 == 0;
+        yield return ("split-bool-rle", Leaf("c", ParquetPhysicalType.Boolean, EncodingKind.Rle),
+            (w, g, c) => Write<bool>(w, g, c, bools));
+
+        var steps = new long[Count];
+        for (var i = 0; i < Count; i++)
+            steps[i] = i * 3L + (i / 4099 % 2);
+        yield return ("split-i32-delta", Leaf("c", ParquetPhysicalType.Int32, EncodingKind.DeltaBinaryPacked),
+            (w, g, c) => Write<int>(w, g, c, Array.ConvertAll(steps, static v => (int)v)));
+        yield return ("split-i64-delta-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.DeltaBinaryPacked),
+            (w, g, c) => Write<long?>(w, g, c, WithNulls(steps)));
+
+        var decimals = new double[40_000];
+        for (var i = 0; i < decimals.Length; i++)
+            decimals[i] = (i / 1013) / 100.0;
+        yield return ("split-f64-alp-opt", LeafOptional("c", ParquetPhysicalType.Double, EncodingKind.Alp),
+            (w, g, c) => Write<double?>(w, g, c, WithNulls(decimals)));
+
+        var keys = Array.ConvertAll(runs, static v => System.Text.Encoding.ASCII.GetBytes($"key-{v}"));
+        yield return ("split-bin-deltabyte", Leaf("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaByteArray),
+            (w, g, c) => Write<byte[]>(w, g, c, keys));
+        yield return ("split-bin-deltalen-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaLengthByteArray),
+            (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(keys)));
     }
 
     // Values whose consecutive differences span exactly `width` bits within

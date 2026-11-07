@@ -21,6 +21,15 @@ HIST = os.path.join(ROOT, 'fuzz', 'coverage', 'history')
 WRITER = re.compile(r'^(Writing|Dataset\.Dataset(Writer|Buffer))|RowWriter|PipelineRowWriter|RowBufferSlot'
                     r'|RowBufferSize|RowValueSize|RowApiColumnWriteState|AlpEncodingPrimitives')
 
+# Writer-side helpers that live in shared classes: counted by the writer target, not here.
+WRITER_METHODS = re.compile(
+    r'^(Schema\.ColumnOptions\.(Equals|GetHashCode)'
+    r'|Schema\.ColumnDefinition\.(Group|CreateList|CreateMap)'
+    r'|Schema\.ParquetDecimalConverter\.(ToUnscaled|Write\w*|GetSigned\w*)'
+    r'|Schema\.ParquetValueConverter`2\.ConvertToPhysical'
+    r'|Schema\.ParquetBloomFilterOptions\.\w+|BloomFilters\.SplitBlockBloomFilter\.InsertHash'
+    r'|RowApi\.RowGroupWriterCore`1\.\w+|Schema\.ParquetColumnAttribute\.\w+|Schema\.ParquetTypeMap\.\w+)$')
+
 # Areas, first match wins. Keyed on the class name with the "Plank." prefix removed.
 AREAS = [
     ('Thrift / footer metadata', r'^Reading\.(CompactProtocol|Physical\.Internal\.PhysicalMetadata|Physical\.ParquetFileMetadata|Physical\.ParquetRowGroupMetadata|Physical\.ParquetColumnChunkMetadata)|Thrift|Metadata'),
@@ -50,6 +59,9 @@ def load(tag):
                     if WRITER.search(c):
                         continue
                     for mname, m in ms.items():
+                        short = mname.split('::')[-1].split('(')[0]
+                        if WRITER_METHODS.match(f'{c}.{short}'):
+                            continue
                         key = (c, mname)
                         methods.setdefault(key, fname)
                         for ln, hits in m.get('Lines', {}).items():
