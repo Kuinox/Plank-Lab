@@ -58,8 +58,15 @@ fi
 echo "==> Stopping any existing $TARGET fuzzers..."
 # By process tree, not pkill -f: a pattern like the binary name also matches
 # any shell whose command line mentions it, and killed the caller more than once.
+# Only this target's workers (temp dirs are named <target>-<worker>), plus the
+# unprefixed names older versions used, so the reader and writer fleets can run
+# side by side.
 for tmp_dir in "$ROOT/fuzz/.tmp"/*/; do
-  [ -d "$tmp_dir" ] && "$ROOT/fuzz/stop-worker.sh" "$(basename "$tmp_dir")" >/dev/null
+  [ -d "$tmp_dir" ] || continue
+  name="$(basename "$tmp_dir")"
+  case "$name" in
+    "$TARGET"-*|main|worker-*) "$ROOT/fuzz/stop-worker.sh" "$name" >/dev/null ;;
+  esac
 done
 
 ulimit -c 0
@@ -89,7 +96,15 @@ export DOTNET_DbgEnableMiniDump=0 DOTNET_DbgMiniDumpType=1
 # oracle treats as "cannot judge", instead of seconds of allocating and filling:
 # that outlasts AFL's timeout, a timeout kills SharpFuzz's fork server, and on
 # resume the same queue entry kills it again. 1 GiB still let a 4 s fill through.
-export DOTNET_GCHeapHardLimit=0x10000000
+# Reader only. The writer target builds whole files from a plan and reads them
+# back through ParquetSharp, and a persistent worker under the same 256 MiB cap
+# died every minute or two during the dry run ("Unable to request new process
+# from fork server"), at a different queue entry each time.
+if [ "$TARGET" = "reader" ]; then
+  export DOTNET_GCHeapHardLimit=0x10000000
+else
+  export DOTNET_GCHeapHardLimit=0x80000000
+fi
 export DOTNET_DbgMiniDumpName="/tmp/plank-$TARGET-crash-%p.dmp"
 # The persistent harness *is* the fork server, so a crash kills the worker and
 # AFL aborts before saving anything. The harness writes the offending input here
@@ -121,7 +136,7 @@ isa_env() {
 start_one() {
   local name="$1" core="$2"
   local isa; isa="$(isa_env "$name")"
-  local tmp="$ROOT/fuzz/.tmp/$name"
+  local tmp="$ROOT/fuzz/.tmp/$TARGET-$name"
   mkdir -p "$tmp"
   # Each worker needs its own AFL_TMPDIR: they all write .cur_input there.
   # Respawn loop keeps the fleet alive across the occasional worker abort.

@@ -301,9 +301,16 @@ public static class PlankWriterFuzzTarget
     // These columns keep Plank's own round-trip check, which still compares every
     // value written against every value read. They lose only the
     // cross-implementation comparison.
+    // ParquetSharp's Arrow has no ALP decoder ("Unknown encoding type."), and an
+    // unhandled exception here killed the persistent fork server on the first
+    // seed that drew ALP for a float or double column: the writer fleet aborted
+    // at start-up ("Unable to request new process from fork server") on every
+    // run after ALP became a writer choice. Plank's own read-back still checks
+    // those columns.
     static bool CanParquetSharpRead(ColumnSpec spec)
-        => spec.Column.PhysicalType != ParquetPhysicalType.FixedLenByteArray
-            || spec.Column.LogicalType is not null;
+        => spec.Encoding != EncodingKind.Alp
+            && (spec.Column.PhysicalType != ParquetPhysicalType.FixedLenByteArray
+                || spec.Column.LogicalType is not null);
 
     static Array ReadParquetSharpColumn(ParquetSharp.RowGroupReader rowGroup, ColumnSpec spec, int rowCount,
         int columnIndex)
