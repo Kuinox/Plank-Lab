@@ -30,3 +30,4 @@ fuzz/reader-corpus/pqt-*.bin
 
 # Written by Plank.Fuzzing.Target --generate-corpus.
 fuzz/corpus/crosswriter-*
+fuzz/.coverage-work/

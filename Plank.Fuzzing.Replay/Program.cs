@@ -83,8 +83,12 @@ static class Program
                 // The fleet buckets these; a coverage measurement has to keep
                 // going or it only measures the queue up to the first finding.
                 mismatches++;
-                var detail = mismatch.InnerException?.Message ?? mismatch.Message;
-                Console.Error.WriteLine($"MISMATCH\t{files[i]}\t{detail.Replace('\n', '\t')}");
+                // Both messages: the outer one says which check fired (and which side
+                // rejected), the inner one is the reader's own diagnostic.
+                var detail = mismatch.InnerException is { } inner
+                    ? $"{inner.Message} | {mismatch.Message}"
+                    : mismatch.Message;
+                Console.Error.WriteLine($"MISMATCH\t{files[i]}\t{detail.Replace('\n', ' ')}");
             }
             catch (Exception)
             {
@@ -98,7 +102,7 @@ static class Program
         }
 
         Console.WriteLine($"done: {files.Count} inputs, {faulted} threw outside the expected set, {mismatches} oracle mismatches, "
-            + $"{ColumnTrace.ComparedColumns} columns / {ColumnTrace.ComparedValues} values compared with Arrow, "
+            + $"{ColumnTrace.ComparedColumns} columns / {ColumnTrace.ComparedValues} values compared with Arrow, {LogicalOracle.ComparedValues} logical values checked, "
             + $"{stopwatch.Elapsed.TotalSeconds:F0}s");
         return 0;
     }

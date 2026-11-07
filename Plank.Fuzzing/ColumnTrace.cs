@@ -67,6 +67,16 @@ public sealed class ColumnTrace
         return CollectionsMarshal.AsSpan(_bytes)[start.._valueEnds[index]];
     }
 
+    /// <summary>One entry per row of a flat column: the value's physical bytes, or null when absent.</summary>
+    public List<byte[]?> FlatValues()
+    {
+        var values = new List<byte[]?>(_definitions.Count);
+        var next = 0;
+        foreach (var definition in _definitions)
+            values.Add(definition > 0 ? ValueAt(next++).ToArray() : null);
+        return values;
+    }
+
     // ---- Plank side -------------------------------------------------------
 
     public static ColumnTrace CapturePlank(RowGroup rowGroup, LeafColumn column)

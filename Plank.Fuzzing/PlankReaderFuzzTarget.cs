@@ -81,7 +81,7 @@ public static class PlankReaderFuzzTarget
         // measured 0% over a 14k-input corpus — neither fuzz target drove it.
         if ((selector & 3) == 2)
         {
-            DrainRowApi(source, options.VerifyPageCrc, selector);
+            DrainRowApi(source, fileBytes, options.VerifyPageCrc, selector);
             return;
         }
 
@@ -129,6 +129,17 @@ public static class PlankReaderFuzzTarget
                             or EncodingKind.PlainDictionary or EncodingKind.RleDictionary))
                             canCompareWithParquetNet = false;
 
+                // Bit 2 (file-schema route only; bits 2-3 are otherwise unused
+                // there) reads the column with both nullabilities and requires
+                // them to agree. It runs before the natural read on purpose: when
+                // the natural read rejects a corrupt page, the input ends there,
+                // and the other path was never asked whether it rejects it too.
+                // Reading T from an optional column once returned garbage for
+                // definition levels that T? (and Arrow) reject, unseen for days.
+                // See CrossCheckReadPaths.
+                if ((selector & 4) != 0 && (selector & 1) == 0)
+                    CrossCheckReadPaths(group, column);
+
                 // The trace reads the physical values, which is the level Arrow
                 // can be compared at. An API refusal (not a file rejection) just
                 // leaves this column uncompared.
@@ -141,6 +152,11 @@ public static class PlankReaderFuzzTarget
                     catch (InvalidOperationException) { }
                 }
 
+                // Logical values are checked against the specification's conversion of
+                // the physical values the trace just captured. See LogicalOracle.
+                if (groupTraces?[columnIndex] is { } trace && column.LogicalType is not null)
+                    LogicalOracle.Check(group, column, trace);
+
                 if (canCompareWithParquetNet)
                     decodedColumns.Add(DrainFlatColumnForComparison(group, column));
                 // Annotated columns still go through their logical CLR type, so
@@ -148,11 +164,6 @@ public static class PlankReaderFuzzTarget
                 else if (groupTraces?[columnIndex] is null || column.LogicalType is not null)
                     DrainColumn(group, column);
 
-                // Bit 2 (file-schema route only; bits 2-3 are otherwise unused
-                // there) reads the column a second time with the opposite
-                // nullability. See CrossCheckReadPaths.
-                if ((selector & 4) != 0 && (selector & 1) == 0)
-                    CrossCheckReadPaths(group, column);
             }
         }
 
@@ -277,7 +288,7 @@ public static class PlankReaderFuzzTarget
     // RowReaderCore is normally reached through source-generated row types, but
     // it is public and takes the schema and descriptors directly, so the fuzzer
     // can drive it over whatever schema the file declares.
-    static void DrainRowApi(IParquetReadSource source, bool verifyPageCrc, byte selector)
+    static void DrainRowApi(IParquetReadSource source, byte[] fileBytes, bool verifyPageCrc, byte selector)
     {
         ParquetSchema schema;
         using (var probe = new ParquetReader())
@@ -324,10 +335,21 @@ public static class PlankReaderFuzzTarget
         if ((selector & 4) != 0)
             DrainGeneratedRows(source);
 
+        // The row reader has its own buffering on top of the column reader, and
+        // nothing checked what it returns: its values were only ever compared
+        // with themselves after Reset, and Arrow never saw these inputs. Read the
+        // flat columns through the column reader first and require the same
+        // values; then hold the row reader to the same acceptance oracle as the
+        // column reader. (The two Plank readers may differ on trailing junk the
+        // rows never reach, as Arrow does, so their verdicts are not compared.)
+        var expected = CaptureColumnarRows(source, schema, verifyPageCrc);
+
         var compareAfterReset = (selector & 8) != 0;
         using var rows = new RowReaderCore(source, schema, descriptors, projection: null,
             rowOptions, schemaEvolution: null);
-        var first = ReadAllRows(rows, descriptors, compareAfterReset);
+        var first = ReadAllRows(rows, descriptors, compareAfterReset, expected);
+        if (ReaderAcceptanceOracle.HasParquetHeader(fileBytes))
+            ReaderAcceptanceOracle.VerifyWithParquetSharp(fileBytes);
         if (!compareAfterReset)
             return;
 
@@ -411,16 +433,91 @@ public static class PlankReaderFuzzTarget
             or CorruptParquetException) { }
     }
 
-    static List<string>? ReadAllRows(RowReaderCore rows, RowApiColumnDescriptor[] descriptors, bool record)
+    static List<string>? ReadAllRows(RowReaderCore rows, RowApiColumnDescriptor[] descriptors, bool record,
+        List<byte[]?>?[]? expected = null)
     {
         var values = record ? new List<string>() : null;
+        var row = 0;
         while (rows.MoveNext())
+        {
             for (var i = 0; i < descriptors.Length; i++)
             {
                 var value = ReadCurrent(rows, descriptors[i]);
                 values?.Add(FormatRowValue(value));
+                if (expected?[i] is { } column)
+                    RequireSameRowValue(descriptors[i], column, row, value);
             }
+            row++;
+        }
+        if (expected is not null)
+            for (var i = 0; i < expected.Length; i++)
+                if (expected[i] is { } column && column.Count != row)
+                    throw new ReaderAcceptanceMismatchException(
+                        $"Decoded value mismatch (row reader vs column reader) — column {i}: row reader returned {row} rows, column reader {column.Count}.");
         return values;
+    }
+
+    // Flat leaves only: a nested leaf's row value is a reconstructed shape, not one
+    // value per entry. Null when the column reader rejects the file: there is then
+    // nothing to compare values with.
+    static List<byte[]?>?[]? CaptureColumnarRows(IParquetReadSource source,
+        ParquetSchema schema, bool verifyPageCrc)
+    {
+        var leaves = schema.LeafColumns;
+        var values = new List<byte[]?>?[leaves.Length];
+        for (var i = 0; i < leaves.Length; i++)
+            if (leaves[i].MaxRepetitionLevel == 0)
+                values[i] = [];
+        try
+        {
+            using var reader = new ParquetReader(new ParquetReaderOptions { VerifyPageCrc = verifyPageCrc });
+            reader.Reset(source);
+            foreach (var group in reader.RowGroups)
+                for (var i = 0; i < leaves.Length; i++)
+                {
+                    if (values[i] is null)
+                        continue;
+                    var trace = ColumnTrace.CapturePlank(group, reader.Schema.LeafColumns[i]);
+                    if (trace.Overflowed)
+                        values[i] = null;
+                    else
+                        values[i]!.AddRange(trace.FlatValues());
+                }
+        }
+        catch (Exception error) when (error is CorruptParquetException or NotSupportedException
+                                          or InvalidOperationException)
+        {
+            return null;
+        }
+        return values;
+    }
+
+    static void RequireSameRowValue(RowApiColumnDescriptor descriptor, List<byte[]?> column, int row, object? value)
+    {
+        if (row >= column.Count)
+            throw new ReaderAcceptanceMismatchException(
+                $"Decoded value mismatch (row reader vs column reader) — row reader returned more than {column.Count} rows.");
+        var expected = column[row];
+        byte[]? actual = value switch
+        {
+            null => null,
+            byte[] bytes => bytes,
+            bool b => [b ? (byte)1 : (byte)0],
+            int v => BitConverter.GetBytes(v),
+            long v => BitConverter.GetBytes(v),
+            float v => BitConverter.GetBytes(v),
+            double v => BitConverter.GetBytes(v),
+            _ => throw new InvalidOperationException($"unexpected row value {value.GetType()}"),
+        };
+        // A fixed-width descriptor has no null; for an absent value it returns
+        // whatever it returns, so only present values are compared there.
+        if (expected is null && descriptor is not RowApiColumnDescriptor<byte[]>)
+            return;
+        if ((expected is null) != (actual is null)
+            || expected is not null && !expected.AsSpan().SequenceEqual(actual))
+            throw new ReaderAcceptanceMismatchException(
+                $"Decoded value mismatch (row reader vs column reader) — {descriptor.GetType().GenericTypeArguments[0].Name} row {row}: "
+                + $"row reader {(actual is null ? "null" : Convert.ToHexString(actual))}, column reader {(expected is null ? "null" : Convert.ToHexString(expected))}.");
     }
 
     static string FormatRowValue(object? value) => value switch
@@ -791,14 +888,19 @@ public static class PlankReaderFuzzTarget
     }
 
     // Two Plank read paths over the same column must give the same verdict on
-    // corruption and the same values for the rows both return. The natural read
-    // already ran, so a corrupt page has been reported by now; this only checks
-    // that the paths agree with each other.
+    // corruption and the same values for the rows both return. A rejection is
+    // not a finding on its own (the natural read reports corrupt pages); a path
+    // that returns values where the other rejects is.
     static void RequireSameReads(string what,
         string firstName, (object?[]? Values, Exception? Error) first,
         string secondName, (object?[]? Values, Exception? Error) second,
         bool skipNullsOfFirst = false, bool secondMayRejectMore = false)
     {
+        // A path that refuses the request (TryReadPath returns neither values nor
+        // an error, e.g. NotSupportedException: this encoding cannot be decoded
+        // into that CLR shape) has no verdict on the file.
+        if (first is (null, null) || second is (null, null))
+            return;
         if ((first.Error is CorruptParquetException) != (second.Error is CorruptParquetException)
             && !(secondMayRejectMore && second.Error is CorruptParquetException))
             throw new ReaderAcceptanceMismatchException(
