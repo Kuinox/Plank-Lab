@@ -24,7 +24,7 @@ static class Program
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine("usage: Plank.Fuzzing.Replay <reader|writer|both> <dir> [<dir>...]");
+            Console.Error.WriteLine("usage: Plank.Fuzzing.Replay <reader|writer|merger|both> <dir> [<dir>...]");
             return 2;
         }
 
@@ -58,6 +58,7 @@ static class Program
         Console.WriteLine($"replaying {files.Count} inputs through '{target}'");
         var stopwatch = Stopwatch.StartNew();
         var faulted = 0;
+        var mismatches = 0;
         for (var i = 0; i < files.Count; i++)
         {
             byte[] data;
@@ -72,19 +73,46 @@ static class Program
                 continue;
             }
 
-            if (!Replay(target, data))
+            try
+            {
+                if (!Replay(target, data, files[i]))
+                    faulted++;
+            }
+            catch (ReaderAcceptanceMismatchException mismatch)
+            {
+                // The fleet buckets these; a coverage measurement has to keep
+                // going or it only measures the queue up to the first finding.
+                mismatches++;
+                // Both messages: the outer one says which check fired (and which side
+                // rejected), the inner one is the reader's own diagnostic.
+                var detail = mismatch.InnerException is { } inner
+                    ? $"{inner.Message} | {mismatch.Message}"
+                    : mismatch.Message;
+                Console.Error.WriteLine($"MISMATCH\t{files[i]}\t{detail.Replace('\n', ' ')}");
+            }
+            catch (Exception error)
+            {
+                // The fleet would record this input as a crash; name it before the process dies.
+                Console.Error.WriteLine($"CRASH\t{files[i]}\t{error.GetType().FullName}\t{error.Message.Replace('\n', ' ')}");
+                // Coverage measurements need to reach later queue entries even
+                // when an older saved input still triggers a library defect.
+                // Keep the default replay behavior fatal for ordinary triage.
+                if (Environment.GetEnvironmentVariable("PLANK_FUZZ_CONTINUE_ON_CRASH") != "1")
+                    throw;
                 faulted++;
+            }
 
             if ((i + 1) % 2000 == 0)
                 Console.WriteLine($"  {i + 1}/{files.Count} ({stopwatch.Elapsed.TotalSeconds:F0}s)");
         }
 
-        Console.WriteLine($"done: {files.Count} inputs, {faulted} threw outside the expected set, "
+        Console.WriteLine($"done: {files.Count} inputs, {faulted} threw outside the expected set, {mismatches} oracle mismatches, "
+            + $"{ColumnTrace.ComparedColumns} columns / {ColumnTrace.ComparedValues} values compared with Arrow, {LogicalOracle.ComparedValues} logical values checked, "
             + $"{stopwatch.Elapsed.TotalSeconds:F0}s");
         return 0;
     }
 
-    static bool Replay(string target, byte[] data)
+    static bool Replay(string target, byte[] data, string file)
     {
         try
         {
@@ -95,6 +123,9 @@ static class Program
                     break;
                 case "writer":
                     PlankWriterFuzzTarget.Execute(data);
+                    break;
+                case "merger":
+                    PlankMergerFuzzTarget.Execute(data);
                     break;
                 case "both":
                     PlankReaderFuzzTarget.Execute(data);
@@ -110,9 +141,14 @@ static class Program
         {
             throw;
         }
-        catch (Exception)
+        catch (ReaderAcceptanceMismatchException)
+        {
+            throw;
+        }
+        catch (Exception error)
         {
             // Everything else is the corpus doing its job.
+            Console.Error.WriteLine($"FAULT\t{file}\t{error.GetType().FullName}\t{error.Message.Replace('\n', ' ')}");
             return false;
         }
     }

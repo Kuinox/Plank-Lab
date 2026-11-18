@@ -63,6 +63,18 @@ static class DecompressorCorpus
     {
         var n = Compressible.Length;
         yield return ("gzip", Gzip, Deflate(Compressible), n);
+        // Exercise the member loop, including an empty member after the
+        // declared output has already been filled. A one-byte extra member
+        // probes the declared-size overflow check rather than only corrupt
+        // gzip framing.
+        yield return ("gzip-concatenated", Gzip,
+            [.. Deflate(Compressible.AsSpan(..200).ToArray()),
+             .. Deflate(Compressible.AsSpan(200..).ToArray())], n);
+        yield return ("gzip-trailing-empty", Gzip,
+            [.. Deflate(Compressible), .. Deflate([])], n);
+        yield return ("gzip-extra-byte", Gzip,
+            [.. Deflate(Compressible), .. Deflate([(byte)'x'])], n);
+        yield return ("zstd", Zstd, ZstdCompress(Compressible), n);
         yield return ("brotli", Brotli, BrotliCompress(Compressible), n);
         yield return ("lz4raw", Lz4Raw, Lz4Block(Compressible), n);
 
@@ -128,6 +140,12 @@ static class DecompressorCorpus
         if (!BrotliEncoder.TryCompress(source, buffer, out var written))
             throw new InvalidOperationException("Brotli compression of a seed failed.");
         return buffer[..written];
+    }
+
+    static byte[] ZstdCompress(byte[] source)
+    {
+        using var compressor = new ZstdSharp.Compressor();
+        return compressor.Wrap(source).ToArray();
     }
 
     static byte[] Lz4Block(ReadOnlySpan<byte> source)

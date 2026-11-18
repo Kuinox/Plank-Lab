@@ -6,6 +6,12 @@ findings/
 writer-findings/
 crashes/
 logs/
+.coverage-work/
+.scratch/
+coverage/history/
+disagreements/
+reader-findings-archive-*/
+writer-findings-archive-*/
 .afl/
 .tmp/
 .notified

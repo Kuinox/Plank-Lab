@@ -1,0 +1,192 @@
+<title>Plank Reader Fuzz Coverage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one instrument column; stat strip, two stacked time charts sharing an x-axis, then the bucket log. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #5d6676; --rule: #dde1e8; --grid: #eceff3;
+  --accent: #2459c4; --instance: #9aa6ba;
+  --value: #c4362b; --plank: #b86e00; --accept: #5b6b8c;
+  --chip-value: #fbe7e5; --chip-plank: #fbefd9; --chip-accept: #e8ecf4;
+  --sans: "Public Sans", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a1f28; --fg: #e4e8ef; --muted: #98a2b3; --rule: #2c3340; --grid: #232a35;
+  --accent: #6d9bff; --instance: #4d586b;
+  --value: #ff7a6e; --plank: #f2a93b; --accept: #93a3c4;
+  --chip-value: #3a1f1d; --chip-plank: #3a2c14; --chip-accept: #252d3d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a1f28; --fg: #e4e8ef; --muted: #98a2b3; --rule: #2c3340; --grid: #232a35;
+  --accent: #6d9bff; --instance: #4d586b;
+  --value: #ff7a6e; --plank: #f2a93b; --accept: #93a3c4;
+  --chip-value: #3a1f1d; --chip-plank: #3a2c14; --chip-accept: #252d3d; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+main { max-width: 1100px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+header { display: grid; gap: 4px; }
+h1 { font-size: 1.6rem; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+.sub { color: var(--muted); margin: 0; font-size: 0.92rem; }
+.mono { font-family: var(--mono); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.stat { background: var(--panel); padding: 12px 14px; display: grid; gap: 2px; }
+.stat b { font-family: var(--mono); font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+section.chart { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 16px 8px; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.tip { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); min-height: 1.4em; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.key { font-family: var(--mono); font-size: 0.78rem; word-break: break-word; min-width: 320px; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+.chip.value { background: var(--chip-value); color: var(--value); }
+.chip.plank { background: var(--chip-plank); color: var(--plank); }
+.chip.accept { background: var(--chip-accept); color: var(--accept); }
+.note { color: var(--muted); font-size: 0.84rem; margin: 0; max-width: 70ch; }
+</style>
+
+<main>
+  <header>
+    <h1>Plank reader fuzz coverage</h1>
+    <p class="sub" id="sub">AFL++ 4.40c · value-level oracle against Arrow (ParquetSharp) and Parquet.Net · Nov 2: 22 workers across AVX-512 / AVX2 / SSE / scalar on master + PRs #167–178 · since Nov 4: one worker pinned to CPU 23 (AVX-512 only) on master f9c04f5</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <section class="chart">
+    <h2>Edges found over fuzzing time (stopped periods cut out)</h2>
+    <div class="legend"><span><i style="background:var(--accent)"></i>best instance</span><span><i style="background:var(--instance)"></i>each AFL instance</span></div>
+    <svg id="edges" role="img" aria-label="Edges found over elapsed campaign time"></svg>
+    <div class="tip" id="tip">Hover the chart for a reading.</div>
+  </section>
+
+  <section class="chart">
+    <h2>Distinct finding kinds over fuzzing time</h2>
+    <div class="legend">
+      <span><i style="background:var(--value)"></i>decoded value mismatch</span>
+      <span><i style="background:var(--plank)"></i>unexpected Plank exception</span>
+      <span><i style="background:var(--accept)"></i>reference reader rejects, Plank accepts</span>
+    </div>
+    <svg id="buckets" role="img" aria-label="Distinct finding kinds discovered over elapsed campaign time"></svg>
+  </section>
+
+  <section>
+    <h2>Finding kinds</h2>
+    <p class="note">Each row is one family of findings: inputs whose diagnostic matches once digits, names and decoded values are normalised. Variants counts the distinct exact diagnostics inside it. The fuzzer records them and keeps running; up to five example inputs per bucket are kept in <span class="mono">fuzz/disagreements/&lt;id&gt;/</span>.</p>
+    <div class="table-wrap" style="margin-top:10px"><table>
+      <thead><tr><th>Kind</th><th>First seen</th><th>Variants</th><th>Examples</th><th>Diagnostic</th><th>First bucket</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+</main>
+
+<script>
+const DATA = /*__DATA__*/null;
+const KIND = { value: "Value mismatch", plank: "Plank exception", accept: "Acceptance" };
+const NS = "http://www.w3.org/2000/svg";
+const series = DATA.series, instances = Object.keys(series).sort();
+const allT = instances.flatMap(k => series[k].map(r => r[0]));
+const t0 = Math.min(...allT), t1 = Math.max(...allT);
+const fmtDur = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m ${String(s % 60).padStart(2, "0")}s`; };
+const fmtN = n => n >= 1e9 ? (n / 1e9).toFixed(2) + "B" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : String(n);
+
+// Best-instance curve: at each sample time, the highest edge count any instance has reached so far.
+const times = [...new Set(allT)].sort((a, b) => a - b);
+const latest = {}; const best = [];
+const byTime = {}; instances.forEach(k => series[k].forEach(r => (byTime[r[0]] ||= []).push([k, r])));
+let runningMax = 0;
+times.forEach(t => { byTime[t].forEach(([k, r]) => latest[k] = r); runningMax = Math.max(runningMax, ...Object.values(latest).map(r => r[1])); best.push([t, runningMax]); });
+
+function stats() {
+  const last = instances.map(k => series[k].at(-1));
+  const execs = last.reduce((a, r) => a + r[3], 0);
+  const b = DATA.buckets, c = k => b.filter(x => x.kind === k).length;
+  const items = [
+    [fmtDur(t1 - t0), "elapsed"], [fmtN(runningMax), "edges, best"], [fmtN(Math.max(...last.map(r => r[2]))), "corpus, largest"],
+    [fmtN(execs), "executions"], [String(instances.length), "AFL instances"],
+    [String(c("value")), "value mismatches"], [String(c("plank")), "Plank exceptions"], [String(c("accept")), "acceptance kinds"],
+  ];
+  document.getElementById("stats").innerHTML = items.map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  document.getElementById("sub").textContent += ` · sampled ${new Date(t1 * 1000).toLocaleString()}`;
+}
+
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; }
+function niceStep(range, target) { const raw = range / target, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function timeTicks(span) { const cands = [30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200]; return cands.find(c => span / c <= 7) || 86400; }
+
+function frame(svg, W, H, yMin, yMax, yLabel) {
+  svg.innerHTML = ""; svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const m = { l: 54, r: 14, t: 8, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b, span = Math.max(t1 - t0, 1);
+  const x = t => m.l + (t - t0) / span * iw, y = v => m.t + ih - (v - yMin) / (yMax - yMin) * ih;
+  const ys = niceStep(yMax - yMin, 4);
+  for (let v = Math.ceil(yMin / ys) * ys; v <= yMax + 1e-9; v += ys) {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = fmtN(v);
+  }
+  const ts = timeTicks(span);
+  for (let s = 0; s <= span; s += ts) {
+    el("line", { x1: x(t0 + s), x2: x(t0 + s), y1: m.t + ih, y2: m.t + ih + 4, stroke: "var(--rule)" }, svg);
+    el("text", { x: x(t0 + s), y: H - 6, "text-anchor": s === 0 ? "start" : "middle" }, svg).textContent = s === 0 ? "0" : fmtDur(s);
+  }
+  el("line", { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, stroke: "var(--rule)" }, svg);
+  return { x, y, m, iw, ih };
+}
+
+function path(points, x, y, step) {
+  return points.map((p, i) => { if (i === 0) return `M${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`;
+    return step ? `H${x(p[0]).toFixed(1)}V${y(p[1]).toFixed(1)}` : `L${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`; }).join("");
+}
+
+function drawEdges() {
+  const svg = document.getElementById("edges"), W = Math.max(svg.clientWidth || 800, 320), H = W < 560 ? 240 : 300;
+  const lo = Math.min(...instances.map(k => series[k][0][1])), span = runningMax - lo || 1;
+  const yMin = Math.max(0, Math.floor((lo - span * 0.08) / 100) * 100), yMax = runningMax + span * 0.06;
+  const f = frame(svg, W, H, yMin, yMax);
+  instances.forEach(k => el("path", { d: path(series[k].map(r => [r[0], r[1]]), f.x, f.y), fill: "none", stroke: "var(--instance)", "stroke-width": 1, opacity: 0.8 }, svg));
+  el("path", { d: path(best, f.x, f.y, true), fill: "none", stroke: "var(--accent)", "stroke-width": 2.25 }, svg);
+  const end = best.at(-1); el("circle", { cx: f.x(end[0]), cy: f.y(end[1]), r: 3.5, fill: "var(--accent)" }, svg);
+  const cross = el("line", { y1: f.m.t, y2: f.m.t + f.ih, stroke: "var(--muted)", "stroke-dasharray": "3 3", opacity: 0 }, svg);
+  const tip = document.getElementById("tip");
+  svg.onpointermove = e => {
+    const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W;
+    const t = t0 + (px - f.m.l) / f.iw * Math.max(t1 - t0, 1);
+    let i = best.findIndex(p => p[0] > t); i = i < 0 ? best.length - 1 : Math.max(0, i - 1);
+    const p = best[i]; cross.setAttribute("x1", f.x(p[0])); cross.setAttribute("x2", f.x(p[0])); cross.setAttribute("opacity", 0.6);
+    tip.textContent = `+${fmtDur(p[0] - t0)} · ${p[1].toLocaleString()} edges (best instance)`;
+  };
+  svg.onpointerleave = () => { cross.setAttribute("opacity", 0); };
+}
+
+function drawBuckets() {
+  const svg = document.getElementById("buckets"), W = Math.max(svg.clientWidth || 800, 320), H = W < 560 ? 180 : 210;
+  const kinds = ["accept", "plank", "value"], curves = {};
+  kinds.forEach(k => { let n = 0; curves[k] = [[t0, 0]]; DATA.buckets.filter(b => b.kind === k).forEach(b => curves[k].push([Math.max(t0, Math.min(t1, b.first)), ++n])); curves[k].push([t1, n]); });
+  const yMax = Math.max(4, ...kinds.map(k => curves[k].at(-1)[1])) * 1.1;
+  const f = frame(svg, W, H, 0, yMax);
+  kinds.forEach(k => el("path", { d: path(curves[k], f.x, f.y, true), fill: "none", stroke: `var(--${k})`, "stroke-width": 2 }, svg));
+}
+
+function rows() {
+  document.getElementById("rows").innerHTML = DATA.buckets.slice().sort((a, b) => ["value", "plank", "accept"].indexOf(a.kind) - ["value", "plank", "accept"].indexOf(b.kind) || a.first - b.first)
+    .map(b => `<tr><td><span class="chip ${b.kind}">${KIND[b.kind]}</span></td><td class="num">+${fmtDur(b.first - t0)}</td><td class="num">${b.variants}</td><td class="num">${b.examples}</td><td class="key"></td><td class="num mono">${b.id}</td></tr>`).join("");
+  [...document.querySelectorAll("#rows td.key")].forEach((td, i) => {
+    const sorted = DATA.buckets.slice().sort((a, b) => ["value", "plank", "accept"].indexOf(a.kind) - ["value", "plank", "accept"].indexOf(b.kind) || a.first - b.first);
+    td.textContent = sorted[i].key.replace(/^(VALUE-MISMATCH|PLANK-UNEXPECTED) /, "");
+  });
+}
+
+stats(); rows();
+const draw = () => { drawEdges(); drawBuckets(); };
+draw(); let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(draw, 120); });
+</script>

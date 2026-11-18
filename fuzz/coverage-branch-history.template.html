@@ -1,0 +1,59 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plank library branch coverage history</title>
+<style>
+:root{color-scheme:light dark;font:15px/1.5 system-ui,sans-serif}body{max-width:1100px;margin:2rem auto;padding:0 1rem}h1{line-height:1.15}p{max-width:90ch}.card{border:1px solid #8885;border-radius:10px;padding:1rem;margin:1rem 0}svg{width:100%;height:auto;overflow:visible}.grid{stroke:#8885;stroke-dasharray:3 4}.axis{fill:currentColor;font-size:12px}.line{fill:none;stroke:#147d99;stroke-width:3}.dot{fill:#147d99;stroke:Canvas;stroke-width:2}table{border-collapse:collapse;width:100%;margin-top:.7rem}th,td{text-align:right;border-bottom:1px solid #8885;padding:.4rem .55rem}th:first-child,td:first-child{text-align:left}.muted{opacity:.75}.warning{border-left:4px solid #c77;padding-left:.8rem}.area{margin:.65rem 0}.bar{height:.7rem;background:#147d99;border-radius:4px;display:inline-block;vertical-align:middle;min-width:1px}.area-label{display:inline-block;width:min(29rem,65%);vertical-align:middle}.small{font-size:.9rem}
+</style>
+<main>
+<h1>Plank branch coverage over time</h1>
+<p>Each Reader point merges scalar, SSE, AVX2, and AVX512 runs, applying the Reader exclusions in <code>coverage-summary.py</code>. When Writer reports exist for the same tag, the chart also shows Writer-only coverage and a deduplicated Library union. Writer-side classes and shared methods follow the Writer exclusions in <code>coverage-summary.py</code>.</p>
+<section class="card warning"><h2>Current breakage · audited 2026-11-11</h2><p>Confirmed: malformed DELTA_BINARY_PACKED batches escape with <code>ArgumentOutOfRangeException</code> in INT32 and INT64 readers; sorted finite FLOAT/DOUBLE appends lose sorting metadata; required and optional Decimal columns with Bloom enabled fail during serialization. A controlled probe traced one source of Reader AFL bitmap instability to the shared adaptive buffer pool; the full stability deficit and independent-reader disagreements remain under investigation. The legacy binary whole-page decoder is a removal candidate pending compatibility checks.</p><p class="small muted">The 20261111u Writer snapshot used a stale Release replay binary, so it did not exercise the new Dataset route. The 20261111v Writer snapshot uses rebuilt Release artifacts and includes it.</p><p><a href="FINDINGS.md">Reproduction inputs, dead-code plan, and full status</a></p></section>
+<section class="card"><h2>Reader, writer, and library branches</h2><label>View: <select id="chart-view"><option value="snapshot">Each snapshot</option><option value="ever">Ever observed in the same branch set</option></select></label><div id="chart"></div><p id="chart-caption" class="muted"></p><details><summary>Exact percentages for every snapshot</summary><div style="overflow-x:auto"><table id="history-table"></table></div></details></section>
+<section class="card"><h2>Replay input counts and completion</h2><label>Snapshot: <select id="run-snapshot"></select></label><div id="runs"></div><p class="muted">Input counts and completion times come from each target’s replay logs. Completion is the latest log modification time among its four ISA tiers, shown in Europe/Paris time.</p></section>
+<section class="card"><h2>Reader-only area breakdown</h2><label>Snapshot: <select id="snapshot"></select></label><div id="areas"></div></section>
+<section class="card"><h2>Writer-only area breakdown</h2><label>Snapshot: <select id="writer-snapshot"></select></label><div id="writer-areas"></div><p class="muted">Area counts partition the merged Writer-only branches for the selected complete Writer snapshot. Use the coverage chart and table above to compare these snapshots over time.</p></section>
+<section class="card"><h2>Per-tier branch coverage</h2><div id="tiers"></div></section>
+<section class="card warning"><h2>How to read the history</h2><p>These are discrete coverage snapshots, not a time-weighted curve; points are ordered by run completion time. Coverage reports are not available for every historical run, and only four-ISA sets whose run logs contain both the replay completion marker and Coverlet summary are shown. “Ever observed” unions branch hits across consecutive snapshots with an identical instrumented branch set and resets when that set changes.</p><p>Coverage percentages are comparable only when the code revision, compiler-generated branch shape, target filters, and corpus are comparable. Reader and writer campaigns use different corpora and can have different durations; their curves describe the coverage observed in each target-specific run. The source and instrumentation denominator can change between snapshots, so a falling percentage can reflect newly introduced branches or changed instrumentation rather than lost fuzzing progress. Corpus contents and fuzzing duration may also differ; reports alone do not establish equal fuzzing effort.</p><p class="muted">Generated from @@SNAPSHOTS@@ complete snapshots: @@TAGS@@.</p></section>
+</main>
+<script>
+const snapshots=@@DATA@@;
+const pct=x=>x&&x.total?100*x.covered/x.total:0;
+const fmt=x=>`${pct(x).toFixed(1)}% (${x.covered.toLocaleString()}/${x.total.toLocaleString()})`;
+const requestedView=new URLSearchParams(location.search).get('view');
+if(requestedView==='ever')document.querySelector('#chart-view').value='ever';
+const select=document.querySelector('#snapshot');
+const writerSelect=document.querySelector('#writer-snapshot');
+const runSelect=document.querySelector('#run-snapshot');
+snapshots.forEach((s,i)=>{for(const el of [select,runSelect]){const o=document.createElement('option');o.value=i;o.textContent=s.tag;el.append(o)}if(s.writer){const o=document.createElement('option');o.value=i;o.textContent=s.tag;writerSelect.append(o)}});
+if(snapshots.length){select.value=String(snapshots.length-1);runSelect.value=String(snapshots.length-1)}
+if(writerSelect.options.length)writerSelect.value=writerSelect.options[writerSelect.options.length-1].value;
+function drawChart(){
+  const view=document.querySelector('#chart-view').value;
+  const value=(s,key)=>view==='ever'?s.ever[key]:s[key];
+  const W=900,H=340,L=65,R=22,T=20,B=55,innerW=W-L-R,innerH=H-T-B;
+  const y=v=>T+innerH*(1-v/100);
+  const x=i=>L+(snapshots.length<2?innerW/2:i*innerW/(snapshots.length-1));
+  let out=[`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Reader, writer-only, and library branch coverage by snapshot">`];
+  [0,25,50,75,100].forEach(v=>out.push(`<line class="grid" x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}"/><text class="axis" x="${L-10}" y="${y(v)+4}" text-anchor="end">${v}%</text>`));
+  for(const [key,color,label] of [['merged','#147d99','Reader coverage'],['writer','#ca6b32','Writer-only coverage'],['library','#638b45','Library union']]){
+    const points=snapshots.map((s,i)=>value(s,key)?{s,i,v:pct(value(s,key))}:null).filter(Boolean);
+    if(points.length){
+      out.push(`<polyline fill="none" stroke="${color}" stroke-width="3" points="${points.map(p=>`${x(p.i)},${y(p.v)}`).join(' ')}"/>`);
+      points.forEach(p=>out.push(`<circle cx="${x(p.i)}" cy="${y(p.v)}" r="6" fill="${color}" stroke="Canvas" stroke-width="2"><title>${label} ${p.s.tag}: ${fmt(value(p.s,key))}${view==='ever'&&p.s.ever_reset[key]?' (branch set reset)':''}</title></circle>`));
+    }
+  }
+  snapshots.forEach((s,i)=>out.push(`<text class="axis" transform="translate(${x(i)},${H-B+18}) rotate(-25)" text-anchor="end">${s.tag}</text>`));
+  out.push(`</svg><p>● Reader coverage &nbsp; <span style="color:#ca6b32">●</span> Writer-only coverage &nbsp; <span style="color:#638b45">●</span> Library union</p>`);
+  document.querySelector('#chart').innerHTML=out.join('');
+  const latest=snapshots[snapshots.length-1];
+  const complete=[...snapshots].reverse().find(s=>value(s,'writer')&&value(s,'library'));
+  document.querySelector('#chart-caption').textContent=latest?`Latest reader ${latest.tag}: ${fmt(value(latest,'merged'))}${complete?` · Latest complete library ${complete.tag}: ${fmt(value(complete,'library'))}`:''}`:'';
+  document.querySelector('#history-table').innerHTML='<thead><tr><th>Snapshot</th><th>Reader</th><th>Writer-only</th><th>Library union</th></tr></thead><tbody>'+snapshots.map(s=>`<tr><td>${s.tag}</td><td>${fmt(value(s,'merged'))}</td><td>${value(s,'writer')?fmt(value(s,'writer')):'—'}</td><td>${value(s,'library')?fmt(value(s,'library')):'—'}</td></tr>`).join('')+'</tbody>';
+}
+function areaRows(areas){return Object.entries(areas||{}).map(([name,v])=>`<div class="area"><span class="area-label">${name}</span><span class="bar" style="width:${pct(v)*2}px"></span> ${fmt(v)}</div>`).join('')||'No areas'}
+function render(){const s=snapshots[Number(select.value)];if(!s)return;document.querySelector('#areas').innerHTML=areaRows(s.areas);const tierRows=(name,tiers)=>Object.entries(tiers||{}).map(([k,v])=>`<tr><td>${name} · ${k}</td><td>${v.covered.toLocaleString()} / ${v.total.toLocaleString()}</td><td>${pct(v).toFixed(1)}%</td></tr>`).join('');document.querySelector('#tiers').innerHTML=`<table><thead><tr><th>Target · tier</th><th>Branches covered</th><th>Coverage</th></tr></thead><tbody>${tierRows('Reader',s.tiers)}${tierRows('Writer',s.writer_tiers)}</tbody></table><p class="muted">Individual tiers have different branch hit sets; percentages provide context, while each target headline merges hits across its four ISA reports.</p>`}
+function renderWriter(){const s=snapshots[Number(writerSelect.value)];document.querySelector('#writer-areas').innerHTML=s?areaRows(s.writer_areas):'No complete Writer snapshots';}
+function renderRuns(){const s=snapshots[Number(runSelect.value)];if(!s)return;const row=(label,d)=>{if(!d)return '';const inputs=d.inputs===null?Object.entries(d.inputs_by_tier).map(([isa,n])=>`${isa} ${n.toLocaleString()}`).join(', '):d.inputs.toLocaleString();const times=Object.values(d.seconds_by_tier);const elapsed=times.length?` (${Math.min(...times)}–${Math.max(...times)} s across tiers)`:'';return `<tr><td>${label}</td><td>${inputs}</td><td>${d.completed_local}${elapsed}</td></tr>`};document.querySelector('#runs').innerHTML=`<table><thead><tr><th>Target</th><th>Replay inputs</th><th>Completed</th></tr></thead><tbody>${row('Reader',s.reader_run)}${row('Writer-only',s.writer_run)}</tbody></table>`}
+select.addEventListener('change',render);writerSelect.addEventListener('change',renderWriter);runSelect.addEventListener('change',renderRuns);document.querySelector('#chart-view').addEventListener('change',drawChart);drawChart();render();renderWriter();renderRuns();
+</script>

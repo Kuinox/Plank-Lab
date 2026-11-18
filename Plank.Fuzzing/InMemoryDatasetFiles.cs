@@ -31,10 +31,14 @@ sealed class InMemoryFileStore
             file = new MemoryStream();
             _files[key] = file;
         }
+        else if (mode == FileMode.CreateNew)
+        {
+            throw new IOException($"The in-memory file '{key}' already exists.");
+        }
 
         // Create truncates; OpenOrCreate keeps what is there, which is how the
         // writer appends a second row group to a partition it has already
-        // written. Those are the only two modes it asks for.
+        // written. CreateNew preserves each separately named file part.
         if (mode == FileMode.Create)
             file.SetLength(0);
         return file;

@@ -1,0 +1,15 @@
+*.bin binary
+/corpus/** binary
+/reader-corpus/** binary
+/writer-gap-seeds/** binary
+/nested-gap-seeds/** binary
+/reader-gap-seeds/** binary
+/reader-focused-seeds/** binary
+/reader-logical-focus-seeds/** binary
+/reader-fixedwidth-samples/** binary
+/schema-equality-seeds/** binary
+/dataset-options-seeds/** binary
+/dataset-operational-seeds/** binary
+/bloom-estimate-seeds/** binary
+/buffer-capacity-seeds/** binary
+/optional-dictionary-index-seeds/** binary
