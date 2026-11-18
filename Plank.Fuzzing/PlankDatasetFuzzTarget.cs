@@ -48,6 +48,9 @@ public static class PlankDatasetFuzzTarget
     static void Run(ReadOnlySpan<byte> data)
     {
         var partitions = (data[0] % MaxPartitions) + 1;
+        var createParts = (data[0] & 0x80) != 0;
+        var failRolloverPath = createParts && (data[0] & 0x40) != 0;
+        var offsetOwnedPath = (data[0] & 0x20) != 0;
         var cursor = new Cursor(data[1..]);
         var count = cursor.NextInt(1, MaxRows + 1);
 
@@ -57,10 +60,6 @@ public static class PlankDatasetFuzzTarget
 
         // The key is derived from the row, so the expected partition of every row
         // is known independently of what the writer did with it.
-        var expected = new int[count];
-        for (var i = 0; i < count; i++)
-            expected[i] = PartitionOf(rows[i].Id, partitions);
-
         var store = new InMemoryFileStore();
         var files = new InMemoryDatasetFile[Math.Max(1, cursor.NextInt(1, 4))];
         for (var i = 0; i < files.Length; i++)
@@ -70,22 +69,50 @@ public static class PlankDatasetFuzzTarget
         {
             // Small enough that a 64-row case flushes more than once, which is the
             // only way to reach the append path rather than a single create.
-            PendingRowCapacity = (uint)cursor.NextInt(1, 17)
+            PendingRowCapacity = createParts ? 0 : (uint)cursor.NextInt(1, 17),
+            WriterOptions = createParts
+                ? new Plank.Writing.ParquetWriterOptions
+                {
+                    TargetRowGroupSizeBytes = 1,
+                    TargetFileSizeBytes = 1
+                }
+                : Plank.Writing.ParquetWriterOptions.Default
         };
 
-        using (var writer = RowFuzzFixed.CreateDatasetWriter(
-                   (RowFuzzFixed row, IParquetBufferPool pool, out ParquetBuffer? allocation) =>
-                   {
-                       allocation = null;
-                       return KeyFor(PartitionOf(row.Id, partitions));
-                   },
-                   files, options))
+        RowFuzzFixed.Route route = (RowFuzzFixed row, IParquetBufferPool pool,
+            out ParquetBuffer? allocation) =>
+        {
+            var key = KeyFor(PartitionOf(row.Id, partitions));
+            if (!offsetOwnedPath)
+            {
+                allocation = null;
+                return key;
+            }
+
+            // Exercise DatasetWriterBase's retained-slice ownership path. Keep a
+            // prefix so the returned span begins inside the allocated buffer.
+            var owner = pool.Rent(checked((uint)(key.Length + 1)));
+            allocation = owner;
+            key.CopyTo(owner.Span[1..]);
+            return owner.Span[1..(key.Length + 1)];
+        };
+        DatasetFilePath filePath = (ReadOnlySpan<byte> key, ulong index, IParquetBufferPool pool,
+            out ParquetBuffer? allocation) =>
+        {
+            allocation = null;
+            if (failRolloverPath && index > 0)
+                return ReadOnlySpan<byte>.Empty;
+            return Encoding.UTF8.GetBytes($"{Encoding.UTF8.GetString(key)}-{index}");
+        };
+        using (var writer = createParts
+                   ? RowFuzzFixed.CreateDatasetWriter(route, filePath, files, options)
+                   : RowFuzzFixed.CreateDatasetWriter(route, files, options))
         {
             foreach (var (id, sequence) in rows)
                 writer.Queue(new RowFuzzFixed { Id = id, Sequence = sequence, Flag = false, Measure = 0 });
         }
 
-        VerifyRouting(store, rows, expected, partitions);
+        VerifyRouting(store, rows, partitions, createParts);
     }
 
     // Stable, and independent of the writer: a negative Id must not produce a
@@ -99,10 +126,20 @@ public static class PlankDatasetFuzzTarget
     static ReadOnlySpan<byte> KeyFor(int partition)
         => Keys[partition];
 
-    static void VerifyRouting(InMemoryFileStore store, (int Id, long Sequence)[] rows, int[] expected,
-        int partitions)
+    static void VerifyRouting(InMemoryFileStore store, (int Id, long Sequence)[] rows, int partitions,
+        bool createParts)
     {
         var seen = 0;
+        var remaining = new Dictionary<(int Id, long Sequence), int>();
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var row = rows[i];
+            remaining.TryGetValue(row, out var occurrences);
+            remaining[row] = occurrences + 1;
+        }
+
+        var byPartition = new Dictionary<int, List<(ulong Part, List<(int Id, long Sequence)> Rows)>>();
+        var partIndices = new List<ulong>();
         foreach (var (path, file) in store.Files)
         {
             if (file.Length == 0)
@@ -115,14 +152,25 @@ public static class PlankDatasetFuzzTarget
             if (partition < 0)
                 throw new DatasetRoutingException($"Partition file '{path}' names no known key.");
 
+            if (!byPartition.TryGetValue(partition, out var parts))
+                byPartition.Add(partition, parts = []);
+            var partIndex = PartIndexFromPath(path);
+            partIndices.Add(partIndex);
+            parts.Add((partIndex, ReadSequences(file)));
+
             using var reader = RowFuzzFixed.CreateRowReader(
                 new MemoryStream(file.ToArray(), writable: false));
             while (reader.MoveNext())
             {
-                var actual = PartitionOf(reader.Current.Id, partitions);
+                var row = (reader.Current.Id, reader.Current.Sequence);
+                var actual = PartitionOf(row.Id, partitions);
                 if (actual != partition)
                     throw new DatasetRoutingException(
-                        $"Row with Id {reader.Current.Id} belongs in partition {actual} but was written to '{path}' (partition {partition}).");
+                        $"Row with Id {row.Id} belongs in partition {actual} but was written to '{path}' (partition {partition}).");
+                if (!remaining.TryGetValue(row, out var occurrences) || occurrences == 0)
+                    throw new DatasetRoutingException(
+                        $"Unexpected or duplicated row ({row.Id}, {row.Sequence}) was read from '{path}'.");
+                remaining[row] = occurrences - 1;
                 seen++;
             }
         }
@@ -130,7 +178,49 @@ public static class PlankDatasetFuzzTarget
         if (seen != rows.Length)
             throw new DatasetRoutingException(
                 $"Dataset round trip returned {seen} rows but {rows.Length} were queued.");
-        _ = expected;
+        if (remaining.Values.Any(static count => count != 0))
+            throw new DatasetRoutingException("Dataset round trip did not return every queued row.");
+
+        if (createParts)
+        {
+            partIndices.Sort();
+            for (var i = 0; i < partIndices.Count; i++)
+                if (partIndices[i] != (ulong)i)
+                    throw new DatasetRoutingException("Dataset part indices are not contiguous.");
+
+            for (var partition = 0; partition < partitions; partition++)
+            {
+                var actual = byPartition.GetValueOrDefault(partition) ?? [];
+                actual.Sort(static (left, right) => left.Part.CompareTo(right.Part));
+                var expected = rows.Where(row => PartitionOf(row.Id, partitions) == partition).ToArray();
+                var sequenceIndex = 0;
+                foreach (var part in actual)
+                {
+                    foreach (var row in part.Rows)
+                    {
+                        if (sequenceIndex >= expected.Length || expected[sequenceIndex++] != row)
+                            throw new DatasetRoutingException("Dataset file parts changed per-partition row order.");
+                    }
+                }
+                if (sequenceIndex != expected.Length)
+                    throw new DatasetRoutingException("Dataset file parts omitted per-partition rows.");
+            }
+        }
+    }
+
+    static List<(int Id, long Sequence)> ReadSequences(MemoryStream file)
+    {
+        var rows = new List<(int Id, long Sequence)>();
+        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(file.ToArray(), writable: false));
+        while (reader.MoveNext())
+            rows.Add((reader.Current.Id, reader.Current.Sequence));
+        return rows;
+    }
+
+    static ulong PartIndexFromPath(string path)
+    {
+        var separator = path.LastIndexOf('-');
+        return separator >= 0 && ulong.TryParse(path.AsSpan(separator + 1), out var index) ? index : 0;
     }
 
     static int PartitionFromPath(string path, int partitions)

@@ -1,4 +1,7 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
+using Plank.Reading;
+using Plank.Reading.Physical;
 using Plank.Schema;
 using Plank.Writing;
 
@@ -25,6 +28,9 @@ public static class CorpusGenerator
     // is a complete test case rather than something AFL has to grow a byte onto.
     // Even selector = bind the file's own schema, which is what these exercise.
     const byte FileSchemaSelector = 0;
+    // File-schema route plus bit 2: read every flat column with both
+    // nullabilities and require the two decode paths to agree.
+    const byte CrossPathSelector = 4;
 
     // The target routes a selector whose low two bits are 2 to the row-oriented
     // reader. Seeds carry that byte, so without a variant that spells it the row
@@ -56,6 +62,24 @@ public static class CorpusGenerator
         {
             written += WriteSeed(outputDirectory, $"gen-{name}", selector, bytes);
 
+            // The public Column<T> API rejects variable-length byte columns
+            // for incompatible CLR types. Keep a reproducible valid-file seed
+            // for the reader target's dedicated 0xFF classification route.
+            if (name == "logical-string")
+                written += WriteSeed(outputDirectory, "gen-reader-api-mismatch-variable-bytes", 0xFF, bytes);
+
+            if (name == "i32-none")
+                written += WritePageIndexBloomProbeSeed(outputDirectory, "reader-bloom-no-filter",
+                    PlankReaderFuzzTarget.PageIndexBloomNoFilterRoute, bytes);
+            if (name == "bloom-i32")
+            {
+                written += WritePageIndexBloomProbeSeed(outputDirectory, "reader-bloom-long-query",
+                    PlankReaderFuzzTarget.PageIndexBloomValidFilterRoute, bytes);
+                var oversizedBloom = AdvertiseOversizedBloomFilter(bytes);
+                written += WritePageIndexBloomProbeSeed(outputDirectory, "reader-bloom-oversized",
+                    PlankReaderFuzzTarget.PageIndexBloomOversizedFilterRoute, oversizedBloom);
+            }
+
             // Uncompressed cases get a row-API twin. Repeating it per codec would
             // add files without adding paths: the row reader sits above the
             // decompressor and cannot tell them apart. The twin keeps whatever
@@ -64,6 +88,14 @@ public static class CorpusGenerator
             if (IsUncompressed(name))
                 written += WriteSeed(outputDirectory, $"gen-rowapi-{name}",
                     (byte)(RowApiSelector | (selector & VerifyCrcSelector)), bytes);
+
+            if (name == "i32-none")
+            {
+                written += WriteRowApiStreamResetProbeSeed(outputDirectory,
+                    "gen-rowapi-stream-reset-i32", bytes);
+                written += WriteRowApiStreamResetProbeSeed(outputDirectory,
+                    "gen-rowapi-read-ahead-missing-defaults", CreateRowApiReadAheadProbeFile());
+            }
 
             // These few page shapes cover the stream-specific read path without
             // doubling the whole corpus. Include both page versions, compressed
@@ -76,15 +108,137 @@ public static class CorpusGenerator
             if (name == "i32-none")
                 written += WriteSeed(outputDirectory, "gen-nonstrict-i32-none", NonStrictSelector, bytes);
 
+            // Bit 5 together with the stream bit selects a stream that returns
+            // short reads. Keep this set small: one ordinary file exercises
+            // footer and page reads, the split dictionary spans multiple pages,
+            // and the CRC case covers verification while payload reads fragment.
+            if (name == "i32-none")
+                written += WriteSeed(outputDirectory, "gen-fragmented-i32-none", 0x60, bytes);
+            if (name == "width-split-i32-dict-v2")
+                written += WriteSeed(outputDirectory, "gen-fragmented-multipage-dict", 0x64, bytes);
+            if (name == "crc-i32-opt-snappy-v2")
+                written += WriteSeed(outputDirectory, "gen-fragmented-crc-i32-opt-snappy-v2", 0x74, bytes);
+
+            // The large split-page cases are the only generated seeds that
+            // reliably contain multiple data pages. Run them through the page
+            // pruner as well as the ordinary scan so seeks across rejected
+            // pages and offset-index handling are reached from the initial
+            // corpus, rather than waiting for AFL to discover selector bit 3.
+            if (name.StartsWith("width-split-", StringComparison.Ordinal))
+                written += WriteSeed(outputDirectory, $"gen-pruned-{name}",
+                    (byte)(selector | 8), bytes);
+
         }
 
         // The decompressors get fed directly rather than through a file, because
         // a file can only carry a codec the writer can produce and it cannot
         // produce Lz4Legacy at all.
+        foreach (var (name, selector, bytes) in ConverterSchemaCases())
+            written += WriteSeed(outputDirectory, $"gen-{name}", selector, bytes);
+
+        foreach (var (name, selector, bytes) in EvolutionCases())
+            written += WriteSeed(outputDirectory, $"gen-{name}", selector, bytes);
+
         foreach (var (name, bytes) in DecompressorCorpus.BuildCases())
             written += WriteSeed(outputDirectory, $"gen-codec-{name}", DecompressorSelector, bytes);
 
+        written += WriteAlp64DoubleSeed(outputDirectory);
+        written += WritePageMetadataEnumeratorProbeSeed(outputDirectory);
+
         return written;
+    }
+
+    static int WritePageMetadataEnumeratorProbeSeed(string outputDirectory)
+    {
+        var schema = new ParquetSchema([ColumnDefinition.Leaf("Value", ParquetPhysicalType.Int32)]);
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            TargetDataPageSizeBytes = 8,
+            WritePageIndexes = true
+        });
+        var column = writer.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+        column.Serialize([1, 2, 3, 4, 5, 6]);
+        writer.StartRowGroup().Write(column);
+        writer.CloseFile();
+
+        var parquetBytes = stream.ToArray();
+        using (var reader = schema.CreateReader(new MemoryReadSource(parquetBytes)))
+        {
+            var actualValues = new List<int>();
+            foreach (var buffer in reader.RowGroups[0].Column<int>(0))
+                actualValues.AddRange(buffer.Values);
+            if (!actualValues.SequenceEqual(new[] { 1, 2, 3, 4, 5, 6 }))
+                throw new InvalidOperationException("Page-metadata probe fixture did not read back its values.");
+
+            using var pages = reader.RowGroups[0].GetColumnMetadata(0).OpenPages();
+            ReadOnlySpan<ulong> expectedOffsets = [4, 64, 124];
+            ReadOnlySpan<uint> expectedSizes = [60, 60, 60];
+            if (pages.Count != expectedOffsets.Length)
+                throw new InvalidOperationException("Page-metadata probe fixture did not produce three data pages.");
+            var pageOrdinal = 0;
+            foreach (var page in pages)
+            {
+                if ((uint)pageOrdinal >= (uint)expectedOffsets.Length ||
+                    page.PageOrdinal != pageOrdinal ||
+                    page.Offset != expectedOffsets[pageOrdinal] ||
+                    page.CompressedSize != expectedSizes[pageOrdinal])
+                    throw new InvalidOperationException("Page-metadata probe fixture changed its page layout.");
+                pageOrdinal++;
+            }
+            if (pageOrdinal != expectedOffsets.Length)
+                throw new InvalidOperationException("Page-metadata probe fixture enumerated an unexpected page count.");
+        }
+
+        var marker = PlankReaderFuzzTarget.PageMetadataEnumeratorProbeMarker;
+        var payload = new byte[checked(1 + marker.Length + parquetBytes.Length)];
+        payload[0] = PlankReaderFuzzTarget.PageMetadataEnumeratorProbeSelector;
+        marker.CopyTo(payload.AsSpan(1));
+        parquetBytes.CopyTo(payload, 1 + marker.Length);
+        File.WriteAllBytes(Path.Combine(outputDirectory, "reader-page-metadata-enumerator.bin"), payload);
+        return 1;
+    }
+
+    static int WriteAlp64DoubleSeed(string outputDirectory)
+    {
+        // Values are exact doubles at this magnitude. Their encoded range spans
+        // long.MinValue through the largest representable value below 2^63,
+        // forcing ALP DOUBLE's packed reader through bitWidth == 64.
+        var values = new double[512];
+        var valueIndex = 0;
+        for (var i = -512; i < -256; i++)
+            values[valueIndex++] = (double)i * 18_014_398_509_481_984d;
+        for (var i = 256; i < 512; i++)
+            values[valueIndex++] = (double)i * 18_014_398_509_481_984d;
+
+        var column = ColumnDefinition.Leaf("d", ParquetPhysicalType.Double,
+            new ColumnOptions(ParquetRepetition.Required,
+                encodings: ImmutableArray.Create(EncodingKind.Alp)));
+        var schema = new ParquetSchema([column]);
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = ParquetDataPageVersion.V2
+        });
+        var serialized = writer.CreateSerializedColumn<double>(schema.LeafColumns[0]);
+        serialized.Serialize(values);
+        writer.StartRowGroup().Write(serialized);
+        writer.CloseFile();
+
+        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        var actual = new List<double>(values.Length);
+        foreach (var buffer in reader.RowGroups[0].Column<double>(schema.LeafColumns[0]))
+            actual.AddRange(buffer.Values);
+        if (actual.Count != values.Length)
+            throw new InvalidOperationException(
+                $"ALP64 seed read back {actual.Count} values, expected {values.Length}.");
+        for (var i = 0; i < values.Length; i++)
+            if (BitConverter.DoubleToInt64Bits(actual[i]) != BitConverter.DoubleToInt64Bits(values[i]))
+                throw new InvalidOperationException($"ALP64 seed changed value {i} during readback.");
+
+        return WriteSeed(outputDirectory, "gen-alp64-double-v2", FileSchemaSelector,
+            stream.ToArray());
     }
 
     // A case is uncompressed unless its name carries a codec tag. Testing for the
@@ -114,6 +268,116 @@ public static class CorpusGenerator
         bytes.CopyTo(payload, 1);
         File.WriteAllBytes(Path.Combine(directory, $"{name}.bin"), payload);
         return 1;
+    }
+
+    static int WriteRowApiStreamResetProbeSeed(string directory, string name, byte[] parquetBytes)
+    {
+        var marker = PlankReaderFuzzTarget.RowApiStreamResetProbeMarker;
+        var payload = new byte[checked(marker.Length + parquetBytes.Length)];
+        marker.CopyTo(payload);
+        parquetBytes.CopyTo(payload, marker.Length);
+        return WriteSeed(directory, name,
+            PlankReaderFuzzTarget.RowApiStreamResetProbeSelector, payload);
+    }
+
+    static byte[] CreateRowApiReadAheadProbeFile()
+    {
+        var schema = new ParquetSchema([ColumnDefinition.Leaf("Id", ParquetPhysicalType.Int32)]);
+        int[][] groupValues = [[13, 21], [34], [55, 89], [144, 233]];
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None
+        });
+        var column = writer.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+        foreach (var values in groupValues)
+        {
+            column.Serialize(values);
+            writer.StartRowGroup().Write(column);
+        }
+        writer.CloseFile();
+
+        var bytes = stream.ToArray();
+        using var source = new MemoryReadSource(bytes);
+        using var reader = schema.CreateReader(source);
+        var readback = new List<int>();
+        var rowGroups = 0;
+        foreach (var rowGroup in reader.RowGroups)
+        {
+            rowGroups++;
+            foreach (var buffer in rowGroup.Column<int>(schema.LeafColumns[0]))
+                readback.AddRange(buffer.Values);
+        }
+        if (rowGroups != groupValues.Length || !readback.SequenceEqual(groupValues.SelectMany(values => values)))
+            throw new InvalidOperationException("The row-reader prefetch fixture did not read back its expected values.");
+        return bytes;
+    }
+
+    static int WritePageIndexBloomProbeSeed(string directory, string name, byte route, byte[] parquetBytes)
+    {
+        var marker = PlankReaderFuzzTarget.PageIndexBloomProbeMarker;
+        var payload = new byte[checked(1 + marker.Length + 1 + parquetBytes.Length)];
+        payload[0] = PlankReaderFuzzTarget.PageIndexBloomProbeSelector;
+        marker.CopyTo(payload.AsSpan(1));
+        payload[1 + marker.Length] = route;
+        parquetBytes.CopyTo(payload, 1 + marker.Length + 1);
+        File.WriteAllBytes(Path.Combine(directory, $"{name}.bin"), payload);
+        return 1;
+    }
+
+    static byte[] AdvertiseOversizedBloomFilter(byte[] bytes)
+    {
+        using var source = new MemoryReadSource(bytes);
+        using var reader = new ParquetFileReader();
+        reader.Reset(source);
+        var metadata = reader.Metadata;
+        var chunk = metadata.ColumnChunk(0, 0);
+        if (!chunk.HasBloomFilter || chunk.BloomFilterLength == 0)
+            throw new InvalidOperationException("Oversized Bloom probe requires a known-length Bloom filter.");
+
+        var footerOffset = checked((int)metadata.FooterOffset);
+        var footer = bytes.AsSpan(footerOffset, checked((int)metadata.FooterLength)).ToArray();
+        var offset = EncodeCompactInteger(checked((long)chunk.BloomFilterOffset));
+        var length = EncodeCompactInteger(chunk.BloomFilterLength);
+        var maxSerializedLength = checked((long)(128 * 1024 * 1024 + 256));
+        var oversizedLength = EncodeCompactInteger(maxSerializedLength + 1);
+
+        // In ColumnChunk, field 14 is the bloom offset (compact I64), followed
+        // by field 15 (compact I32) for the serialized filter length.
+        var pattern = new byte[checked(2 + offset.Length + length.Length)];
+        pattern[0] = 0x26;
+        offset.CopyTo(pattern.AsSpan(1));
+        pattern[1 + offset.Length] = 0x15;
+        length.CopyTo(pattern.AsSpan(2 + offset.Length));
+        var patternOffset = footer.AsSpan().IndexOf(pattern);
+        if (patternOffset < 0)
+            throw new InvalidOperationException("Bloom-filter metadata fields were not found in the footer.");
+
+        var lengthOffset = checked(patternOffset + 1 + offset.Length + 1);
+        footer = [.. footer.AsSpan(0, lengthOffset), .. oversizedLength,
+            .. footer.AsSpan(lengthOffset + length.Length)];
+        var result = new byte[checked(footerOffset + footer.Length + 8)];
+        bytes.AsSpan(0, footerOffset).CopyTo(result);
+        footer.CopyTo(result.AsSpan(footerOffset));
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(result.Length - 8), checked((uint)footer.Length));
+        "PAR1"u8.CopyTo(result.AsSpan(result.Length - 4));
+        return result;
+    }
+
+    static byte[] EncodeCompactInteger(long value)
+    {
+        var encoded = checked((ulong)value * 2);
+        Span<byte> buffer = stackalloc byte[10];
+        var length = 0;
+        do
+        {
+            var next = (byte)(encoded & 0x7F);
+            encoded >>= 7;
+            if (encoded != 0)
+                next |= 0x80;
+            buffer[length++] = next;
+        } while (encoded != 0);
+        return buffer[..length].ToArray();
     }
 
     static IEnumerable<(string Name, byte Selector, byte[] Bytes)> BuildCases()
@@ -180,6 +444,15 @@ public static class CorpusGenerator
             }
         }
 
+        // A zero-width ALP vector is a valid constant-value encoding. Keep one
+        // small, uncompressed V2 seed so the reader's bitWidth == 0 branch is
+        // covered without multiplying this case across codecs and page versions.
+        var constantAlp = Enumerable.Repeat(1.25d, 512).ToArray();
+        if (TryBuild("f64-alp-constant-none", CompressionKind.None,
+                Leaf("c", ParquetPhysicalType.Double, EncodingKind.Alp),
+                (w, g, c) => Write<double>(w, g, c, constantAlp), out var constantAlpFile))
+            yield return constantAlpFile;
+
         // Every case above is a DataPageV2 page, because that is the writer's
         // default and nothing ever overrode it. A V1 page is a different shape:
         // its levels live inside the payload rather than in the header, and they
@@ -208,6 +481,46 @@ public static class CorpusGenerator
         // distinct paths (uncompressed payload, compressed payload, and V2's
         // separate level bytes), so seeds have to span both page versions and
         // both compressed and uncompressed pages to reach all three.
+        // The decoders are specialised per bit width, and each width is its own
+        // code: DecodeInt32MiniBlockFastW1..W56, the AVX2 kernels for widths up
+        // to 16, the 9/10/11/12-bit dictionary index unpackers, and nullable
+        // twins of each. A width only runs when a seed holds values that need
+        // exactly that many bits, and mutation does not invent them: Ramp's
+        // deltas are ~2^20, so widths 1-16 and dictionaries of 9, 10 and 12
+        // bits measured 0%. Uncompressed only (the codec does not change which
+        // kernel runs), but both page versions, since V1 decodes levels apart.
+        foreach (var pageVersion in (ParquetDataPageVersion[])[ParquetDataPageVersion.V2, ParquetDataPageVersion.V1])
+        {
+            var suffix = pageVersion == ParquetDataPageVersion.V1 ? "v1" : "v2";
+            foreach (var (name, column, writer) in KernelWidthColumns().Concat(BatchSplitColumns()))
+            {
+                if (TryBuild($"width-{name}-{suffix}", CompressionKind.None, column, writer, out var file,
+                        pageVersion))
+                    yield return file;
+            }
+        }
+
+        // Plank decodes flat pages through batched decoders and falls back to
+        // whole-page ones, and the fallback runs when an optional column is read
+        // as non-nullable T, which only succeeds if the page has no nulls. No
+        // seed had an optional column without nulls, so the whole-page decoders
+        // for every logical type and encoding stayed cold (e.g. most of
+        // TryDecodeByteStreamSplitIntoNative). These seeds carry bit 2, which
+        // reads every column both ways and requires the two to agree. The
+        // matrix also adds DELTA_BYTE_ARRAY on FIXED_LEN_BYTE_ARRAY (UUID,
+        // decimal), which no seed had either. Pairs the writer refuses are
+        // skipped by TryBuild.
+        foreach (var pageVersion in (ParquetDataPageVersion[])[ParquetDataPageVersion.V2, ParquetDataPageVersion.V1])
+        {
+            var suffix = pageVersion == ParquetDataPageVersion.V1 ? "v1" : "v2";
+            foreach (var (name, column, writer) in CrossPathColumns())
+            {
+                if (TryBuild($"xpath-{name}-{suffix}", CompressionKind.None, column, writer, out var file,
+                        pageVersion, selector: CrossPathSelector))
+                    yield return file;
+            }
+        }
+
         foreach (var pageVersion in (ParquetDataPageVersion[])[ParquetDataPageVersion.V2, ParquetDataPageVersion.V1])
         {
             foreach (var compression in (CompressionKind[])[CompressionKind.None, CompressionKind.Snappy])
@@ -564,6 +877,319 @@ public static class CorpusGenerator
         }
     }
 
+    // Files shaped like PlankReaderFuzzTarget's schema 8 (c0 int32, c1 int64, c2
+    // double), which requests them through custom value converters. The route
+    // byte must pick that schema: (selector >> 1) % 9 == 8 for 0x11 (CRC
+    // verification on), 0x23 (non-strict binding) and 0x47 (stream source).
+    static IEnumerable<(string Name, byte Selector, byte[] Bytes)> ConverterSchemaCases()
+    {
+        (string Tag, EncodingKind Ints, EncodingKind Doubles)[] encodings =
+        [
+            ("plain", EncodingKind.Plain, EncodingKind.Plain),
+            ("dict", EncodingKind.RleDictionary, EncodingKind.RleDictionary),
+            ("delta-bss", EncodingKind.DeltaBinaryPacked, EncodingKind.ByteStreamSplit),
+        ];
+        foreach (var (tag, ints, doubles) in encodings)
+            foreach (var optionalLong in (bool[])[false, true])
+                foreach (var pageVersion in (ParquetDataPageVersion[])[ParquetDataPageVersion.V2, ParquetDataPageVersion.V1])
+                {
+                    var schema = new ParquetSchema([
+                        Leaf("c0", ParquetPhysicalType.Int32, ints),
+                        optionalLong ? LeafOptional("c1", ParquetPhysicalType.Int64, ints) : Leaf("c1", ParquetPhysicalType.Int64, ints),
+                        Leaf("c2", ParquetPhysicalType.Double, doubles)]);
+                    byte[] bytes;
+                    try
+                    {
+                        using var stream = new MemoryStream();
+                        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+                        {
+                            Compression = CompressionKind.None, DataPageVersion = pageVersion
+                        });
+                        var group = writer.StartRowGroup();
+                        var values = Array.ConvertAll(Ramp(300), static v => (long)v);
+                        Write(writer, group, schema.LeafColumns[0], Array.ConvertAll(values, static v => (int)(v % 1000)));
+                        if (optionalLong)
+                            Write(writer, group, schema.LeafColumns[1],
+                                Array.ConvertAll(values, static v => v % 5 == 0 ? (long?)null : v));
+                        else
+                            Write(writer, group, schema.LeafColumns[1], values);
+                        Write(writer, group, schema.LeafColumns[2], Array.ConvertAll(values, static v => v / 4d));
+                        writer.CloseFile();
+                        bytes = stream.ToArray();
+                    }
+                    catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException or ArgumentException)
+                    {
+                        Console.Error.WriteLine($"  skipped converter-{tag}: {ex.GetType().Name}: {ex.Message}");
+                        continue;
+                    }
+                    var name = $"converter-{tag}-{(optionalLong ? "opt" : "req")}-{(pageVersion == ParquetDataPageVersion.V1 ? "v1" : "v2")}";
+                    foreach (var selector in (byte[])[0x11, 0x23, 0x47])
+                        yield return ($"{name}-r{selector:x2}", selector, bytes);
+                }
+    }
+
+    // Files whose columns carry the names of the harness's generated row types
+    // (RowFuzzFixed/Nullable/Binary: Flag, Id, Sequence, Measure, Payload,
+    // Label) but not their exact shapes: optional where the type is required and
+    // the reverse, wider and narrower physical types, columns left out. Read on
+    // the row-API route with bit 2 (selector 0x06), they drive the generated
+    // readers' schema evolution: every other file only has a column named "c",
+    // so every generated column was simply missing.
+    static IEnumerable<(string Name, byte Selector, byte[] Bytes)> EvolutionCases()
+    {
+        (string Tag, Func<string, ParquetPhysicalType, bool, ColumnDefinition?> Shape)[] shapes =
+        [
+            ("exact", (name, type, optional) => Shaped(name, type, optional)),
+            ("flipped-nullability", (name, type, optional) => Shaped(name, type, !optional)),
+            ("wider", (name, type, optional) => Shaped(name, Wider(type), optional)),
+            ("narrower", (name, type, optional) => Shaped(name, Narrower(type), optional)),
+            ("sparse", (name, type, optional) => name is "Sequence" or "Label" ? null : Shaped(name, type, optional)),
+        ];
+        (string Name, ParquetPhysicalType Type, bool Optional)[] columns =
+        [
+            ("Flag", ParquetPhysicalType.Boolean, false), ("Id", ParquetPhysicalType.Int32, false),
+            ("Sequence", ParquetPhysicalType.Int64, false), ("Measure", ParquetPhysicalType.Double, false),
+            ("Payload", ParquetPhysicalType.ByteArray, false), ("Label", ParquetPhysicalType.ByteArray, false),
+        ];
+        foreach (var (tag, shape) in shapes)
+        {
+            var definitions = new List<ColumnDefinition>();
+            foreach (var (name, type, optional) in columns)
+                if (shape(name, type, optional) is { } definition)
+                    definitions.Add(definition);
+            byte[] bytes;
+            try
+            {
+                var schema = new ParquetSchema([.. definitions]);
+                using var stream = new MemoryStream();
+                var writer = schema.CreateWriter(stream, new ParquetWriterOptions { Compression = CompressionKind.None });
+                var group = writer.StartRowGroup();
+                foreach (var leaf in schema.LeafColumns)
+                    WriteEvolutionColumn(writer, group, leaf);
+                writer.CloseFile();
+                bytes = stream.ToArray();
+            }
+            catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException or ArgumentException)
+            {
+                Console.Error.WriteLine($"  skipped evolution-{tag}: {ex.GetType().Name}: {ex.Message}");
+                continue;
+            }
+            yield return ($"evolution-{tag}", 0x06, bytes);
+            yield return ($"evolution-{tag}-reset", 0x0E, bytes);
+            if (tag == "exact")
+                yield return ("rowapi-projection-evolution-exact",
+                    PlankReaderFuzzTarget.RowApiProjectionProbeSelector, WithProjectionProbeMarker(bytes));
+        }
+
+        // A row API property declared as an unannotated Int32/Int64 can
+        // materialize a file leaf carrying the equivalent signed INTEGER
+        // annotation when compatible logical-type evolution is enabled.
+        // Keep the schema names and two-row payload in sync with the generated
+        // row types so selector 0x06 exercises that binding path. The strict
+        // and width-mismatch variants carry a reserved marker so ordinary AFL
+        // queue files with the same selector cannot trigger assertion checks.
+        var signedIntCompatible = BuildSignedIntegerEvolutionFile(idBitWidth: 32);
+        yield return ("evolution-signed-int-compatible", 0x06, signedIntCompatible);
+        yield return ("evolution-signed-int-compatible-strict", PlankReaderFuzzTarget.SignedIntegerStrictProbeSelector,
+            WithLogicalTypeProbeMarker(signedIntCompatible));
+        yield return ("evolution-signed-int-width-mismatch", PlankReaderFuzzTarget.SignedIntegerWidthMismatchProbeSelector,
+            WithLogicalTypeProbeMarker(BuildSignedIntegerEvolutionFile(idBitWidth: 16)));
+    }
+
+    static byte[] WithLogicalTypeProbeMarker(byte[] parquet)
+    {
+        var marker = PlankReaderFuzzTarget.LogicalTypeProbeMarker;
+        var marked = new byte[marker.Length + parquet.Length];
+        marker.CopyTo(marked);
+        parquet.CopyTo(marked, marker.Length);
+        return marked;
+    }
+
+    static byte[] WithProjectionProbeMarker(byte[] parquet)
+    {
+        var marker = PlankReaderFuzzTarget.ProjectionProbeMarker;
+        var marked = new byte[marker.Length + parquet.Length];
+        marker.CopyTo(marked);
+        parquet.CopyTo(marked, marker.Length);
+        return marked;
+    }
+
+    static byte[] BuildSignedIntegerEvolutionFile(byte idBitWidth)
+    {
+        var schema = new ParquetSchema([
+            ColumnDefinition.RequiredLeaf("Flag", ParquetPhysicalType.Boolean,
+                new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain))),
+            ColumnDefinition.RequiredLeaf("Id", ParquetPhysicalType.Int32,
+                new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain)), new LogicalType.Int(idBitWidth, true)),
+            ColumnDefinition.RequiredLeaf("Sequence", ParquetPhysicalType.Int64,
+                new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain)), new LogicalType.Int(64, true)),
+            ColumnDefinition.RequiredLeaf("Measure", ParquetPhysicalType.Double,
+                new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain)))
+        ]);
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions { Compression = CompressionKind.None });
+        var group = writer.StartRowGroup();
+        Write<bool>(writer, group, schema.LeafColumns[0], [true, false]);
+        Write<int>(writer, group, schema.LeafColumns[1], [1, -2]);
+        Write<long>(writer, group, schema.LeafColumns[2], [3L, -4L]);
+        Write<double>(writer, group, schema.LeafColumns[3], [5d, 6d]);
+        writer.CloseFile();
+        return stream.ToArray();
+    }
+
+    static ColumnDefinition Shaped(string name, ParquetPhysicalType type, bool optional)
+        => optional ? LeafOptional(name, type, EncodingKind.Plain) : Leaf(name, type, EncodingKind.Plain);
+
+    static ParquetPhysicalType Wider(ParquetPhysicalType type) => type switch
+    {
+        ParquetPhysicalType.Int32 => ParquetPhysicalType.Int64,
+        ParquetPhysicalType.Float => ParquetPhysicalType.Double,
+        _ => type
+    };
+
+    static ParquetPhysicalType Narrower(ParquetPhysicalType type) => type switch
+    {
+        ParquetPhysicalType.Int64 => ParquetPhysicalType.Int32,
+        ParquetPhysicalType.Double => ParquetPhysicalType.Float,
+        _ => type
+    };
+
+    static void WriteEvolutionColumn(ParquetWriter writer, RowGroupWriter group, LeafColumn leaf)
+    {
+        const int rows = 6;
+        var optional = leaf.MaxDefinitionLevel > 0;
+        switch (leaf.PhysicalType)
+        {
+            case ParquetPhysicalType.Boolean:
+                if (optional) Write(writer, group, leaf, new bool?[] { true, null, false, true, null, false });
+                else Write(writer, group, leaf, new[] { true, false, true, true, false, false });
+                break;
+            case ParquetPhysicalType.Int32:
+                if (optional) Write(writer, group, leaf, new int?[] { 1, null, -7, int.MaxValue, null, 0 });
+                else Write(writer, group, leaf, new[] { 1, 2, -7, int.MaxValue, int.MinValue, 0 });
+                break;
+            case ParquetPhysicalType.Int64:
+                if (optional) Write(writer, group, leaf, new long?[] { 1, null, -7, long.MaxValue, null, 0 });
+                else Write(writer, group, leaf, new[] { 1L, 2, -7, long.MaxValue, long.MinValue, 0 });
+                break;
+            case ParquetPhysicalType.Float:
+                if (optional) Write(writer, group, leaf, new float?[] { 1.5f, null, -2, float.NaN, null, 0 });
+                else Write(writer, group, leaf, new[] { 1.5f, 2, -2, float.NaN, float.MaxValue, 0 });
+                break;
+            case ParquetPhysicalType.Double:
+                if (optional) Write(writer, group, leaf, new double?[] { 1.5, null, -2, double.NaN, null, 0 });
+                else Write(writer, group, leaf, new[] { 1.5, 2, -2, double.NaN, double.MaxValue, 0 });
+                break;
+            default:
+                var values = new byte[]?[rows];
+                for (var i = 0; i < rows; i++)
+                    values[i] = optional && i % 3 == 1 ? null : System.Text.Encoding.UTF8.GetBytes($"v{i}");
+                if (optional) Write(writer, group, leaf, values);
+                else Write(writer, group, leaf, Array.ConvertAll(values, static v => v ?? []));
+                break;
+        }
+    }
+
+    static IEnumerable<(string, ColumnDefinition, Action<ParquetWriter, RowGroupWriter, LeafColumn>)> CrossPathColumns()
+    {
+        EncodingKind[] encodings =
+        [
+            EncodingKind.Plain, EncodingKind.ByteStreamSplit, EncodingKind.RleDictionary,
+            EncodingKind.DeltaBinaryPacked, EncodingKind.DeltaByteArray,
+            // RLE as a value encoding (booleans): DecodeBooleanRle and its batched
+            // twin had no seed.
+            EncodingKind.Rle
+        ];
+        foreach (var encoding in encodings)
+        {
+            var tag = encoding.ToString().ToLowerInvariant();
+            foreach (var family in CrossPathFamily(tag, encoding))
+                yield return family;
+        }
+    }
+
+    static IEnumerable<(string, ColumnDefinition, Action<ParquetWriter, RowGroupWriter, LeafColumn>)> CrossPathFamily(
+        string tag, EncodingKind encoding)
+    {
+        foreach (var c in Both("bool", ParquetPhysicalType.Boolean, null, 0, encoding, [true, false, true, true, false]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both("i32", ParquetPhysicalType.Int32, null, 0, encoding, [0, 1, -1, int.MaxValue, 123456]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both("i64", ParquetPhysicalType.Int64, null, 0, encoding, [0L, 1L, -1L, long.MinValue, 1L << 40]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both("f32", ParquetPhysicalType.Float, null, 0, encoding, [0f, 1.5f, -2.25f, float.NaN, float.MaxValue]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both("f64", ParquetPhysicalType.Double, null, 0, encoding, [0d, 1.5d, -2.25d, double.NaN, double.MinValue]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<DateOnly>("date", ParquetPhysicalType.Int32, new LogicalType.Date(), 0, encoding,
+                     [new(1970, 1, 1), new(2000, 2, 29), new(2026, 7, 27), new(1900, 1, 1), new(2100, 12, 31)]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<TimeOnly>("time-ms", ParquetPhysicalType.Int32,
+                     new LogicalType.Time(TimeUnit.Millis, IsAdjustedToUtc: false), 0, encoding,
+                     [TimeOnly.MinValue, new(1, 2, 3, 4), new(12, 34, 56), new(23, 59, 59, 999), new(0, 0, 1)]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<TimeOnly>("time-us", ParquetPhysicalType.Int64,
+                     new LogicalType.Time(TimeUnit.Micros, IsAdjustedToUtc: false), 0, encoding,
+                     [TimeOnly.MinValue, new(1, 2, 3, 4), new(12, 34, 56), TimeOnly.MaxValue, new(0, 0, 1)]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<DateTime>("ts-us", ParquetPhysicalType.Int64,
+                     new LogicalType.Timestamp(TimeUnit.Micros, IsAdjustedToUtc: true), 0, encoding,
+                     [DateTime.UnixEpoch, new(2026, 7, 27, 1, 2, 3, DateTimeKind.Utc), DateTime.UnixEpoch.AddTicks(10),
+                      new(1999, 12, 31, 23, 59, 59, DateTimeKind.Utc), new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<DateTime>("ts-ms-local", ParquetPhysicalType.Int64,
+                     new LogicalType.Timestamp(TimeUnit.Millis, IsAdjustedToUtc: false), 0, encoding,
+                     [new(1970, 1, 1), new(2026, 7, 27, 1, 2, 3), new(1999, 12, 31), new(2000, 1, 1), new(1970, 1, 2)]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<decimal>("dec-i32", ParquetPhysicalType.Int32, new LogicalType.Decimal(9, 2), 0, encoding,
+                     [0m, 1.23m, -1.23m, 9999999.99m, -9999999.99m]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<decimal>("dec-i64", ParquetPhysicalType.Int64, new LogicalType.Decimal(18, 4), 0, encoding,
+                     [0m, 1.2345m, -1.2345m, 99999999999999.9999m, 0.0001m]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<decimal>("dec-flba", ParquetPhysicalType.FixedLenByteArray, new LogicalType.Decimal(28, 6), 16,
+                     encoding, [0m, 1.234567m, -1.234567m, 1000000m, -0.000001m]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<Guid>("uuid", ParquetPhysicalType.FixedLenByteArray, new LogicalType.Uuid(), 16, encoding,
+                     [Guid.Empty, new("00000000-0000-0000-0000-000000000001"), new("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+                      new("12345678-1234-5678-1234-567812345678"), new("87654321-4321-8765-4321-876543218765")]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<byte>("u8", ParquetPhysicalType.Int32, new LogicalType.Int(8, false), 0, encoding, [0, 1, 255, 128, 42]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<ushort>("u16", ParquetPhysicalType.Int32, new LogicalType.Int(16, false), 0, encoding, [0, 1, 65535, 32768, 7]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<uint>("u32", ParquetPhysicalType.Int32, new LogicalType.Int(32, false), 0, encoding,
+                     [0u, 1u, uint.MaxValue, 2147483648u, 12345u]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+        foreach (var c in Both<ulong>("u64", ParquetPhysicalType.Int64, new LogicalType.Int(64, false), 0, encoding,
+                     [0ul, 1ul, ulong.MaxValue, 9223372036854775808ul, 7ul]))
+            yield return (c.Name + "-" + tag, c.Column, c.Write);
+    }
+
+    // The same values as a required column and as an optional column holding no
+    // nulls; the second is the one only the cross-path read can decode whole-page.
+    static IEnumerable<(string Name, ColumnDefinition Column, Action<ParquetWriter, RowGroupWriter, LeafColumn> Write)>
+        Both<T>(string name, ParquetPhysicalType type, LogicalType? logicalType, uint typeLength, EncodingKind encoding,
+            T[] values) where T : struct
+    {
+        // Column construction already rejects these pairs; ask the same rule
+        // up front instead of failing the whole generator.
+        if (!EncodingCompatibility.IsSupported(type, encoding))
+            yield break;
+        var required = new ColumnOptions(ParquetRepetition.Required, encodings: ImmutableArray.Create(encoding),
+            typeLength: typeLength);
+        var optional = new ColumnOptions(ParquetRepetition.Optional, encodings: ImmutableArray.Create(encoding),
+            typeLength: typeLength);
+        yield return (name + "-req",
+            logicalType is null ? ColumnDefinition.Leaf("c", type, required)
+                : ColumnDefinition.RequiredLeaf("c", type, required, logicalType),
+            (w, g, c) => Write(w, g, c, values));
+        yield return (name + "-opt",
+            logicalType is null ? ColumnDefinition.Leaf("c", type, optional)
+                : ColumnDefinition.OptionalLeaf("c", type, optional, logicalType),
+            (w, g, c) => Write(w, g, c, Array.ConvertAll(values, static v => (T?)v)));
+    }
+
     static void Write<T>(ParquetWriter writer, RowGroupWriter group, LeafColumn column, T[] values)
     {
         var serialized = writer.CreateSerializedColumn<T>(column);
@@ -580,6 +1206,140 @@ public static class CorpusGenerator
             new ColumnOptions(ParquetRepetition.Optional, encodings: ImmutableArray.Create(encoding)));
 
     // Varying values, so a batched decoder cannot shortcut a constant run.
+    static IEnumerable<(string, ColumnDefinition, Action<ParquetWriter, RowGroupWriter, LeafColumn>)> KernelWidthColumns()
+    {
+        // Delta: every mini-block width 1..16 (the cold ones), plus a few wide
+        // ones as a control, required and optional, int32 and int64. 1024
+        // values is 32 full mini-blocks: the fast kernels need full ones.
+        foreach (var width in (int[])[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 24, 31])
+        {
+            var deltas = DeltasOfWidth(1024, width, seed: width);
+            yield return ($"i32-delta-w{width}", Leaf("c", ParquetPhysicalType.Int32, EncodingKind.DeltaBinaryPacked),
+                (w, g, c) => Write<int>(w, g, c, Array.ConvertAll(deltas, static v => (int)v)));
+            yield return ($"i64-delta-w{width}", Leaf("c", ParquetPhysicalType.Int64, EncodingKind.DeltaBinaryPacked),
+                (w, g, c) => Write<long>(w, g, c, deltas));
+            yield return ($"i32-delta-w{width}-opt", LeafOptional("c", ParquetPhysicalType.Int32, EncodingKind.DeltaBinaryPacked),
+                (w, g, c) => Write<int?>(w, g, c, WithNulls(Array.ConvertAll(deltas, static v => (int)v))));
+            yield return ($"i64-delta-w{width}-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.DeltaBinaryPacked),
+                (w, g, c) => Write<long?>(w, g, c, WithNulls(deltas)));
+        }
+
+        // Dictionary indexes of every width from 1 to 13 bits.
+        foreach (var distinct in (int[])[2, 4, 8, 16, 32, 64, 128, 256, 300, 600, 1500, 2500, 5000])
+        {
+            var values = WideDictionary(distinct, 2);
+            yield return ($"i32-dict-{distinct}", Leaf("c", ParquetPhysicalType.Int32, EncodingKind.RleDictionary),
+                (w, g, c) => Write<int>(w, g, c, Array.ConvertAll(values, static v => (int)v)));
+            yield return ($"i32-dict-{distinct}-opt", LeafOptional("c", ParquetPhysicalType.Int32, EncodingKind.RleDictionary),
+                (w, g, c) => Write<int?>(w, g, c, WithNulls(Array.ConvertAll(values, static v => (int)v))));
+            yield return ($"i64-dict-{distinct}-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.RleDictionary),
+                (w, g, c) => Write<long?>(w, g, c, WithNulls(values)));
+            yield return ($"bin-dict-{distinct}-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.RleDictionary),
+                (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(values, static v => BitConverter.GetBytes((int)v)))));
+        }
+
+        // Large optional pages for the remaining encodings, whose nullable
+        // batch paths only five-value seeds ever reached.
+        var ramp = Ramp(3000);
+        yield return ("i32-bss-opt", LeafOptional("c", ParquetPhysicalType.Int32, EncodingKind.ByteStreamSplit),
+            (w, g, c) => Write<int?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => (int)v))));
+        yield return ("i64-bss-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.ByteStreamSplit),
+            (w, g, c) => Write<long?>(w, g, c, WithNulls(ramp)));
+        yield return ("f64-bss-opt", LeafOptional("c", ParquetPhysicalType.Double, EncodingKind.ByteStreamSplit),
+            (w, g, c) => Write<double?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => v / 8d))));
+        yield return ("bool-plain-large-opt", LeafOptional("c", ParquetPhysicalType.Boolean, EncodingKind.Plain),
+            (w, g, c) => Write<bool?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => (v & 1) == 0))));
+        yield return ("bin-deltalen-large-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaLengthByteArray),
+            (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => new byte[v % 17]))));
+        yield return ("bin-deltabyte-large-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaByteArray),
+            (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(ramp, static v => BitConverter.GetBytes(v / 7)))));
+    }
+
+    // Pages that hold more values than one decode batch (ColumnChunkReader
+    // .DecodeBatchSizeBytes, 256 KiB of decoded values: 65,536 INT32). Every
+    // other seed fits in one batch, so the code that stops a batch part-way
+    // through an RLE run, a delta mini-block or a DELTA_BYTE_ARRAY pair
+    // (PlanRleBatch, PlanDeltaPairBatch, CountLogicalValuesThroughPhysical,
+    // the decoders' NextBatchCount) had never run. Long runs keep the files
+    // small: each is a few tens of KB.
+    static IEnumerable<(string, ColumnDefinition, Action<ParquetWriter, RowGroupWriter, LeafColumn>)> BatchSplitColumns()
+    {
+        const int Count = 70_000;
+        var runs = new long[Count];
+        for (var i = 0; i < Count; i++)
+            runs[i] = i / 997 % 5;
+        yield return ("split-i32-dict", Leaf("c", ParquetPhysicalType.Int32, EncodingKind.RleDictionary),
+            (w, g, c) => Write<int>(w, g, c, Array.ConvertAll(runs, static v => (int)v)));
+        yield return ("split-i32-dict-opt", LeafOptional("c", ParquetPhysicalType.Int32, EncodingKind.RleDictionary),
+            (w, g, c) => Write<int?>(w, g, c, WithNulls(Array.ConvertAll(runs, static v => (int)v))));
+        yield return ("split-i64-dict-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.RleDictionary),
+            (w, g, c) => Write<long?>(w, g, c, WithNulls(runs)));
+        yield return ("split-bin-dict-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.RleDictionary),
+            (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(Array.ConvertAll(runs, static v => new[] { (byte)('a' + v) }))));
+
+        var bools = new bool[300_000];
+        for (var i = 0; i < bools.Length; i++)
+            bools[i] = i / 1009 % 2 == 0;
+        yield return ("split-bool-rle", Leaf("c", ParquetPhysicalType.Boolean, EncodingKind.Rle),
+            (w, g, c) => Write<bool>(w, g, c, bools));
+
+        var steps = new long[Count];
+        for (var i = 0; i < Count; i++)
+            steps[i] = i * 3L + (i / 4099 % 2);
+        yield return ("split-i32-delta", Leaf("c", ParquetPhysicalType.Int32, EncodingKind.DeltaBinaryPacked),
+            (w, g, c) => Write<int>(w, g, c, Array.ConvertAll(steps, static v => (int)v)));
+        yield return ("split-i64-delta-opt", LeafOptional("c", ParquetPhysicalType.Int64, EncodingKind.DeltaBinaryPacked),
+            (w, g, c) => Write<long?>(w, g, c, WithNulls(steps)));
+
+        var decimals = new double[40_000];
+        for (var i = 0; i < decimals.Length; i++)
+            decimals[i] = (i / 1013) / 100.0;
+        yield return ("split-f64-alp-opt", LeafOptional("c", ParquetPhysicalType.Double, EncodingKind.Alp),
+            (w, g, c) => Write<double?>(w, g, c, WithNulls(decimals)));
+
+        var keys = Array.ConvertAll(runs, static v => System.Text.Encoding.ASCII.GetBytes($"key-{v}"));
+        yield return ("split-bin-deltabyte", Leaf("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaByteArray),
+            (w, g, c) => Write<byte[]>(w, g, c, keys));
+        yield return ("split-bin-deltalen-opt", LeafOptional("c", ParquetPhysicalType.ByteArray, EncodingKind.DeltaLengthByteArray),
+            (w, g, c) => Write<byte[]?>(w, g, c, WithNulls(keys)));
+    }
+
+    // Values whose consecutive differences span exactly `width` bits within
+    // each mini-block, so the writer picks that bit width.
+    static long[] DeltasOfWidth(int count, int width, int seed)
+    {
+        var random = new Random(seed);
+        var values = new long[count];
+        var max = (1L << width) - 1;
+        long current = 0;
+        for (var i = 0; i < count; i++)
+        {
+            // Pin the extremes once per 32 values so every mini-block needs the full width.
+            var delta = (i % 32) switch { 1 => 0, 2 => max, _ => random.NextInt64(0, max + 1) };
+            current = unchecked(current + delta);
+            values[i] = current;
+        }
+        return values;
+    }
+
+    // Every seventh entry null: enough to keep the nullable kernels busy while
+    // leaving full runs of present values between them.
+    static T?[] WithNulls<T>(T[] values) where T : struct
+    {
+        var result = new T?[values.Length];
+        for (var i = 0; i < values.Length; i++)
+            result[i] = i % 7 == 3 ? null : values[i];
+        return result;
+    }
+
+    static T?[] WithNulls<T>(T[] values, bool _ = false) where T : class
+    {
+        var result = new T?[values.Length];
+        for (var i = 0; i < values.Length; i++)
+            result[i] = i % 7 == 3 ? null : values[i];
+        return result;
+    }
+
     static long[] Ramp(int count)
     {
         var values = new long[count];

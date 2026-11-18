@@ -4,6 +4,7 @@ using Plank.Reading;
 using Plank.Reading.Logical;
 using Plank.Schema;
 using Plank.Writing;
+using Plank.Writing.PageStrategy;
 using PlankColumn = Plank.Schema.ColumnDefinition;
 using PlankDataPageVersion = Plank.Writing.ParquetDataPageVersion;
 using PlankFileVersion = Plank.Writing.ParquetFileVersion;
@@ -39,6 +40,12 @@ public static class PlankWriterFuzzTarget
     // reachable only through generated code, and it owns files rather than taking
     // a stream. See PlankDatasetFuzzTarget.
     const byte DatasetMarker = 0xFE;
+    static ReadOnlySpan<byte> DatasetBinaryMagic => "DBS1"u8;
+    static ReadOnlySpan<byte> DatasetOperationalMagic => "DBR1"u8;
+
+    // Drives sequential stream output through the bounded gzip output buffer, then reuses the writer.
+    const byte NonSeekableStreamMarker = 0xEF;
+    static ReadOnlySpan<byte> NonSeekableStreamMagic => "NSW1"u8;
 
     // 0xFD routes to the file merger: the one write path that does not
     // re-encode, splicing column chunks across and rewriting their offsets.
@@ -50,11 +57,438 @@ public static class PlankWriterFuzzTarget
     // PlankCrossWriterFuzzTarget.
     const byte CrossWriterMarker = 0xFC;
 
+    // Exercises the optional all-present DOUBLE dictionary encoder, whose
+    // specialized path requires both dictionary encoding and page indexes.
+    const byte OptionalDoubleDictionaryMarker = 0xFB;
+
+    // Drives the row-shaped repeated-column encoder, which flat column plans
+    // cannot represent.
+    const byte RepeatedRowsMarker = 0xFA;
+
+    // Drives the custom value-converter writer route from a deterministic schema.
+    const byte ValueConverterMarker = 0xF9;
+
+    // Exercises append-to-latest sorting validation, which is not part of the
+    // fresh-file writer plan decoded by Decode().
+    const byte AppendSortingMarker = 0xF8;
+
+    // Exercises forced optional integer dictionaries without page indexes.
+    const byte OptionalForcedIntegerDictionaryMarker = 0xF6;
+
+    // Exercises append-to-latest value reconstruction independently of sorting.
+    const byte LatestRowGroupValuesMarker = 0xF7;
+    static ReadOnlySpan<byte> LatestRowGroupValuesMagic => "LGR1"u8;
+
+    // Reaches the fused optional PLAIN timestamp encoder with DateTime values.
+    const byte OptionalPlainTimestampMarker = 0xF5;
+
+    // Public-schema logical annotations that the ordinary descriptor does not currently select.
+    const byte LogicalMetadataMarker = 0xF4;
+
+    // Deterministic Bloom-filter value forms and repeated-row sizing/insertion.
+    const byte BloomFilterMarker = 0xF3;
+
+    // A distinct exact-magic route for nested repeated Bloom-filter recursion.
+    const byte NestedBloomMarker = 0xF0;
+    static ReadOnlySpan<byte> NestedBloomMagic => "NBM1"u8;
+    static ReadOnlySpan<byte> NullableListBloomMagic => "NBM2"u8;
+
+    // Exercises explicit compression-level validation boundaries and round trips.
+    const byte CompressionLevelMarker = 0xF2;
+
+    // Deliberate writer-only encoding cases beyond the general decoder's limits.
+    // The following magic keeps ordinary 0xF1-prefixed inputs on the Decode path.
+    const byte EncodingCoverageMarker = 0xF1;
+    static ReadOnlySpan<byte> EncodingCoverageMagic => "ENCG"u8;
+
+    // Public writer metadata probes are kept behind a four-byte discriminator so
+    // ordinary schema bytes cannot accidentally select this deterministic route.
+    static ReadOnlySpan<byte> WriterMetadataMagic => "WMD1"u8;
+
+    // A small pair of fixed-width and decimal-DELTA routes. The exact magic
+    // keeps ordinary inputs on the general writer-plan path.
+    const byte FixedBinaryDeltaMarker = 0xEE;
+    static ReadOnlySpan<byte> FixedBinaryDeltaMagic => "WFX1"u8;
+
+    // Replays malformed and control Parquet files through the public import path.
+    const byte ImportValidationMarker = 0xEC;
+    static ReadOnlySpan<byte> ImportValidationMagic => "IMV1"u8;
+
+    // The exact marker keeps this same-stream reset probe away from the general plan decoder.
+    const byte SameStreamResetMarker = 0xED;
+    static ReadOnlySpan<byte> SameStreamResetMagic => "SSR1"u8;
+
+    // Temporarily records the known optional decimal plus Bloom-filter failure on an isolated route.
+    const byte OptionalDecimalBloomGapMarker = 0xEB;
+    static ReadOnlySpan<byte> OptionalDecimalBloomGapMagic => "ODBG"u8;
+
+    // Strict generated Row API route for variable-width slot growth.
+    const byte RowApiGrowthMarker = 0xEA;
+    static ReadOnlySpan<byte> RowApiGrowthMagic => "RWG1"u8;
+
+    const byte OptionalDoubleDictionaryCoverageMarker = 0xE9;
+    static ReadOnlySpan<byte> OptionalDoubleDictionaryMagic => "ODDC"u8;
+
+    const byte OptionalInt64DictionaryCoverageMarker = 0xD3;
+    static ReadOnlySpan<byte> OptionalInt64DictionaryMagic => "OID1"u8;
+
+    // Exact-gated optional UUID Bloom-filter coverage route.
+    const byte OptionalUuidBloomGapMarker = 0xE8;
+    static ReadOnlySpan<byte> OptionalUuidBloomGapMagic => "OUB1"u8;
+
+    // Public reset to a distinct IParquetWriteSource, separate from stream reset.
+    const byte DifferentWriteSourceResetMarker = 0xE7;
+    static ReadOnlySpan<byte> DifferentWriteSourceResetMagic => "RDS1"u8;
+
+    // Imports a valid external file whose column chunk has no statistics field.
+    const byte ImportedMissingStatisticsMarker = 0xE6;
+    static ReadOnlySpan<byte> ImportedMissingStatisticsMagic => "IMS1"u8;
+
+    // Exercises a required INT32 dictionary with 17-bit bit-packed indexes.
+    const byte RequiredInt32Dictionary17Marker = 0xE5;
+    static ReadOnlySpan<byte> RequiredInt32Dictionary17Magic => "R17B"u8;
+
+    // Direct schema-options equality sample; ordinary file plans never call Equals.
+    const byte ColumnOptionsEqualityMarker = 0xE4;
+    static ReadOnlySpan<byte> ColumnOptionsEqualityMagic => "COEQ"u8;
+
+    const byte DatasetWriterOptionsGapMarker = 0xE3;
+    static ReadOnlySpan<byte> DatasetWriterOptionsGapMagic => "DWOV"u8;
+
+    const byte BufferWriterCapacityMarker = 0xE2;
+    static ReadOnlySpan<byte> BufferWriterCapacityMagic => "BWOV"u8;
+    static ReadOnlySpan<byte> WriterLifecycleMagic => "WLC1"u8;
+    const byte WriterOptionsValidationMarker = 0xE1;
+    static ReadOnlySpan<byte> WriterOptionsValidationMagic => "PWOV"u8;
+    const byte BloomOptionsValidationMarker = 0xE0;
+    static ReadOnlySpan<byte> BloomOptionsValidationMagic => "BOV1"u8;
+    const byte BufferApiValidationMarker = 0xDF;
+    static ReadOnlySpan<byte> BufferApiValidationMagic => "PBAP"u8;
+    const byte SchemaApiValidationMarker = 0xDE;
+    static ReadOnlySpan<byte> SchemaApiValidationMagic => "SAPI"u8;
+
+    // Dedicated public-writer route for MinMaxScan's Vector128 copy-and-statistics path.
+    const byte MinMaxScanCoverageMarker = 0xD8;
+    static ReadOnlySpan<byte> MinMaxScanCoverageMagic => "MMS1"u8;
+    const byte DecimalBinaryStatisticsMarker = 0xD9;
+    static ReadOnlySpan<byte> DecimalBinaryStatisticsMagic => "DBS1"u8;
+    const byte NestedDescriptorValidationMarker = 0xD7;
+    static ReadOnlySpan<byte> NestedDescriptorValidationMagic => "NDV1"u8;
+    const byte ParquetWriterConstructorMarker = 0xD4;
+    static ReadOnlySpan<byte> ParquetWriterConstructorMagic => "PWC1"u8;
+    const byte RepeatedRowsCoverageMarker = 0xD6;
+    static ReadOnlySpan<byte> RepeatedRowsCoverageMagic => "RRC1"u8;
+    const byte ColumnStatisticsBinaryCoverageMarker = 0xD5;
+    static ReadOnlySpan<byte> ColumnStatisticsBinaryCoverageMagic => "CSB1"u8;
+    const byte RepeatedAccumulatorCoverageMarker = 0xCA;
+    static ReadOnlySpan<byte> RepeatedAccumulatorCoverageMagic => "RAL1"u8;
+    const byte RowGroupWriteCoverageMarker = 0xC9;
+    static ReadOnlySpan<byte> RowGroupWriteCoverageMagic => "RGW1"u8;
+
     public static void Execute(ReadOnlySpan<byte> data)
     {
+        if (data.Length >= 1 + RowGroupWriteCoverageMagic.Length
+            && data[0] == RowGroupWriteCoverageMarker
+            && data.Slice(1, RowGroupWriteCoverageMagic.Length).SequenceEqual(RowGroupWriteCoverageMagic))
+        {
+            RowGroupWriteCoverageCases.Execute(
+                data.Length > 1 + RowGroupWriteCoverageMagic.Length
+                    ? data[1 + RowGroupWriteCoverageMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + RepeatedAccumulatorCoverageMagic.Length
+            && data[0] == RepeatedAccumulatorCoverageMarker
+            && data.Slice(1, RepeatedAccumulatorCoverageMagic.Length).SequenceEqual(RepeatedAccumulatorCoverageMagic))
+        {
+            RepeatedAccumulatorCoverageCase.Execute(
+                data.Length > 1 + RepeatedAccumulatorCoverageMagic.Length
+                    ? data[1 + RepeatedAccumulatorCoverageMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + ParquetWriterConstructorMagic.Length
+            && data[0] == ParquetWriterConstructorMarker
+            && data.Slice(1, ParquetWriterConstructorMagic.Length).SequenceEqual(ParquetWriterConstructorMagic))
+        {
+            ParquetWriterConstructorCoverageCase.Execute(
+                data.Length > 1 + ParquetWriterConstructorMagic.Length
+                    ? data[1 + ParquetWriterConstructorMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + ColumnStatisticsBinaryCoverageMagic.Length
+            && data[0] == ColumnStatisticsBinaryCoverageMarker
+            && data.Slice(1, ColumnStatisticsBinaryCoverageMagic.Length).SequenceEqual(ColumnStatisticsBinaryCoverageMagic))
+        {
+            ColumnStatisticsBinaryCoverageCase.Execute(
+                data.Length > 1 + ColumnStatisticsBinaryCoverageMagic.Length
+                    ? data[1 + ColumnStatisticsBinaryCoverageMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + NestedDescriptorValidationMagic.Length
+            && data[0] == NestedDescriptorValidationMarker
+            && data.Slice(1, NestedDescriptorValidationMagic.Length).SequenceEqual(NestedDescriptorValidationMagic))
+        {
+            NestedDescriptorValidationCoverageCase.Execute(
+                data.Length > 1 + NestedDescriptorValidationMagic.Length
+                    ? data[1 + NestedDescriptorValidationMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + RepeatedRowsCoverageMagic.Length
+            && data[0] == RepeatedRowsCoverageMarker
+            && data.Slice(1, RepeatedRowsCoverageMagic.Length).SequenceEqual(RepeatedRowsCoverageMagic))
+        {
+            RepeatedRowsCoverageCases.Execute(
+                data.Length > 1 + RepeatedRowsCoverageMagic.Length
+                    ? data[1 + RepeatedRowsCoverageMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + DecimalBinaryStatisticsMagic.Length
+            && data[0] == DecimalBinaryStatisticsMarker
+            && data.Slice(1, DecimalBinaryStatisticsMagic.Length).SequenceEqual(DecimalBinaryStatisticsMagic))
+        {
+            DecimalBinaryStatisticsCoverageCase.Execute(
+                data.Length > 1 + DecimalBinaryStatisticsMagic.Length
+                    ? data[1 + DecimalBinaryStatisticsMagic.Length]
+                    : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + MinMaxScanCoverageMagic.Length
+            && data[0] == MinMaxScanCoverageMarker
+            && data.Slice(1, MinMaxScanCoverageMagic.Length).SequenceEqual(MinMaxScanCoverageMagic))
+        {
+            MinMaxScanCoverageWriterCase.Execute();
+            return;
+        }
+
+        if (data.Length >= 1 + SchemaApiValidationMagic.Length
+            && data[0] == SchemaApiValidationMarker
+            && data.Slice(1, SchemaApiValidationMagic.Length).SequenceEqual(SchemaApiValidationMagic))
+        {
+            SchemaApiValidationCases.Execute(data.Length > 1 + SchemaApiValidationMagic.Length
+                ? data[1 + SchemaApiValidationMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + BufferApiValidationMagic.Length
+            && data[0] == BufferApiValidationMarker
+            && data.Slice(1, BufferApiValidationMagic.Length).SequenceEqual(BufferApiValidationMagic))
+        {
+            BufferApiValidationCases.Execute(data.Length > 1 + BufferApiValidationMagic.Length
+                ? data[1 + BufferApiValidationMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + BloomOptionsValidationMagic.Length
+            && data[0] == BloomOptionsValidationMarker
+            && data.Slice(1, BloomOptionsValidationMagic.Length).SequenceEqual(BloomOptionsValidationMagic))
+        {
+            BloomOptionsValidationCases.Execute(data.Length > 1 + BloomOptionsValidationMagic.Length
+                ? data[1 + BloomOptionsValidationMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + WriterOptionsValidationMagic.Length
+            && data[0] == WriterOptionsValidationMarker
+            && data.Slice(1, WriterOptionsValidationMagic.Length).SequenceEqual(WriterOptionsValidationMagic))
+        {
+            WriterOptionsValidationCases.Execute(data.Length > 1 + WriterOptionsValidationMagic.Length
+                ? data[1 + WriterOptionsValidationMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + WriterLifecycleMagic.Length
+            && data[0] == BufferWriterCapacityMarker
+            && data.Slice(1, WriterLifecycleMagic.Length).SequenceEqual(WriterLifecycleMagic))
+        {
+            WriterLifecycleCases.Execute();
+            return;
+        }
+
+        if (data.Length >= 1 + BufferWriterCapacityMagic.Length
+            && data[0] == BufferWriterCapacityMarker
+            && data.Slice(1, BufferWriterCapacityMagic.Length).SequenceEqual(BufferWriterCapacityMagic))
+        {
+            BufferWriterCapacityCases.Execute(data.Length > 1 + BufferWriterCapacityMagic.Length
+                ? data[1 + BufferWriterCapacityMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + DatasetWriterOptionsGapMagic.Length
+            && data[0] == DatasetWriterOptionsGapMarker
+            && data.Slice(1, DatasetWriterOptionsGapMagic.Length).SequenceEqual(DatasetWriterOptionsGapMagic))
+        {
+            DatasetWriterOptionsGapCases.Execute(data.Length > 1 + DatasetWriterOptionsGapMagic.Length
+                ? data[1 + DatasetWriterOptionsGapMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + ColumnOptionsEqualityMagic.Length
+            && data[0] == ColumnOptionsEqualityMarker
+            && data.Slice(1, ColumnOptionsEqualityMagic.Length).SequenceEqual(ColumnOptionsEqualityMagic))
+        {
+            ColumnOptionsEqualityCases.Execute(data.Length > 1 + ColumnOptionsEqualityMagic.Length
+                ? data[1 + ColumnOptionsEqualityMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + RequiredInt32Dictionary17Magic.Length
+            && data[0] == RequiredInt32Dictionary17Marker
+            && data.Slice(1, RequiredInt32Dictionary17Magic.Length).SequenceEqual(RequiredInt32Dictionary17Magic))
+        {
+            RequiredInt32Dictionary17WriterCase.Execute();
+            return;
+        }
+
+        if (data.Length >= 1 + ImportedMissingStatisticsMagic.Length
+            && data[0] == ImportedMissingStatisticsMarker
+            && data.Slice(1, ImportedMissingStatisticsMagic.Length).SequenceEqual(ImportedMissingStatisticsMagic))
+        {
+            PlankMergerFuzzTarget.ExecuteImportedMissingStatistics(
+                data[(1 + ImportedMissingStatisticsMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + OptionalDoubleDictionaryMagic.Length
+            && data[0] == OptionalDoubleDictionaryCoverageMarker
+            && data.Slice(1, OptionalDoubleDictionaryMagic.Length).SequenceEqual(OptionalDoubleDictionaryMagic))
+        {
+            OptionalDoubleDictionaryCoverageCases.Execute(data[(1 + OptionalDoubleDictionaryMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + OptionalInt64DictionaryMagic.Length
+            && data[0] == OptionalInt64DictionaryCoverageMarker
+            && data.Slice(1, OptionalInt64DictionaryMagic.Length).SequenceEqual(OptionalInt64DictionaryMagic))
+        {
+            OptionalInt64DictionaryCoverageCases.Execute(data[(1 + OptionalInt64DictionaryMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + OptionalUuidBloomGapMagic.Length
+            && data[0] == OptionalUuidBloomGapMarker
+            && data.Slice(1, OptionalUuidBloomGapMagic.Length).SequenceEqual(OptionalUuidBloomGapMagic))
+        {
+            OptionalUuidBloomGapWriterCases.Execute(data[(1 + OptionalUuidBloomGapMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + DifferentWriteSourceResetMagic.Length
+            && data[0] == DifferentWriteSourceResetMarker
+            && data.Slice(1, DifferentWriteSourceResetMagic.Length).SequenceEqual(DifferentWriteSourceResetMagic))
+        {
+            DifferentWriteSourceResetWriterCases.Execute(data.Length > 1 + DifferentWriteSourceResetMagic.Length
+                ? data[1 + DifferentWriteSourceResetMagic.Length]
+                : (byte)128);
+            return;
+        }
+
+        if (data.Length >= 1 + RowApiGrowthMagic.Length
+            && data[0] == RowApiGrowthMarker
+            && data.Slice(1, RowApiGrowthMagic.Length).SequenceEqual(RowApiGrowthMagic))
+        {
+            RowApiGrowthWriterCases.Execute(data[(1 + RowApiGrowthMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + OptionalDecimalBloomGapMagic.Length
+            && data[0] == OptionalDecimalBloomGapMarker
+            && data.Slice(1, OptionalDecimalBloomGapMagic.Length).SequenceEqual(OptionalDecimalBloomGapMagic))
+        {
+            OptionalDecimalBloomGapWriterCases.Execute(data[(1 + OptionalDecimalBloomGapMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + SameStreamResetMagic.Length
+            && data[0] == SameStreamResetMarker
+            && data.Slice(1, SameStreamResetMagic.Length).SequenceEqual(SameStreamResetMagic))
+        {
+            SameStreamResetWriterCases.Execute(data.Length > 1 + SameStreamResetMagic.Length
+                ? data[1 + SameStreamResetMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + FixedBinaryDeltaMagic.Length
+            && data[0] == FixedBinaryDeltaMarker
+            && data.Slice(1, FixedBinaryDeltaMagic.Length).SequenceEqual(FixedBinaryDeltaMagic))
+        {
+            FixedBinaryDeltaWriterCases.Execute(data[(1 + FixedBinaryDeltaMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + ImportValidationMagic.Length + 1
+            && data[0] == ImportValidationMarker
+            && data.Slice(1, ImportValidationMagic.Length).SequenceEqual(ImportValidationMagic))
+        {
+            ImportValidationCoverageCases.Execute(data[(1 + ImportValidationMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + NonSeekableStreamMagic.Length
+            && data[0] == NonSeekableStreamMarker
+            && data.Slice(1, NonSeekableStreamMagic.Length).SequenceEqual(NonSeekableStreamMagic))
+        {
+            NonSeekableStreamWriterCases.Execute(data.Length > 1 + NonSeekableStreamMagic.Length
+                ? data[1 + NonSeekableStreamMagic.Length]
+                : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + DatasetOperationalMagic.Length
+            && data[0] == DatasetMarker
+            && data.Slice(1, DatasetOperationalMagic.Length).SequenceEqual(DatasetOperationalMagic))
+        {
+            PlankDatasetOperationalFuzzTarget.Execute(data[(1 + DatasetOperationalMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + NullableListBloomMagic.Length
+            && data[0] == NestedBloomMarker
+            && data.Slice(1, NullableListBloomMagic.Length).SequenceEqual(NullableListBloomMagic))
+        {
+            BloomFilterWriterCases.ExerciseNullableListBloom();
+            return;
+        }
+
+        if (data.Length >= 1 + NestedBloomMagic.Length
+            && data[0] == NestedBloomMarker
+            && data.Slice(1, NestedBloomMagic.Length).SequenceEqual(NestedBloomMagic))
+        {
+            BloomFilterWriterCases.ExerciseNestedRepeatedBloom(
+                data.Length > 1 + NestedBloomMagic.Length ? data[1 + NestedBloomMagic.Length] : (byte)0);
+            return;
+        }
+
         if (!data.IsEmpty && data[0] == RowApiMarker)
         {
             PlankRowApiFuzzTarget.Execute(data[1..]);
+            return;
+        }
+
+        if (data.Length >= 1 + DatasetBinaryMagic.Length
+            && data[0] == DatasetMarker
+            && data.Slice(1, DatasetBinaryMagic.Length).SequenceEqual(DatasetBinaryMagic))
+        {
+            PlankDatasetBinaryFuzzTarget.Execute(data[(1 + DatasetBinaryMagic.Length)..]);
             return;
         }
 
@@ -76,7 +510,1927 @@ public static class PlankWriterFuzzTarget
             return;
         }
 
+        if (!data.IsEmpty && data[0] == OptionalDoubleDictionaryMarker)
+        {
+            var pageVersion = data.Length > 1 && (data[1] & 1) != 0
+                ? PlankDataPageVersion.V1
+                : PlankDataPageVersion.V2;
+            Validate(CreateOptionalDoubleDictionaryCase(pageVersion, data[1..]));
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == OptionalForcedIntegerDictionaryMarker)
+        {
+            var pageVersion = data.Length > 1 && (data[1] & 1) != 0
+                ? PlankDataPageVersion.V1
+                : PlankDataPageVersion.V2;
+            Validate(CreateOptionalForcedIntegerDictionaryCase(pageVersion, data[1..]));
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == OptionalPlainTimestampMarker)
+        {
+            var pageVersion = data.Length > 1 && (data[1] & 1) != 0
+                ? PlankDataPageVersion.V1
+                : PlankDataPageVersion.V2;
+            ExerciseOptionalPlainTimestampCase(pageVersion, data[1..]);
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == LogicalMetadataMarker)
+        {
+            LogicalMetadataWriterCases.Execute(data.Length > 1 ? data[1] : (byte)0);
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == BloomFilterMarker)
+        {
+            BloomFilterWriterCases.Execute(data.Length > 1 ? data[1] : (byte)0);
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == CompressionLevelMarker)
+        {
+            CompressionLevelWriterCases.Execute(data.Length > 1 ? data[1] : (byte)0);
+            return;
+        }
+
+        if (data.Length >= 1 + EncodingCoverageMagic.Length
+            && data[0] == EncodingCoverageMarker
+            && data.Slice(1, EncodingCoverageMagic.Length).SequenceEqual(EncodingCoverageMagic))
+        {
+            EncodingCoverageWriterCases.Execute(data[(1 + EncodingCoverageMagic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= WriterMetadataMagic.Length
+            && data[..WriterMetadataMagic.Length].SequenceEqual(WriterMetadataMagic))
+        {
+            WriterMetadataCases.Execute(data[WriterMetadataMagic.Length..]);
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == RepeatedRowsMarker)
+        {
+            var pageVersion = data.Length > 1 && (data[1] & 1) != 0
+                ? PlankDataPageVersion.V1
+                : PlankDataPageVersion.V2;
+            var controls = data.Length > 2 ? data[2..] : ReadOnlySpan<byte>.Empty;
+            if (data.Length > 1 && (data[1] & 2) != 0)
+            {
+                switch (data[1] >> 3)
+                {
+                    case 1:
+                        ExerciseNestedTypedRowsCase(pageVersion, controls, ParquetPhysicalType.Boolean,
+                            static (row, inner, value, seed) => ((row + inner + value + seed) & 1) != 0);
+                        break;
+                    case 2:
+                        ExerciseNestedTypedRowsCase(pageVersion, controls, ParquetPhysicalType.Int64,
+                            static (row, inner, value, seed) => (long)(seed - 128) * 1024 + row * 31L + inner * 7L + value);
+                        break;
+                    case 3:
+                        ExerciseNestedTypedRowsCase(pageVersion, controls, ParquetPhysicalType.Float,
+                            static (row, inner, value, seed) => (seed - 128) / 8f + row * 1.25f + inner / 4f + value / 8f);
+                        break;
+                    case 4:
+                        ExerciseNestedTypedRowsCase(pageVersion, controls, ParquetPhysicalType.Double,
+                            static (row, inner, value, seed) => (seed - 128) / 8d + row * 1.25d + inner / 4d + value / 8d);
+                        break;
+                    default:
+                        ExerciseNestedRowsCase(pageVersion, controls);
+                        break;
+                }
+            }
+            else if (data.Length > 1 && ((data[1] >> 3) % 6) != 0)
+                ExerciseTypedRepeatedRowsCase(pageVersion, (data[1] >> 3) % 6,
+                    (data[1] & 4) != 0, controls);
+            else
+                ExerciseRepeatedRowsCase(pageVersion, data.Length > 1 && (data[1] & 4) != 0, controls);
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == ValueConverterMarker)
+        {
+            if (data.Length >= 5 && data[1..5].SequenceEqual("VCX1"u8))
+            {
+                ValueConverterMatrixWriterCases.Execute(data[5..]);
+                return;
+            }
+
+            Validate(CreateValueConverterCase(data[1..]));
+            return;
+        }
+
+        if (!data.IsEmpty && data[0] == AppendSortingMarker)
+        {
+            ExerciseAppendSortingCase(data[1..]);
+            return;
+        }
+
+        if (data.Length >= 1 + LatestRowGroupValuesMagic.Length + 1
+            && data[0] == LatestRowGroupValuesMarker
+            && data.Slice(1, LatestRowGroupValuesMagic.Length).SequenceEqual(LatestRowGroupValuesMagic))
+        {
+            LatestRowGroupValuesCoverageCases.Execute(data[(1 + LatestRowGroupValuesMagic.Length)..]);
+            return;
+        }
+
+
         Validate(Decode(data));
+    }
+
+    static FuzzCase CreateOptionalDoubleDictionaryCase(PlankDataPageVersion pageVersion,
+        ReadOnlySpan<byte> controls)
+    {
+        var writePageIndexes = (Control(controls, 0, 0) & 2) == 0;
+        var column = PlankColumn.Leaf("double-dictionary", ParquetPhysicalType.Double,
+            new ColumnOptions(ParquetRepetition.Optional,
+                encodings: SingleEncoding(EncodingKind.RleDictionary)),
+            pageStrategy: writePageIndexes ? null : ForceDictionaryPageStrategy.Shared);
+        var rowControl = controls.Length > 1 ? controls[1] : (byte)7;
+        var paletteControl = controls.Length > 2 ? controls[2] : (byte)2;
+        var stepControl = controls.Length > 3 ? controls[3] : (byte)0;
+        var offsetControl = controls.Length > 4 ? controls[4] : (byte)0;
+        var pageControl = controls.Length > 5 ? controls[5] : (byte)1;
+        var rowCount = 128 + (rowControl & 15) * 128;
+        var paletteSize = new[] { 1, 2, 3, 7, 16, 32, 64 }[paletteControl % 7];
+        var step = stepControl % 7 + 1;
+        var offset = offsetControl % paletteSize;
+        var pageSize = new uint[] { 128, 256, 512 }[pageControl % 3];
+        var values = new double?[rowCount];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = ((i * step + offset) % paletteSize) - paletteSize / 2d;
+
+        return new FuzzCase(
+            [new ColumnSpec(column, typeof(double?))],
+            [[values]],
+            CompressionKind.None,
+            new WriterSettings(pageVersion, WritePageCrc: true, WritePageIndexes: writePageIndexes,
+                FileVersion: PlankFileVersion.V1, TargetDataPageSizeBytes: pageSize,
+                BufferChunkSizeBytes: 128, WithKeyValueMetadata: false));
+    }
+
+    static FuzzCase CreateOptionalForcedIntegerDictionaryCase(PlankDataPageVersion pageVersion,
+        ReadOnlySpan<byte> controls)
+    {
+        var useInt64 = (Control(controls, 1, 0) & 1) != 0;
+        var rowCount = 128 + (Control(controls, 2, 3) & 7) * 64;
+        var paletteSize = new[] { 1, 2, 3, 5, 7, 16, 32 }[Control(controls, 3, 2) % 7];
+        var step = 1 + Control(controls, 4, 1) % 7;
+        var offset = Control(controls, 5, 0) % paletteSize;
+        var nullPeriod = 2 + Control(controls, 7, 3) % 7;
+        var pageSize = new uint[] { 64, 128, 256 }[Control(controls, 6, 1) % 3];
+        if (useInt64)
+        {
+            var values = new long?[rowCount];
+            for (var i = 0; i < values.Length; i++)
+                values[i] = i != 0 && (i + offset) % nullPeriod == 0
+                    ? null
+                    : ((i * step + offset) % paletteSize) - paletteSize / 2L;
+            var column = PlankColumn.Leaf("optional-forced-i64", ParquetPhysicalType.Int64,
+                new ColumnOptions(ParquetRepetition.Optional,
+                    encodings: SingleEncoding(EncodingKind.RleDictionary)),
+                pageStrategy: ForceDictionaryPageStrategy.Shared);
+            return new FuzzCase(
+                [new ColumnSpec(column, typeof(long?))], [[values]], CompressionKind.None,
+                new WriterSettings(pageVersion, WritePageCrc: true, WritePageIndexes: false,
+                    FileVersion: PlankFileVersion.V1, TargetDataPageSizeBytes: pageSize,
+                    BufferChunkSizeBytes: 128, WithKeyValueMetadata: false));
+        }
+        else
+        {
+            var values = new int?[rowCount];
+            for (var i = 0; i < values.Length; i++)
+                values[i] = i != 0 && (i + offset) % nullPeriod == 0
+                    ? null
+                    : ((i * step + offset) % paletteSize) - paletteSize / 2;
+            var column = PlankColumn.Leaf("optional-forced-i32", ParquetPhysicalType.Int32,
+                new ColumnOptions(ParquetRepetition.Optional,
+                    encodings: SingleEncoding(EncodingKind.RleDictionary)),
+                pageStrategy: ForceDictionaryPageStrategy.Shared);
+            return new FuzzCase(
+                [new ColumnSpec(column, typeof(int?))], [[values]], CompressionKind.None,
+                new WriterSettings(pageVersion, WritePageCrc: true, WritePageIndexes: false,
+                    FileVersion: PlankFileVersion.V1, TargetDataPageSizeBytes: pageSize,
+                    BufferChunkSizeBytes: 128, WithKeyValueMetadata: false));
+        }
+    }
+
+    static void ExerciseOptionalPlainTimestampCase(PlankDataPageVersion pageVersion,
+        ReadOnlySpan<byte> controls)
+    {
+        var flags = Control(controls, 0, 0);
+        var unit = (flags & 2) == 0 ? Plank.Schema.TimeUnit.Millis : Plank.Schema.TimeUnit.Micros;
+        var adjustedToUtc = (flags & 4) != 0;
+        var writePageIndexes = (flags & 8) != 0;
+        var rowCount = (flags & 16) != 0 ? 0 : 8 + Control(controls, 1, 24) % 57;
+        var allNull = (flags & 32) != 0;
+        var step = 1 + Control(controls, 2, 37) % 997;
+        var offset = (Control(controls, 3, 128) - 128) * 10_000L;
+        var nullPeriod = 2 + Control(controls, 4, 5) % 11;
+        var nullOffset = Control(controls, 5, 1) % nullPeriod;
+        var targetPageSize = new uint[] { 16, 32, 64 }[Control(controls, 6, 0) % 3];
+        var ticksPerUnit = unit == Plank.Schema.TimeUnit.Millis ? TimeSpan.TicksPerMillisecond : 10L;
+        var baseTicks = DateTime.UnixEpoch.Ticks + offset * ticksPerUnit;
+        var kind = adjustedToUtc ? DateTimeKind.Utc : DateTimeKind.Unspecified;
+        var values = new DateTime?[rowCount];
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = allNull || i != 0 && (i + nullOffset) % nullPeriod == 0
+                ? null
+                : new DateTime(checked(baseTicks + (long)i * step * ticksPerUnit), kind);
+        }
+
+        var logicalType = new Plank.Schema.LogicalType.Timestamp(unit, adjustedToUtc);
+        var column = PlankColumn.Leaf("optional-timestamp", ParquetPhysicalType.Int64,
+            new ColumnOptions(ParquetRepetition.Optional, encodings: SingleEncoding(EncodingKind.Plain)),
+            logicalType: logicalType);
+        var schema = new PlankSchema([column]);
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = writePageIndexes,
+            TargetDataPageSizeBytes = targetPageSize,
+            BufferChunkSizeBytes = 128
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<DateTime?>(schema.LeafColumns[0]);
+        serialized.Serialize(values);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+
+        using var source = new MemoryReadSource(stream.ToArray());
+        using var reader = schema.CreateReader(source);
+        if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rowCount)
+            throw new InvalidOperationException("Optional timestamp route changed the row-group shape.");
+        var actual = ReadAllBuffers(reader.RowGroups[0].Column<DateTime?>(schema.LeafColumns[0]));
+        if (actual.Length != values.Length)
+            throw new InvalidOperationException("Optional timestamp route changed the row count.");
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (values[i].HasValue != actual[i].HasValue ||
+                (values[i] is { } expected && actual[i] is { } observed &&
+                    (expected.Ticks != observed.Ticks || expected.Kind != observed.Kind)))
+                throw new InvalidOperationException($"Optional timestamp route changed value/null at row {i}.");
+        }
+    }
+
+    static void ExerciseRepeatedRowsCase(PlankDataPageVersion pageVersion, bool optionalElements,
+        ReadOnlySpan<byte> controls)
+    {
+        var column = optionalElements
+            ? PlankColumn.List("repeated-values",
+                PlankColumn.OptionalLeaf("element", ParquetPhysicalType.Int32,
+                    new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain))))
+            : PlankColumn.Leaf("repeated-values", ParquetPhysicalType.Int32,
+                new ColumnOptions(ParquetRepetition.Repeated, encodings: SingleEncoding(EncodingKind.Plain)));
+        var schema = new PlankSchema([column]);
+        var rowCount = 2 + Control(controls, 0, 2) % 7;
+        var presentValueCount = 0;
+        var valueBase = Control(controls, rowCount + 1, 13) - 128;
+        Array rows;
+        if (optionalElements)
+        {
+            var nullableRows = new int?[rowCount][];
+            for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+            {
+                var length = 1 + Control(controls, rowIndex + 1, rowIndex + 1) % 5;
+                nullableRows[rowIndex] = new int?[length];
+                for (var elementIndex = 0; elementIndex < length; elementIndex++)
+                {
+                    var isNull = elementIndex != 0
+                        && (Control(controls, rowIndex + elementIndex + 2, rowIndex * 3 + elementIndex) & 1) != 0;
+                    nullableRows[rowIndex][elementIndex] = isNull
+                        ? null
+                        : valueBase + rowIndex * 17 + elementIndex * 3;
+                    if (!isNull)
+                        presentValueCount++;
+                }
+            }
+            rows = nullableRows;
+        }
+        else
+        {
+            var requiredRows = new int[rowCount][];
+            for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+            {
+                var length = 1 + Control(controls, rowIndex + 1, rowIndex + 1) % 5;
+                requiredRows[rowIndex] = new int[length];
+                for (var elementIndex = 0; elementIndex < length; elementIndex++)
+                    requiredRows[rowIndex][elementIndex] = valueBase + rowIndex * 17 + elementIndex * 3;
+                presentValueCount += length;
+            }
+            rows = requiredRows;
+        }
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        if (optionalElements)
+        {
+            var serialized = rowGroup.CreateSerializedColumn<int?[]>(schema.LeafColumns[0]);
+            serialized.Serialize((int?[][])rows);
+            rowGroup.Write(serialized);
+        }
+        else
+        {
+            var serialized = rowGroup.CreateSerializedColumn<int[]>(schema.LeafColumns[0]);
+            serialized.Serialize((int[][])rows);
+            rowGroup.Write(serialized);
+        }
+        writer.CloseFile();
+
+        var bytes = stream.ToArray();
+        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        var expectedValues = new List<int>(presentValueCount);
+        var expectedRepetitions = new List<int>();
+        var expectedDefinitions = new List<int>();
+        var maxDefinitionLevel = schema.LeafColumns[0].MaxDefinitionLevel;
+        if (optionalElements)
+        {
+            foreach (var row in (int?[][])rows)
+                for (var i = 0; i < row.Length; i++)
+                {
+                    expectedRepetitions.Add(i == 0 ? 0 : 1);
+                    if (row[i] is { } value)
+                    {
+                        expectedValues.Add(value);
+                        expectedDefinitions.Add(maxDefinitionLevel);
+                    }
+                    else
+                        expectedDefinitions.Add(maxDefinitionLevel - 1);
+                }
+        }
+        else
+            foreach (var row in (int[][])rows)
+                for (var i = 0; i < row.Length; i++)
+                {
+                    expectedValues.Add(row[i]);
+                    expectedRepetitions.Add(i == 0 ? 0 : 1);
+                    expectedDefinitions.Add(maxDefinitionLevel);
+                }
+        AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
+            expectedValues, expectedRepetitions, expectedDefinitions, "repeated");
+    }
+
+    static void ExerciseNestedRowsCase(PlankDataPageVersion pageVersion, ReadOnlySpan<byte> controls)
+    {
+        var schema = new PlankSchema([
+            PlankColumn.List("nested-values",
+                PlankColumn.List("nested-list",
+                    PlankColumn.OptionalLeaf("element", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))))
+        ]);
+        var rowCount = 2 + Control(controls, 0, 1) % 7;
+        var rows = new int?[rowCount][][];
+        var presentValueCount = 0;
+        var valueBase = Control(controls, rowCount + 1, 19) - 128;
+        for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        {
+            var innerCount = rowIndex == 0
+                ? 1 + Control(controls, rowIndex + 1, 1) % 4
+                : Control(controls, rowIndex + 1, rowIndex) % 4;
+            rows[rowIndex] = new int?[innerCount][];
+            for (var innerIndex = 0; innerIndex < innerCount; innerIndex++)
+            {
+                var length = rowIndex == 0 && innerIndex == 0
+                    ? 1 + Control(controls, rowIndex + innerIndex + 2, 1) % 4
+                    : Control(controls, rowIndex + innerIndex + 2, innerIndex) % 5;
+                rows[rowIndex][innerIndex] = new int?[length];
+                for (var valueIndex = 0; valueIndex < length; valueIndex++)
+                {
+                    var isNull = !(rowIndex == 0 && innerIndex == 0 && valueIndex == 0)
+                        && (Control(controls, rowIndex + innerIndex + valueIndex + 3,
+                            rowIndex + innerIndex + valueIndex) & 3) == 0;
+                    rows[rowIndex][innerIndex][valueIndex] = isNull
+                        ? null
+                        : valueBase + rowIndex * 31 + innerIndex * 7 + valueIndex;
+                    if (!isNull)
+                        presentValueCount++;
+                }
+            }
+        }
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<int?[][]>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+
+        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        var expectedValues = new List<int>(presentValueCount);
+        var expectedRepetitions = new List<int>();
+        var expectedDefinitions = new List<int>();
+        var maxDefinitionLevel = schema.LeafColumns[0].MaxDefinitionLevel;
+        for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
+        {
+            var outer = rows[rowIndex];
+            if (outer.Length == 0)
+            {
+                expectedRepetitions.Add(0);
+                expectedDefinitions.Add(0);
+                continue;
+            }
+            for (var outerIndex = 0; outerIndex < outer.Length; outerIndex++)
+            {
+                var outerRepetition = outerIndex == 0 ? 0 : 1;
+                var inner = outer[outerIndex];
+                if (inner.Length == 0)
+                {
+                    expectedRepetitions.Add(outerRepetition);
+                    expectedDefinitions.Add(1);
+                    continue;
+                }
+                for (var innerIndex = 0; innerIndex < inner.Length; innerIndex++)
+                {
+                    var value = inner[innerIndex];
+                    expectedRepetitions.Add(innerIndex == 0 ? outerRepetition : 2);
+                    if (value is { } present)
+                    {
+                        expectedValues.Add(present);
+                        expectedDefinitions.Add(maxDefinitionLevel);
+                    }
+                    else
+                        expectedDefinitions.Add(maxDefinitionLevel - 1);
+                }
+            }
+        }
+        AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
+            expectedValues, expectedRepetitions, expectedDefinitions, "nested");
+    }
+
+    static void ExerciseNestedTypedRowsCase<T>(PlankDataPageVersion pageVersion,
+        ReadOnlySpan<byte> controls, ParquetPhysicalType physicalType,
+        Func<int, int, int, int, T> createValue)
+        where T : struct
+    {
+        var schema = new PlankSchema([
+            PlankColumn.List("nested-values",
+                PlankColumn.List("nested-list",
+                    PlankColumn.OptionalLeaf("element", physicalType,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))))
+        ]);
+        var rowCount = 2 + Control(controls, 0, 1) % 7;
+        var rows = new T?[rowCount][][];
+        var expectedValues = new List<T>();
+        var repetitions = new List<int>();
+        var definitions = new List<int>();
+        var valueSeed = Control(controls, rowCount + 1, 19);
+        for (var row = 0; row < rowCount; row++)
+        {
+            var innerCount = row == 0
+                ? 1 + Control(controls, row + 1, 1) % 4
+                : Control(controls, row + 1, row) % 4;
+            rows[row] = new T?[innerCount][];
+            for (var inner = 0; inner < innerCount; inner++)
+            {
+                var length = row == 0 && inner == 0
+                    ? 1 + Control(controls, row + inner + 2, 1) % 4
+                    : Control(controls, row + inner + 2, inner) % 5;
+                rows[row][inner] = new T?[length];
+                if (length == 0)
+                {
+                    repetitions.Add(inner == 0 ? 0 : 1);
+                    definitions.Add(1);
+                    continue;
+                }
+                for (var value = 0; value < length; value++)
+                {
+                    var isNull = !(row == 0 && inner == 0 && value == 0) &&
+                        (Control(controls, row + inner + value + 3, row + inner + value) & 3) == 0;
+                    repetitions.Add(value == 0 ? inner == 0 ? 0 : 1 : 2);
+                    if (isNull)
+                    {
+                        definitions.Add(schema.LeafColumns[0].MaxDefinitionLevel - 1);
+                        continue;
+                    }
+                    rows[row][inner][value] = createValue(row, inner, value, valueSeed);
+                    expectedValues.Add(rows[row][inner][value]!.Value);
+                    definitions.Add(schema.LeafColumns[0].MaxDefinitionLevel);
+                }
+            }
+            if (innerCount == 0)
+            {
+                repetitions.Add(0);
+                definitions.Add(0);
+            }
+        }
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<T?[][]>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+        using var source = new MemoryReadSource(stream.ToArray());
+        using var reader = schema.CreateReader(source);
+        AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
+            expectedValues, repetitions, definitions, "typed nested");
+    }
+
+    static void ExerciseTypedRepeatedRowsCase(PlankDataPageVersion pageVersion, int kind,
+        bool optionalElements, ReadOnlySpan<byte> controls)
+    {
+        switch (kind)
+        {
+            case 1:
+                if (optionalElements)
+                    ExerciseOptionalRepeatedValues(pageVersion, ParquetPhysicalType.Boolean, controls,
+                        static (row, element, seed) => ((row + element + seed) & 1) != 0);
+                else
+                    ExerciseRequiredRepeatedValues(pageVersion, ParquetPhysicalType.Boolean, controls,
+                        static (row, element, seed) => ((row + element + seed) & 1) != 0);
+                break;
+            case 2:
+                if (optionalElements)
+                    ExerciseOptionalRepeatedValues(pageVersion, ParquetPhysicalType.Int64, controls,
+                        static (row, element, seed) => (long)(seed - 128) * 1024 + row * 31L + element * 7L);
+                else
+                    ExerciseRequiredRepeatedValues(pageVersion, ParquetPhysicalType.Int64, controls,
+                        static (row, element, seed) => (long)(seed - 128) * 1024 + row * 31L + element * 7L);
+                break;
+            case 3:
+                if (optionalElements)
+                    ExerciseOptionalRepeatedValues(pageVersion, ParquetPhysicalType.Float, controls,
+                        static (row, element, seed) => (seed - 128) / 8f + row * 1.25f + element / 4f);
+                else
+                    ExerciseRequiredRepeatedValues(pageVersion, ParquetPhysicalType.Float, controls,
+                        static (row, element, seed) => (seed - 128) / 8f + row * 1.25f + element / 4f);
+                break;
+            case 4:
+                if (optionalElements)
+                    ExerciseOptionalRepeatedValues(pageVersion, ParquetPhysicalType.Double, controls,
+                        static (row, element, seed) => (seed - 128) / 8d + row * 1.25d + element / 4d);
+                else
+                    ExerciseRequiredRepeatedValues(pageVersion, ParquetPhysicalType.Double, controls,
+                        static (row, element, seed) => (seed - 128) / 8d + row * 1.25d + element / 4d);
+                break;
+            default:
+                if (optionalElements)
+                    ExerciseOptionalRepeatedBinaryRows(pageVersion, controls);
+                else
+                    ExerciseRequiredRepeatedBinaryRows(pageVersion, controls);
+                break;
+        }
+    }
+
+    static void ExerciseRequiredRepeatedValues<T>(PlankDataPageVersion pageVersion,
+        ParquetPhysicalType physicalType, ReadOnlySpan<byte> controls, Func<int, int, int, T> createValue)
+        where T : notnull
+    {
+        var rowCount = 2 + Control(controls, 0, 3) % 6;
+        var valueSeed = Control(controls, 1, 37);
+        var rows = new T[rowCount][];
+        var expectedValues = new List<T>();
+        var repetitions = new List<int>();
+        var definitions = new List<int>();
+        for (var row = 0; row < rowCount; row++)
+        {
+            var length = 1 + Control(controls, row + 2, row + 1) % 5;
+            rows[row] = new T[length];
+            for (var element = 0; element < length; element++)
+            {
+                var value = createValue(row, element, valueSeed);
+                rows[row][element] = value;
+                expectedValues.Add(value);
+                repetitions.Add(element == 0 ? 0 : 1);
+            }
+        }
+
+        var schema = new PlankSchema([
+            PlankColumn.Leaf("repeated-values", physicalType,
+                new ColumnOptions(ParquetRepetition.Repeated, encodings: SingleEncoding(EncodingKind.Plain)))
+        ]);
+        var maxDefinition = schema.LeafColumns[0].MaxDefinitionLevel;
+        for (var i = 0; i < expectedValues.Count; i++)
+            definitions.Add(maxDefinition);
+        WriteAndAssertRepeatedRows(schema, pageVersion, rows, expectedValues, repetitions, definitions,
+            "typed repeated");
+    }
+
+    static void ExerciseOptionalRepeatedValues<T>(PlankDataPageVersion pageVersion,
+        ParquetPhysicalType physicalType, ReadOnlySpan<byte> controls, Func<int, int, int, T> createValue)
+        where T : struct
+    {
+        var rowCount = 2 + Control(controls, 0, 3) % 6;
+        var valueSeed = Control(controls, 1, 37);
+        var rows = new T?[rowCount][];
+        var expectedValues = new List<T>();
+        var repetitions = new List<int>();
+        var definitions = new List<int>();
+        var schema = new PlankSchema([
+            PlankColumn.List("repeated-values",
+                PlankColumn.OptionalLeaf("element", physicalType,
+                    new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain))))
+        ]);
+        var maxDefinition = schema.LeafColumns[0].MaxDefinitionLevel;
+        for (var row = 0; row < rowCount; row++)
+        {
+            var length = Control(controls, row + 2, row + 1) % 5;
+            rows[row] = new T?[length];
+            if (length == 0)
+            {
+                repetitions.Add(0);
+                definitions.Add(maxDefinition - 2);
+                continue;
+            }
+            for (var element = 0; element < length; element++)
+            {
+                var isNull = element != 0 &&
+                    (Control(controls, row + element + 3, row * 5 + element) & 1) != 0;
+                repetitions.Add(element == 0 ? 0 : 1);
+                if (isNull)
+                {
+                    definitions.Add(maxDefinition - 1);
+                    continue;
+                }
+                var value = createValue(row, element, valueSeed);
+                rows[row][element] = value;
+                expectedValues.Add(value);
+                definitions.Add(maxDefinition);
+            }
+        }
+        WriteAndAssertOptionalRepeatedRows(schema, pageVersion, rows, expectedValues, repetitions,
+            definitions, "optional typed repeated");
+    }
+
+    static void ExerciseRequiredRepeatedBinaryRows(PlankDataPageVersion pageVersion,
+        ReadOnlySpan<byte> controls)
+    {
+        var rowCount = 2 + Control(controls, 0, 3) % 6;
+        var valueSeed = Control(controls, 1, 37);
+        var rows = new byte[rowCount][][];
+        var expectedValues = new List<byte[]>();
+        var repetitions = new List<int>();
+        var definitions = new List<int>();
+        for (var row = 0; row < rowCount; row++)
+        {
+            var length = 1 + Control(controls, row + 2, row + 1) % 4;
+            rows[row] = new byte[length][];
+            for (var element = 0; element < length; element++)
+            {
+                var bytes = new byte[1 + Control(controls, row + element + 4, element + 1) % 8];
+                for (var i = 0; i < bytes.Length; i++)
+                    bytes[i] = (byte)(valueSeed + row * 19 + element * 7 + i * 23);
+                rows[row][element] = bytes;
+                expectedValues.Add(bytes);
+                repetitions.Add(element == 0 ? 0 : 1);
+            }
+        }
+        var schema = new PlankSchema([
+            PlankColumn.Leaf("repeated-binary", ParquetPhysicalType.ByteArray,
+                new ColumnOptions(ParquetRepetition.Repeated, encodings: SingleEncoding(EncodingKind.Plain)))
+        ]);
+        for (var i = 0; i < expectedValues.Count; i++)
+            definitions.Add(schema.LeafColumns[0].MaxDefinitionLevel);
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<byte[][]>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+        using var source = new MemoryReadSource(stream.ToArray());
+        using var reader = schema.CreateReader(source);
+        AssertNestedBinaryRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
+            expectedValues, repetitions, definitions);
+    }
+
+    static void ExerciseOptionalRepeatedBinaryRows(PlankDataPageVersion pageVersion,
+        ReadOnlySpan<byte> controls)
+    {
+        var rowCount = 2 + Control(controls, 0, 3) % 6;
+        var valueSeed = Control(controls, 1, 37);
+        var rows = new byte[]?[rowCount][];
+        var expectedValues = new List<byte[]>();
+        var repetitions = new List<int>();
+        var definitions = new List<int>();
+        var schema = new PlankSchema([
+            PlankColumn.List("repeated-binary",
+                PlankColumn.OptionalLeaf("element", ParquetPhysicalType.ByteArray,
+                    new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain))))
+        ]);
+        var maxDefinition = schema.LeafColumns[0].MaxDefinitionLevel;
+        for (var row = 0; row < rowCount; row++)
+        {
+            var length = Control(controls, row + 2, row + 1) % 5;
+            rows[row] = new byte[]?[length];
+            if (length == 0)
+            {
+                repetitions.Add(0);
+                definitions.Add(maxDefinition - 2);
+                continue;
+            }
+            for (var element = 0; element < length; element++)
+            {
+                var isNull = element != 0 &&
+                    (Control(controls, row + element + 3, row * 5 + element) & 1) != 0;
+                repetitions.Add(element == 0 ? 0 : 1);
+                if (isNull)
+                {
+                    definitions.Add(maxDefinition - 1);
+                    continue;
+                }
+                var bytes = new byte[Control(controls, row + element + 4, element + 1) % 8];
+                for (var i = 0; i < bytes.Length; i++)
+                    bytes[i] = (byte)(valueSeed + row * 19 + element * 7 + i * 23);
+                rows[row][element] = bytes;
+                expectedValues.Add(bytes);
+                definitions.Add(maxDefinition);
+            }
+        }
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<byte[]?[]>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+        using var source = new MemoryReadSource(stream.ToArray());
+        using var reader = schema.CreateReader(source);
+        AssertNestedBinaryRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
+            expectedValues, repetitions, definitions);
+    }
+
+    static void WriteAndAssertRepeatedRows<T>(PlankSchema schema, PlankDataPageVersion pageVersion, T[][] rows,
+        List<T> expectedValues, List<int> repetitions, List<int> definitions,
+        string shape, Func<T, T, bool>? valuesEqual = null)
+        where T : notnull
+    {
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<T[]>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+        using var source = new MemoryReadSource(stream.ToArray());
+        using var reader = schema.CreateReader(source);
+        AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rows.Length,
+            expectedValues, repetitions, definitions, shape, valuesEqual);
+    }
+
+    static void AssertNestedBinaryRows(PlankRowGroup rowGroup, LeafColumn column, int expectedRowCount,
+        List<byte[]> expectedValues, List<int> expectedRepetitionLevels, List<int> expectedDefinitionLevels)
+    {
+        var values = new List<byte[]>(expectedValues.Count);
+        var repetitionLevels = new List<int>(expectedRepetitionLevels.Count);
+        var definitionLevels = new List<int>(expectedDefinitionLevels.Count);
+        var rowCount = 0;
+        foreach (var buffer in rowGroup.NestedColumn<byte>(column))
+        {
+            rowCount += buffer.RowCount;
+            var valueIndex = 0;
+            for (var i = 0; i < buffer.Count; i++)
+                if (buffer.DefinitionLevels[i] == buffer.MaxDefinitionLevel)
+                    values.Add(buffer.Values.GetValue(valueIndex++).ToArray());
+            for (var i = 0; i < buffer.Count; i++)
+            {
+                repetitionLevels.Add(buffer.RepetitionLevels[i]);
+                definitionLevels.Add(buffer.DefinitionLevels[i]);
+            }
+            if (buffer.MaxRepetitionLevel != column.MaxRepetitionLevel ||
+                buffer.MaxDefinitionLevel != column.MaxDefinitionLevel)
+                throw new InvalidOperationException("Repeated binary reader returned unexpected maximum levels.");
+        }
+        if (rowCount != expectedRowCount || values.Count != expectedValues.Count ||
+            values.Where((value, i) => !value.AsSpan().SequenceEqual(expectedValues[i])).Any() ||
+            !repetitionLevels.SequenceEqual(expectedRepetitionLevels) ||
+            !definitionLevels.SequenceEqual(expectedDefinitionLevels))
+            throw new InvalidOperationException("Repeated binary round trip changed values or repetition/definition levels.");
+    }
+
+    static void WriteAndAssertOptionalRepeatedRows<T>(PlankSchema schema, PlankDataPageVersion pageVersion,
+        T?[][] rows, List<T> expectedValues, List<int> repetitions, List<int> definitions, string shape)
+        where T : struct
+    {
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = pageVersion,
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 32,
+            BufferChunkSizeBytes = 64
+        });
+        var rowGroup = writer.StartRowGroup();
+        var serialized = rowGroup.CreateSerializedColumn<T?[]>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        rowGroup.Write(serialized);
+        writer.CloseFile();
+        using var source = new MemoryReadSource(stream.ToArray());
+        using var reader = schema.CreateReader(source);
+        AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rows.Length,
+            expectedValues, repetitions, definitions, shape);
+    }
+
+    static void AssertNestedRows<T>(PlankRowGroup rowGroup, LeafColumn column, int expectedRowCount,
+        List<T> expectedValues, List<int> expectedRepetitionLevels, List<int> expectedDefinitionLevels,
+        string shape, Func<T, T, bool>? valuesEqual = null)
+        where T : notnull
+    {
+        var values = new List<T>(expectedValues.Count);
+        var repetitionLevels = new List<int>(expectedRepetitionLevels.Count);
+        var definitionLevels = new List<int>(expectedDefinitionLevels.Count);
+        var rowCount = 0;
+        foreach (var buffer in rowGroup.NestedColumn<T>(column))
+        {
+            rowCount += buffer.RowCount;
+            values.AddRange(buffer.Values.Values.ToArray());
+            for (var i = 0; i < buffer.Count; i++)
+            {
+                repetitionLevels.Add(buffer.RepetitionLevels[i]);
+                definitionLevels.Add(buffer.DefinitionLevels[i]);
+            }
+            if (buffer.MaxRepetitionLevel != column.MaxRepetitionLevel ||
+                buffer.MaxDefinitionLevel != column.MaxDefinitionLevel)
+                throw new InvalidOperationException($"{shape} nested reader returned unexpected maximum levels.");
+        }
+
+        var valuesMatch = values.Count == expectedValues.Count;
+        if (valuesMatch)
+            for (var i = 0; i < values.Count; i++)
+                if (valuesEqual is null
+                    ? !EqualityComparer<T>.Default.Equals(values[i], expectedValues[i])
+                    : !valuesEqual(values[i], expectedValues[i]))
+                {
+                    valuesMatch = false;
+                    break;
+                }
+        if (rowCount != expectedRowCount || !valuesMatch ||
+            !repetitionLevels.SequenceEqual(expectedRepetitionLevels) ||
+            !definitionLevels.SequenceEqual(expectedDefinitionLevels))
+            throw new InvalidOperationException(
+                $"{shape} nested round trip mismatch: rows {rowCount}/{expectedRowCount}, " +
+                $"values {values.Count}/{expectedValues.Count}, rep {repetitionLevels.Count}/" +
+                $"{expectedRepetitionLevels.Count}, def {definitionLevels.Count}/{expectedDefinitionLevels.Count}.");
+    }
+
+    static int Control(ReadOnlySpan<byte> controls, int index, int fallback)
+        => controls.IsEmpty ? fallback : controls[index % controls.Length];
+
+    static FuzzCase CreateValueConverterCase(ReadOnlySpan<byte> controls)
+    {
+        var rowCount = 4 + Control(controls, 0, 6) % 13;
+        var dataPageVersion = (Control(controls, 1, 0) & 1) == 0
+            ? PlankDataPageVersion.V2
+            : PlankDataPageVersion.V1;
+        var valueBase = (Control(controls, 2, 137) - 128) * 16;
+        var step = 1 + Control(controls, 3, 2) % 7;
+        var nullMask = Control(controls, 4, 0x2A);
+
+        var intValues = new IntBox[rowCount];
+        var longValues = new LongBox?[rowCount];
+        var doubleValues = new DoubleBox?[rowCount];
+        for (var i = 0; i < rowCount; i++)
+        {
+            intValues[i] = new(valueBase + i * step);
+            longValues[i] = i == 0 || (nullMask & (1 << (i & 7))) == 0
+                ? new LongBox((long)valueBase * 1024 + i * step * 3L)
+                : null;
+            doubleValues[i] = i == 0 || (nullMask & (1 << ((i + 3) & 7))) == 0
+                ? new DoubleBox(valueBase / 8d + i * step / 4d)
+                : null;
+        }
+
+        var columns = new[]
+        {
+            new ColumnSpec(PlankColumn.RequiredLeaf("box-int32", ParquetPhysicalType.Int32,
+                new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)), converter: new IntBoxConverter()),
+                typeof(IntBox)),
+            new ColumnSpec(PlankColumn.OptionalLeaf("box-int64", ParquetPhysicalType.Int64,
+                new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)), converter: new LongBoxConverter()),
+                typeof(LongBox?)),
+            new ColumnSpec(PlankColumn.OptionalLeaf("box-double", ParquetPhysicalType.Double,
+                new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)), converter: new DoubleBoxConverter()),
+                typeof(DoubleBox?))
+        };
+        var pageSize = new uint[] { 16, 64, 256 }[Control(controls, 5, 1) % 3];
+        return new FuzzCase(columns, [[intValues, longValues, doubleValues]], CompressionKind.None,
+            new WriterSettings(dataPageVersion, WritePageCrc: true, WritePageIndexes: true,
+                FileVersion: PlankFileVersion.V1, TargetDataPageSizeBytes: pageSize,
+                BufferChunkSizeBytes: 64, WithKeyValueMetadata: false));
+    }
+
+    static void ExerciseAppendSortingCase(ReadOnlySpan<byte> controls)
+    {
+        // Keep the original six selector values stable while giving the
+        // comparator's less common CLR representations deterministic routes.
+        var kind = Control(controls, 0, 0) % 36;
+        var descending = (Control(controls, 1, 0) & 1) != 0;
+        var nullsFirst = (Control(controls, 1, 0) & 2) != 0;
+        var breakOrder = (Control(controls, 1, 0) & 4) != 0;
+        var rowCount = 3 + Control(controls, 2, 2) % 4;
+        var step = 1 + Control(controls, 3, 2) % 7;
+        var start = (Control(controls, 4, 128) - 128) * 8;
+        var sorting = new ParquetSortingColumn(0, descending, nullsFirst);
+
+        switch (kind)
+        {
+            case 20:
+            case 21:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                for (var i = 0; i < rowCount; i++)
+                {
+                    retained[i] = [(byte)(128 + (descending ? -i : i) * step), 0x41];
+                    incoming[i] = [(byte)(128 + (descending ? -(rowCount + i) : rowCount + i) * step), 0x41];
+                }
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.ByteArray,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                if (kind == 20)
+                    ExerciseAppendSorting(schema, sorting, retained, incoming,
+                        static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                        static (expected, actual) => ByteArraysEqual(expected, actual), expectedSorted: true);
+                else
+                {
+                    var retainedMemory = retained.Select(static value => (ReadOnlyMemory<byte>)value).ToArray();
+                    var incomingMemory = incoming.Select(static value => (ReadOnlyMemory<byte>)value).ToArray();
+                    ExerciseAppendSorting(schema, sorting, retainedMemory, incomingMemory,
+                        static (group, column) => ReadBinaryMemoryBuffers(group.Column<byte>(column), 2),
+                        static (expected, actual) => BinaryMemoriesEqual(expected, actual), expectedSorted: true);
+                }
+                break;
+            }
+            case 22:
+                ExerciseAppendSortingTwoColumns(rowCount, step, start, descending);
+                break;
+            case 23:
+                ExerciseAppendWithoutSorting(rowCount, step, start);
+                break;
+            case 24:
+            {
+                var retained = new double[rowCount];
+                var incoming = new double[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = (descending ? rowCount - 1 - i : i - (rowCount - 1)) * step;
+                incoming[0] = retained[^1];
+                for (var i = 1; i < rowCount; i++)
+                    incoming[i] = (descending ? -1 : 1) * i * step;
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Double,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<double>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: true);
+                break;
+            }
+            case 25:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                var first = 100 + start;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = IntervalBytes(first + i * step);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = IntervalBytes(first + (rowCount + i) * step);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.FixedLenByteArray,
+                        new ColumnOptions(typeLength: 12, encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Interval())
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                    static (expected, actual) => ByteArraysEqual(expected, actual), expectedSorted: false);
+                break;
+            }
+            case 26:
+            {
+                // Exercise the signed CLR carrier with an unsigned INT32 annotation.
+                // Values cross the sign bit while their Parquet unsigned order decreases.
+                descending = true;
+                sorting = new ParquetSortingColumn(0, descending, nullsFirst);
+                var retained = new int[rowCount];
+                var incoming = new int[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = UnsignedInt32DescendingValue(i);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = UnsignedInt32DescendingValue(rowCount + i);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Int(32, isSigned: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<uint>(column))!
+                        .Select(static value => unchecked((int)value)).ToArray(),
+                    static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: true);
+                break;
+            }
+            case 27:
+            {
+                // Exercise the unsigned CLR carrier with a signed INT32 annotation.
+                descending = false;
+                sorting = new ParquetSortingColumn(0, descending, nullsFirst);
+                var retained = new uint[rowCount];
+                var incoming = new uint[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = SignedInt32AscendingBits(i);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = SignedInt32AscendingBits(rowCount + i);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Int(32, isSigned: true))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<int>(column))!
+                        .Select(static value => unchecked((uint)value)).ToArray(),
+                    static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: true);
+                break;
+            }
+            case 28:
+            {
+                // Exercise the signed CLR carrier with an unsigned INT64 annotation.
+                descending = true;
+                sorting = new ParquetSortingColumn(0, descending, nullsFirst);
+                var retained = new long[rowCount];
+                var incoming = new long[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = UnsignedInt64DescendingValue(i);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = UnsignedInt64DescendingValue(rowCount + i);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Int(64, isSigned: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<ulong>(column))!
+                        .Select(static value => unchecked((long)value)).ToArray(),
+                    static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: true);
+                break;
+            }
+            case 29:
+            {
+                // Exercise the unsigned CLR carrier with a signed INT64 annotation.
+                descending = false;
+                sorting = new ParquetSortingColumn(0, descending, nullsFirst);
+                var retained = new ulong[rowCount];
+                var incoming = new ulong[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = SignedInt64AscendingBits(i);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = SignedInt64AscendingBits(rowCount + i);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Int(64, isSigned: true))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<long>(column))!
+                        .Select(static value => unchecked((ulong)value)).ToArray(),
+                    static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: true);
+                break;
+            }
+            case 0:
+            {
+                var retained = new int[rowCount];
+                var incoming = new int[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = start + (descending ? -1 : 1) * i * step;
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1] + (descending ? -1 : 1) * (i + 1) * step;
+                if (breakOrder)
+                    incoming[0] = retained[^1] + (descending ? 1 : -1) * step;
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<int>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 1:
+            {
+                // Null placement is independent of ascending/descending order.
+                var retained = new long?[rowCount];
+                var incoming = new long?[rowCount];
+                if (nullsFirst)
+                {
+                    retained[0] = null;
+                    retained[1] = null;
+                    for (var i = 2; i < rowCount; i++)
+                        retained[i] = start + (descending ? -1 : 1) * (i - 2) * step;
+                    for (var i = 0; i < rowCount; i++)
+                        incoming[i] = retained[^1]!.Value + (descending ? -1 : 1) * (i + 1) * step;
+                    if (breakOrder)
+                        incoming[0] = retained[^1]!.Value + (descending ? 1 : -1) * step;
+                }
+                else
+                {
+                    for (var i = 0; i < rowCount - 1; i++)
+                        retained[i] = start + (descending ? -1 : 1) * i * step;
+                    retained[^1] = null;
+                    Array.Fill(incoming, null);
+                    if (breakOrder)
+                        incoming[0] = start;
+                }
+                var schema = new PlankSchema([
+                    PlankColumn.OptionalLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<long?>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 2:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                var binaryStart = 80 + Control(controls, 5, 30) % 80;
+                for (var i = 0; i < rowCount; i++)
+                {
+                    retained[i] = [0x42, (byte)(binaryStart + (descending ? -1 : 1) * i * step), 0];
+                    incoming[i] = [0x42, (byte)(binaryStart + (descending ? -1 : 1) * (rowCount + i) * step), 0];
+                }
+                if (breakOrder)
+                    incoming[0] = [0x42, (byte)(binaryStart + (descending ? 1 : -1) * step), 0];
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.ByteArray,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                    static (expected, actual) => ByteArraysEqual(expected, actual), !breakOrder);
+                break;
+            }
+            case 3:
+            {
+                var retained = new double[rowCount];
+                var incoming = new double[rowCount];
+                var scale = 1 + step / 4d;
+                for (var i = 0; i < rowCount; i++)
+                {
+                    retained[i] = start / 8d + (descending ? -1 : 1) * i * scale;
+                    incoming[i] = retained[^1] + (descending ? -1 : 1) * (i + 1) * scale;
+                }
+                var ambiguous = (Control(controls, 1, 0) & 8) != 0;
+                if (ambiguous)
+                {
+                    if ((Control(controls, 5, 0) & 1) == 0)
+                        incoming[0] = double.NaN;
+                    else
+                    {
+                        for (var i = 0; i < rowCount; i++)
+                            retained[i] = i - rowCount + 1;
+                        incoming[0] = -0d;
+                        for (var i = 1; i < rowCount; i++)
+                            incoming[i] = i;
+                    }
+                }
+                else if (breakOrder)
+                    incoming[0] = retained[^1] + (descending ? 1 : -1) * scale;
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Double,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<double>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder && !ambiguous);
+                break;
+            }
+            case 4:
+            {
+                var retained = new float[rowCount];
+                var incoming = new float[rowCount];
+                var scale = 1 + step / 4f;
+                for (var i = 0; i < rowCount; i++)
+                {
+                    retained[i] = start / 8f + (descending ? -1 : 1) * i * scale;
+                    incoming[i] = retained[^1] + (descending ? -1 : 1) * (i + 1) * scale;
+                }
+                var ambiguous = (Control(controls, 1, 0) & 8) != 0;
+                if (ambiguous)
+                {
+                    if ((Control(controls, 5, 0) & 1) == 0)
+                        incoming[0] = float.NaN;
+                    else
+                    {
+                        for (var i = 0; i < rowCount; i++)
+                            retained[i] = i - rowCount + 1;
+                        incoming[0] = -0f;
+                        for (var i = 1; i < rowCount; i++)
+                            incoming[i] = i;
+                    }
+                }
+                else if (breakOrder)
+                    incoming[0] = retained[^1] + (descending ? 1 : -1) * scale;
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Float,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<float>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder && !ambiguous);
+                break;
+            }
+            case 6:
+            {
+                var retained = new uint[rowCount];
+                var incoming = new uint[rowCount];
+                var first = (uint)(4096 + start);
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = first + (uint)(i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1] + (uint)((i + 1) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = retained[^1] + (uint)(step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Int(32, isSigned: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<uint>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 7:
+            {
+                var retained = new ulong[rowCount];
+                var incoming = new ulong[rowCount];
+                var first = (ulong)(4096 + start);
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = first + (ulong)(i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1] + (ulong)((i + 1) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = retained[^1] + (ulong)(step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Int(64, isSigned: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<ulong>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 8:
+            {
+                var retained = new DateOnly[rowCount];
+                var incoming = new DateOnly[rowCount];
+                var first = 20_000 + start;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = DateOnly.FromDayNumber(first + i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1].AddDays((i + 1) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = retained[^1].AddDays(step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)), new Plank.Schema.LogicalType.Date())
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<DateOnly>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 9:
+            {
+                var retained = new TimeOnly[rowCount];
+                var incoming = new TimeOnly[rowCount];
+                var first = TimeOnly.FromTimeSpan(TimeSpan.FromHours(12));
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = first.Add(TimeSpan.FromTicks(i * step * 10L * (descending ? -1 : 1)));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1].Add(TimeSpan.FromTicks((i + 1) * step * 10L * (descending ? -1 : 1)));
+                if (breakOrder)
+                    incoming[0] = retained[^1].Add(TimeSpan.FromTicks(step * 10L * (descending ? 1 : -1)));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Time(Plank.Schema.TimeUnit.Micros, IsAdjustedToUtc: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<TimeOnly>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 10:
+            {
+                var retained = new DateTime[rowCount];
+                var incoming = new DateTime[rowCount];
+                var first = new DateTime(2020, 1, 1);
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = first.AddTicks(i * step * 10L * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1].AddTicks((i + 1) * step * 10L * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = retained[^1].AddTicks(step * 10L * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Timestamp(Plank.Schema.TimeUnit.Micros, IsAdjustedToUtc: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<DateTime>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 11:
+            {
+                var retained = new DateTimeOffset[rowCount];
+                var incoming = new DateTimeOffset[rowCount];
+                var first = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = first.AddTicks(i * step * 10L * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1].AddTicks((i + 1) * step * 10L * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = retained[^1].AddTicks(step * 10L * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int64,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Timestamp(Plank.Schema.TimeUnit.Micros, IsAdjustedToUtc: true))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<DateTimeOffset>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 12:
+            {
+                var retained = new string[rowCount];
+                var incoming = new string[rowCount];
+                var first = 10_000 + start;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = $"k{first + i * step * (descending ? -1 : 1):D6}";
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = $"k{first + (rowCount + i) * step * (descending ? -1 : 1):D6}";
+                if (breakOrder)
+                    incoming[0] = $"k{first + (rowCount - 1) * step * (descending ? -1 : 1) + step * (descending ? 1 : -1):D6}";
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.ByteArray,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!
+                        .Select(static value => System.Text.Encoding.UTF8.GetString(value)).ToArray(),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 13:
+            {
+                var retained = new Guid[rowCount];
+                var incoming = new Guid[rowCount];
+                var first = 10_000 + start;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = GuidFromSortableInt(first + i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = GuidFromSortableInt(first + (rowCount + i) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = GuidFromSortableInt(
+                        first + (rowCount - 1) * step * (descending ? -1 : 1) + step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.FixedLenByteArray,
+                        new ColumnOptions(typeLength: 16, encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Uuid())
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!
+                        .Select(static value => new Guid(value, bigEndian: true)).ToArray(),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 14:
+            {
+                var retained = new byte[rowCount];
+                var incoming = new byte[rowCount];
+                var first = descending ? (byte)240 : (byte)8;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = (byte)(first + i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = (byte)(retained[^1] + (i + 1) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = (byte)(retained[^1] + step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<byte>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 15:
+            {
+                var retained = new ushort[rowCount];
+                var incoming = new ushort[rowCount];
+                var first = descending ? (ushort)5000 : (ushort)100;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = (ushort)(first + i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = (ushort)(retained[^1] + (i + 1) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = (ushort)(retained[^1] + step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<ushort>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 16:
+            case 17:
+            {
+                var unit = kind == 16 ? Plank.Schema.TimeUnit.Millis : Plank.Schema.TimeUnit.Nanos;
+                var ticksPerStep = kind == 16 ? TimeSpan.TicksPerMillisecond : 1;
+                var retained = new TimeOnly[rowCount];
+                var incoming = new TimeOnly[rowCount];
+                var first = TimeOnly.FromTimeSpan(TimeSpan.FromHours(descending ? 20 : 2));
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = first.Add(TimeSpan.FromTicks(i * step * ticksPerStep * (descending ? -1 : 1)));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1].Add(TimeSpan.FromTicks((i + 1) * step * ticksPerStep * (descending ? -1 : 1)));
+                if (breakOrder)
+                    incoming[0] = retained[^1].Add(TimeSpan.FromTicks(step * ticksPerStep * (descending ? 1 : -1)));
+                var physical = kind == 16 ? ParquetPhysicalType.Int32 : ParquetPhysicalType.Int64;
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", physical,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Time(unit, IsAdjustedToUtc: false))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<TimeOnly>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 18:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                var first = descending ? 1_000 : -1_000;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = DecimalBytes(first + i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = DecimalBytes(first + (rowCount + i) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = DecimalBytes(first + (rowCount - 1) * step * (descending ? -1 : 1) +
+                        step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.FixedLenByteArray,
+                        new ColumnOptions(typeLength: 16, encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Decimal(28, 0))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                    static (expected, actual) => ByteArraysEqual(expected, actual), !breakOrder);
+                break;
+            }
+            case 19:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                var first = descending ? 100 : -100;
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = Float16Bytes(first + i * step * (descending ? -1 : 1));
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = Float16Bytes(first + (rowCount + i) * step * (descending ? -1 : 1));
+                if (breakOrder)
+                    incoming[0] = Float16Bytes(first + (rowCount - 1) * step * (descending ? -1 : 1) +
+                        step * (descending ? 1 : -1));
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.FixedLenByteArray,
+                        new ColumnOptions(typeLength: 2, encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Float16())
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                    static (expected, actual) => ByteArraysEqual(expected, actual), !breakOrder);
+                break;
+            }
+            case 30:
+            {
+                var retained = new decimal[rowCount];
+                var incoming = new decimal[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = start + (descending ? -1 : 1) * i * step;
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = retained[^1] + (descending ? -1 : 1) * (i + 1) * step;
+                if (breakOrder)
+                    incoming[0] = retained[^1] + (descending ? 1 : -1) * step;
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.FixedLenByteArray,
+                        new ColumnOptions(typeLength: 16, encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Decimal(28, 0))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<decimal>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+            case 31:
+            {
+                var retained = new IntBox[rowCount];
+                var incoming = new IntBox[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = new(start + (descending ? -1 : 1) * i * step);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = new(retained[^1].Value + (descending ? -1 : 1) * (i + 1) * step);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        converter: new IntBoxConverter())
+                ]);
+                var converterPreempted = false;
+                try
+                {
+                    ExerciseAppendSorting(schema, sorting, retained, incoming,
+                        static (group, column) => ReadAllBuffers(group.Column<IntBox>(column)),
+                        static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: false);
+                }
+                catch (InvalidOperationException exception) when (exception.Message ==
+                    "Column 'key' uses a converter for 'Plank.Fuzzing.IntBox' and cannot be read as 'System.Int32'.")
+                {
+                    converterPreempted = true;
+                }
+                if (!converterPreempted)
+                    throw new InvalidOperationException("The converter append route no longer preempts sorting comparison.");
+                break;
+            }
+            case 32:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = Int96AppendBytes(start + i * step);
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = Int96AppendBytes(start + (rowCount + i) * step);
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int96,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                    static (expected, actual) => ByteArraysEqual(expected, actual), expectedSorted: false);
+                break;
+            }
+            case 33:
+            {
+                var retained = new byte[]?[rowCount];
+                var incoming = new byte[]?[rowCount];
+                var schema = new PlankSchema([
+                    PlankColumn.OptionalLeaf("key", ParquetPhysicalType.ByteArray,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)),
+                        new Plank.Schema.LogicalType.Unknown())
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), expectedSorted: false);
+                break;
+            }
+            case 34:
+            case 35:
+            {
+                var retained = new byte[rowCount][];
+                var incoming = new byte[rowCount][];
+                for (var i = 0; i < rowCount; i++)
+                    retained[i] = [(byte)(20 + i * step), 0x41];
+                for (var i = 0; i < rowCount; i++)
+                    incoming[i] = [(byte)(20 + (rowCount + i) * step), 0x41];
+                var logicalType = kind == 34
+                    ? (Plank.Schema.LogicalType)new Plank.Schema.LogicalType.Geometry()
+                    : new Plank.Schema.LogicalType.Geography();
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.ByteArray,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)), logicalType)
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBinaryBuffers(group.Column<byte>(column))!,
+                    static (expected, actual) => ByteArraysEqual(expected, actual), expectedSorted: false);
+                break;
+            }
+            default:
+            {
+                var retained = new bool[rowCount];
+                var incoming = new bool[rowCount];
+                for (var i = 0; i < rowCount; i++)
+                {
+                    retained[i] = descending ? (i & 1) == 0 : (i & 1) != 0;
+                    incoming[i] = descending ? (i & 1) != 0 : (i & 1) == 0;
+                }
+                // bool has only two ordered values, so construct a fully ordered
+                // boundary for the selected direction and optionally invert it.
+                Array.Fill(retained, descending);
+                Array.Fill(incoming, descending);
+                if (breakOrder)
+                {
+                    Array.Fill(retained, !descending);
+                    Array.Fill(incoming, descending);
+                }
+                var schema = new PlankSchema([
+                    PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Boolean,
+                        new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+                ]);
+                ExerciseAppendSorting(schema, sorting, retained, incoming,
+                    static (group, column) => ReadAllBuffers(group.Column<bool>(column)),
+                    static (expected, actual) => expected.SequenceEqual(actual), !breakOrder);
+                break;
+            }
+        }
+    }
+
+    static int UnsignedInt32DescendingValue(int index) => index switch
+    {
+        0 => -1,
+        1 => int.MinValue,
+        _ => int.MaxValue - (index - 2)
+    };
+
+    static uint SignedInt32AscendingBits(int index) => unchecked((uint)(int.MinValue + index));
+
+    static long UnsignedInt64DescendingValue(int index) => index switch
+    {
+        0 => -1,
+        1 => long.MinValue,
+        _ => long.MaxValue - (index - 2)
+    };
+
+    static ulong SignedInt64AscendingBits(int index) => unchecked((ulong)(long.MinValue + index));
+
+    static Guid GuidFromSortableInt(int value)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, value);
+        return new Guid(bytes, bigEndian: true);
+    }
+
+    static byte[] DecimalBytes(int value)
+    {
+        var encoded = new System.Numerics.BigInteger(value).ToByteArray(isUnsigned: false, isBigEndian: true);
+        var result = new byte[16];
+        if (value < 0)
+            Array.Fill(result, (byte)0xFF);
+        encoded.CopyTo(result.AsSpan(result.Length - encoded.Length));
+        return result;
+    }
+
+    static byte[] Float16Bytes(int value)
+    {
+        var result = new byte[sizeof(ushort)];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(result,
+            BitConverter.HalfToUInt16Bits((Half)value));
+        return result;
+    }
+
+    static byte[] IntervalBytes(int value)
+    {
+        var bytes = new byte[12];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes, (uint)value);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), 2);
+        return bytes;
+    }
+
+    static byte[] Int96AppendBytes(int value)
+    {
+        var bytes = new byte[12];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes, value);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(8), 2);
+        return bytes;
+    }
+
+    static void ExerciseAppendSortingTwoColumns(int rowCount, int step, int start, bool descending)
+    {
+        var schema = new PlankSchema([
+            PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain))),
+            PlankColumn.RequiredLeaf("payload", ParquetPhysicalType.Int32,
+                new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+        ]);
+        var direction = descending ? -1 : 1;
+        var retainedKey = Enumerable.Range(0, rowCount).Select(i => start + direction * i * step).ToArray();
+        var incomingKey = Enumerable.Range(rowCount, rowCount).Select(i => start + direction * i * step).ToArray();
+        var retainedPayload = Enumerable.Range(0, rowCount).Select(i => 10_000 + i).ToArray();
+        var incomingPayload = Enumerable.Range(0, rowCount).Select(i => 20_000 + i).ToArray();
+        var options = new ParquetWriterOptions { SortingColumns = [new ParquetSortingColumn(0, descending)] };
+
+        using var initial = new MemoryStream();
+        var writer = schema.CreateWriter(initial, options);
+        var key = writer.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+        key.Serialize(retainedKey);
+        var payload = writer.CreateSerializedColumn<int>(schema.LeafColumns[1]);
+        payload.Serialize(retainedPayload);
+        var initialGroup = writer.StartRowGroup();
+        initialGroup.Write(key);
+        initialGroup.Write(payload);
+        writer.CloseFile();
+
+        using var appendStream = new MemoryStream();
+        appendStream.Write(initial.ToArray());
+        appendStream.Position = 0;
+        var appender = schema.CreateAppender(appendStream, new ParquetAppendOptions
+        {
+            AppendToLatestRowGroup = true,
+            WriterOptions = options
+        });
+        key = appender.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+        key.Serialize(incomingKey);
+        payload = appender.CreateSerializedColumn<int>(schema.LeafColumns[1]);
+        payload.Serialize(incomingPayload);
+        var appendGroup = appender.StartRowGroup();
+        appendGroup.Write(key);
+        appendGroup.Write(payload);
+        appender.CloseFile();
+
+        using var reader = schema.CreateReader(new MemoryReadSource(appendStream.ToArray()));
+        var group = reader.RowGroups[0];
+        if (reader.RowGroups.Count != 1 || group.RowCount != (ulong)(rowCount * 2) ||
+            !ReadAllBuffers(group.Column<int>(schema.LeafColumns[0])).SequenceEqual(retainedKey.Concat(incomingKey)) ||
+            !ReadAllBuffers(group.Column<int>(schema.LeafColumns[1])).SequenceEqual(retainedPayload.Concat(incomingPayload)))
+            throw new InvalidOperationException("Two-column append sorting route changed the appended values.");
+        var sorting = reader.PhysicalReader.Metadata.RowGroupSortingColumns(0);
+        if (sorting.Length != 1 || sorting[0].ColumnOrdinal != 0 || sorting[0].Descending != descending)
+            throw new InvalidOperationException("Two-column append sorting route lost the ordinal-zero sort key.");
+    }
+
+    static void ExerciseAppendWithoutSorting(int rowCount, int step, int start)
+    {
+        var schema = new PlankSchema([
+            PlankColumn.RequiredLeaf("key", ParquetPhysicalType.Int32,
+                new ColumnOptions(encodings: SingleEncoding(EncodingKind.Plain)))
+        ]);
+        var retained = Enumerable.Range(0, rowCount).Select(i => start + i * step).ToArray();
+        var incoming = Enumerable.Range(rowCount, rowCount).Select(i => start + i * step).ToArray();
+        var options = new ParquetWriterOptions { SortingColumns = [] };
+        using var initial = new MemoryStream();
+        var writer = schema.CreateWriter(initial, options);
+        var column = writer.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+        column.Serialize(retained);
+        writer.StartRowGroup().Write(column);
+        writer.CloseFile();
+        using var appendStream = new MemoryStream();
+        appendStream.Write(initial.ToArray());
+        appendStream.Position = 0;
+        var appender = schema.CreateAppender(appendStream, new ParquetAppendOptions
+        {
+            AppendToLatestRowGroup = true,
+            WriterOptions = options
+        });
+        column = appender.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+        column.Serialize(incoming);
+        appender.StartRowGroup().Write(column);
+        appender.CloseFile();
+        using var reader = schema.CreateReader(new MemoryReadSource(appendStream.ToArray()));
+        if (reader.RowGroups.Count != 1 ||
+            !ReadAllBuffers(reader.RowGroups[0].Column<int>(schema.LeafColumns[0]))
+                .SequenceEqual(retained.Concat(incoming)) ||
+            reader.PhysicalReader.Metadata.RowGroupSortingColumns(0).Length != 0)
+            throw new InvalidOperationException("Unsorted append route changed values or wrote sorting metadata.");
+    }
+
+    static ReadOnlyMemory<byte>[] ReadBinaryMemoryBuffers(RowGroupColumn<byte> column, int width)
+    {
+        var values = ReadAllBuffers(column);
+        if (values.Length % width != 0)
+            throw new InvalidOperationException("Binary memory append readback had an unexpected byte count.");
+        var result = new ReadOnlyMemory<byte>[values.Length / width];
+        for (var i = 0; i < result.Length; i++)
+            result[i] = values.AsMemory(i * width, width);
+        return result;
+    }
+
+    static bool BinaryMemoriesEqual(ReadOnlyMemory<byte>[] expected, ReadOnlyMemory<byte>[] actual)
+    {
+        if (expected.Length != actual.Length)
+            return false;
+        for (var i = 0; i < expected.Length; i++)
+            if (!expected[i].Span.SequenceEqual(actual[i].Span))
+                return false;
+        return true;
+    }
+
+    static void ExerciseAppendSorting<T>(PlankSchema schema, ParquetSortingColumn sorting,
+        T[] retained, T[] incoming, Func<PlankRowGroup, LeafColumn, T[]> read,
+        Func<T[], T[], bool> equal, bool expectedSorted)
+    {
+        var options = new ParquetWriterOptions
+        {
+            SortingColumns = [sorting],
+            WritePageCrc = true,
+            WritePageIndexes = true,
+            TargetDataPageSizeBytes = 64,
+            BufferChunkSizeBytes = 128
+        };
+        using var initial = new MemoryStream();
+        var writer = schema.CreateWriter(initial, options);
+        var initialColumn = writer.CreateSerializedColumn<T>(schema.LeafColumns[0]);
+        initialColumn.Serialize(retained);
+        writer.StartRowGroup().Write(initialColumn);
+        writer.CloseFile();
+        using (var initialSource = new MemoryReadSource(initial.ToArray()))
+        using (var initialReader = schema.CreateReader(initialSource))
+        {
+            var initialSorting = initialReader.PhysicalReader.Metadata.RowGroupSortingColumns(0);
+            if (initialSorting.Length != 1 || initialSorting[0].ColumnOrdinal != sorting.ColumnOrdinal ||
+                initialSorting[0].Descending != sorting.Descending || initialSorting[0].NullsFirst != sorting.NullsFirst)
+                throw new InvalidOperationException("Append sorting route did not write the requested initial sorting metadata.");
+        }
+
+        var appendStream = new MemoryStream();
+        appendStream.Write(initial.ToArray());
+        appendStream.Position = 0;
+        var appender = schema.CreateAppender(appendStream, new ParquetAppendOptions
+        {
+            AppendToLatestRowGroup = true,
+            WriterOptions = options
+        });
+        var appendedColumn = appender.CreateSerializedColumn<T>(schema.LeafColumns[0]);
+        appendedColumn.Serialize(incoming);
+        appender.StartRowGroup().Write(appendedColumn);
+        appender.CloseFile();
+
+        var expected = new T[retained.Length + incoming.Length];
+        retained.CopyTo(expected, 0);
+        incoming.CopyTo(expected, retained.Length);
+        using var reader = schema.CreateReader(new MemoryReadSource(appendStream.ToArray()));
+        if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
+            throw new InvalidOperationException("Append sorting route changed the row-group shape.");
+        var actual = read(reader.RowGroups[0], schema.LeafColumns[0]);
+        if (!equal(expected, actual))
+            throw new InvalidOperationException("Append sorting route changed values or row order.");
+
+        var sortColumns = reader.PhysicalReader.Metadata.RowGroupSortingColumns(0);
+        if ((sortColumns.Length == 1) != expectedSorted ||
+            (expectedSorted && (sortColumns[0].ColumnOrdinal != sorting.ColumnOrdinal ||
+                sortColumns[0].Descending != sorting.Descending || sortColumns[0].NullsFirst != sorting.NullsFirst)))
+            throw new InvalidOperationException(
+                $"Append sorting route wrote {sortColumns.Length} sorting columns; expected " +
+                $"{(expectedSorted ? 1 : 0)} (requested desc={sorting.Descending}, nullsFirst={sorting.NullsFirst}).");
+    }
+
+    static bool ByteArraysEqual(byte[]?[] expected, byte[]?[] actual)
+    {
+        if (expected.Length != actual.Length)
+            return false;
+        for (var i = 0; i < expected.Length; i++)
+            if (expected[i] is null || actual[i] is null ||
+                !expected[i].AsSpan().SequenceEqual(actual[i]))
+                return false;
+        return true;
     }
 
     public static void Validate(FuzzCase fuzzCase)
@@ -103,6 +2457,7 @@ public static class PlankWriterFuzzTarget
             WritePageCrc = settings.WritePageCrc,
             WritePageIndexes = settings.WritePageIndexes,
             FileVersion = settings.FileVersion,
+            CompressionLevel = settings.CompressionLevel,
             TargetDataPageSizeBytes = settings.TargetDataPageSizeBytes,
             BufferChunkSizeBytes = settings.BufferChunkSizeBytes,
             KeyValueMetadata = settings.WithKeyValueMetadata
@@ -138,6 +2493,9 @@ public static class PlankWriterFuzzTarget
         : spec.ClrType == typeof(double?) ? writer.CreateSerializedColumn<double?>(column)
         : spec.ClrType == typeof(float) ? writer.CreateSerializedColumn<float>(column)
         : spec.ClrType == typeof(float?) ? writer.CreateSerializedColumn<float?>(column)
+        : spec.ClrType == typeof(IntBox) ? writer.CreateSerializedColumn<IntBox>(column)
+        : spec.ClrType == typeof(LongBox?) ? writer.CreateSerializedColumn<LongBox?>(column)
+        : spec.ClrType == typeof(DoubleBox?) ? writer.CreateSerializedColumn<DoubleBox?>(column)
         : writer.CreateSerializedColumn<byte[]>(column);
 
     static void SerializeColumn(object serializedColumn, Array values)
@@ -173,6 +2531,15 @@ public static class PlankWriterFuzzTarget
                 return;
             case SerializedColumn<float?> typed:
                 typed.Serialize((float?[])values);
+                return;
+            case SerializedColumn<IntBox> typed:
+                typed.Serialize((IntBox[])values);
+                return;
+            case SerializedColumn<LongBox?> typed:
+                typed.Serialize((LongBox?[])values);
+                return;
+            case SerializedColumn<DoubleBox?> typed:
+                typed.Serialize((DoubleBox?[])values);
                 return;
             case SerializedColumn<byte[]> typed:
                 typed.Serialize((byte[][])values);
@@ -216,6 +2583,15 @@ public static class PlankWriterFuzzTarget
             case SerializedColumn<float?> typed:
                 rowGroup.Write(typed);
                 return;
+            case SerializedColumn<IntBox> typed:
+                rowGroup.Write(typed);
+                return;
+            case SerializedColumn<LongBox?> typed:
+                rowGroup.Write(typed);
+                return;
+            case SerializedColumn<DoubleBox?> typed:
+                rowGroup.Write(typed);
+                return;
             case SerializedColumn<byte[]> typed:
                 rowGroup.Write(typed);
                 return;
@@ -254,6 +2630,9 @@ public static class PlankWriterFuzzTarget
         : spec.ClrType == typeof(long?) ? ReadAllBuffers(rowGroup.Column<long?>(column))
         : spec.ClrType == typeof(double) ? ReadAllBuffers(rowGroup.Column<double>(column))
         : spec.ClrType == typeof(double?) ? ReadAllBuffers(rowGroup.Column<double?>(column))
+        : spec.ClrType == typeof(IntBox) ? ReadAllBuffers(rowGroup.Column<IntBox>(column))
+        : spec.ClrType == typeof(LongBox?) ? ReadAllBuffers(rowGroup.Column<LongBox?>(column))
+        : spec.ClrType == typeof(DoubleBox?) ? ReadAllBuffers(rowGroup.Column<DoubleBox?>(column))
         : spec.ClrType == typeof(float) ? ReadAllBuffers(rowGroup.Column<float>(column))
         : spec.ClrType == typeof(float?) ? ReadAllBuffers(rowGroup.Column<float?>(column))
         : ReadAllBinaryBuffers(rowGroup.Column<byte>(column));
@@ -301,9 +2680,35 @@ public static class PlankWriterFuzzTarget
     // These columns keep Plank's own round-trip check, which still compares every
     // value written against every value read. They lose only the
     // cross-implementation comparison.
+    // ParquetSharp's Arrow has no ALP decoder ("Unknown encoding type."), and an
+    // unhandled exception here killed the persistent fork server on the first
+    // seed that drew ALP for a float or double column: the writer fleet aborted
+    // at start-up ("Unable to request new process from fork server") on every
+    // run after ALP became a writer choice. Plank's own read-back still checks
+    // those columns.
     static bool CanParquetSharpRead(ColumnSpec spec)
-        => spec.Column.PhysicalType != ParquetPhysicalType.FixedLenByteArray
-            || spec.Column.LogicalType is not null;
+    {
+        if (spec.Encoding == EncodingKind.Alp)
+            return false;
+
+        // ParquetSharp 24.0.0's LogicalTypeFactory throws
+        // "unsupported logical type {Enum|Float16|Geometry|Geography|Interval|Unknown} with physical type {ByteArray|FixedLenByteArray}"
+        // for these exact schema annotations. Plank still round-trips every value above; keep the independent
+        // reader for Bson, Float16, and every other annotation it can map.
+        var logical = spec.Column.LogicalType;
+        var physical = spec.Column.PhysicalType;
+        if (logical is Plank.Schema.LogicalType.Enum or Plank.Schema.LogicalType.Geometry
+                or Plank.Schema.LogicalType.Geography or Plank.Schema.LogicalType.Unknown)
+            return physical == ParquetPhysicalType.FixedLenByteArray
+                ? logical is not Plank.Schema.LogicalType.Unknown
+                : physical != ParquetPhysicalType.ByteArray;
+        if (logical is Plank.Schema.LogicalType.Interval)
+            return physical != ParquetPhysicalType.FixedLenByteArray;
+        if (logical is Plank.Schema.LogicalType.Float16)
+            return physical != ParquetPhysicalType.FixedLenByteArray;
+
+        return physical != ParquetPhysicalType.FixedLenByteArray || logical is not null;
+    }
 
     static Array ReadParquetSharpColumn(ParquetSharp.RowGroupReader rowGroup, ColumnSpec spec, int rowCount,
         int columnIndex)
@@ -366,6 +2771,26 @@ public static class PlankWriterFuzzTarget
         {
             using var nullableReader = rowGroup.Column(columnIndex).LogicalReader<float?>();
             return nullableReader.ReadAll(rowCount);
+        }
+
+        if (spec.ClrType == typeof(IntBox))
+        {
+            using var valueReader = rowGroup.Column(columnIndex).LogicalReader<int>();
+            return Array.ConvertAll(valueReader.ReadAll(rowCount), static value => new IntBox(value));
+        }
+
+        if (spec.ClrType == typeof(LongBox?))
+        {
+            using var nullableReader = rowGroup.Column(columnIndex).LogicalReader<long?>();
+            return Array.ConvertAll(nullableReader.ReadAll(rowCount), static value =>
+                value is { } physical ? new LongBox(physical) : (LongBox?)null);
+        }
+
+        if (spec.ClrType == typeof(DoubleBox?))
+        {
+            using var nullableReader = rowGroup.Column(columnIndex).LogicalReader<double?>();
+            return Array.ConvertAll(nullableReader.ReadAll(rowCount), static value =>
+                value is { } physical ? new DoubleBox(physical) : (DoubleBox?)null);
         }
 
         using var bytesReader = rowGroup.Column(columnIndex).LogicalReader<byte[]>();
@@ -470,12 +2895,13 @@ public static class PlankWriterFuzzTarget
         PlankFileVersion FileVersion,
         uint TargetDataPageSizeBytes,
         uint BufferChunkSizeBytes,
-        bool WithKeyValueMetadata)
+        bool WithKeyValueMetadata,
+        int? CompressionLevel = null)
     {
         public string Describe()
             => $"{DataPageVersion}/{FileVersion}/page={TargetDataPageSizeBytes}B/chunk={BufferChunkSizeBytes}B"
                + $"{(WritePageCrc ? "/crc" : "")}{(WritePageIndexes ? "/pageindex" : "")}"
-               + $"{(WithKeyValueMetadata ? "/kv" : "")}";
+               + $"{(WithKeyValueMetadata ? "/kv" : "")}" + (CompressionLevel is { } level ? $"/level={level}" : "");
     }
 
     public readonly record struct ColumnSpec(PlankColumn Column, Type ClrType)
