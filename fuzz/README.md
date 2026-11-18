@@ -3,7 +3,7 @@
 ## Campaign reports
 
 - [Branch coverage over time](coverage-branch-history.html) shows the four-ISA reader and writer percentages for each completed snapshot.
-- [Historical findings and reachability audit](FINDINGS.md) records the November 2026 snapshot, defect repros, differential results, and removal candidates. Its six confirmed Plank defects have since been fixed on Plank `master`.
+- [Fuzz findings](FINDINGS.md) lists the library defects fuzzing found, their fixes and repros, and what is still open. The full November 2026 coverage and reachability log is in [notes/coverage-audit-2026-11.md](notes/coverage-audit-2026-11.md).
 
 To add a comparable four-ISA snapshot, build the Release replay driver, run
 writer and reader with the same tag, then regenerate the HTML report:
