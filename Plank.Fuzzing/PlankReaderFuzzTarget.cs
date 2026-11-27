@@ -96,8 +96,14 @@ public static class PlankReaderFuzzTarget
 
     // Deterministic in the input so a crash replays, but independent of the
     // selector bits so every route sees every pool.
+    // PLANK_FUZZ_POOL=<0..6> pins the variant (1 = exact-fit with zeroed payload, 2 = exact-fit poisoned with 0xA5): out-of-bounds
+    // writes then trip the guard bytes when the buffer is returned, and reads past the length see poison and change decoded values.
+    static readonly int? ForcedPool = int.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_POOL"), out var forcedPool) ? forcedPool : null;
+
     internal static int PoolVariant(ReadOnlySpan<byte> data)
     {
+        if (ForcedPool is { } forced)
+            return forced;
         uint hash = 2166136261;
         foreach (var b in data)
             hash = (hash ^ b) * 16777619;
