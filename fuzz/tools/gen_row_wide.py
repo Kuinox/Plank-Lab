@@ -615,10 +615,10 @@ static class @S@Routes
         }
         else
         {
-            merger = @S@.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+            merger = @S@.Schema.CreateMerger(FullValueOracle.Source(files[0]), destination, options);
         }
         for (var f = 1; f < fileCount; f++)
-            merger.AppendFile(new MemoryReadSource(files[f]));
+            merger.AppendFile(FullValueOracle.Source(files[f]));
         if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"@S@ merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
@@ -632,7 +632,7 @@ static class @S@Routes
         var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
         var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
         using var physical = new Plank.Reading.Physical.ParquetFileReader();
-        using var mergedSource = new MemoryReadSource(merged);
+        using var mergedSource = FullValueOracle.Source(merged);
         physical.Reset(mergedSource);
         var footer = physical.Metadata;
         var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
@@ -708,7 +708,7 @@ static class @S@Routes
             // The same reader object re-opened on the same bytes must read the same rows.
             var first = index;
             if (s.ReadViaSource)
-                reader.Reset(new MemoryReadSource(bytes), projection);
+                reader.Reset(FullValueOracle.Source(bytes), projection);
             else
                 reader.Reset(new MemoryStream(bytes, writable: false), projection);
             var again = 0;
@@ -730,7 +730,7 @@ static class @S@Routes
 
     static @S@.RowReader Open(byte[] bytes, @S@.Projection projection, Plank.RowApi.RowReaderOptions options, bool viaSource)
         => viaSource
-            ? @S@.CreateRowReader(new MemoryReadSource(bytes), projection, options)
+            ? @S@.CreateRowReader(FullValueOracle.Source(bytes), projection, options)
             : @S@.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
 }
 """

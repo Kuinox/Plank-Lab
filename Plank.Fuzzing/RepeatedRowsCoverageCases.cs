@@ -142,7 +142,7 @@ internal static class RepeatedRowsCoverageCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rows.Length)
             throw new InvalidOperationException("Repeated binary rows changed the row-group shape.");
         var definitions = new List<int>();
@@ -231,7 +231,7 @@ internal static class RepeatedRowsCoverageCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rows.Length)
             throw new InvalidOperationException("Repeated-row encoding changed the row-group shape.");
         using var pages = reader.RowGroups[0].GetColumnMetadata(schema.LeafColumns[0]).OpenPages();

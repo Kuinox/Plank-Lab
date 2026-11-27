@@ -69,7 +69,7 @@ internal static class OptionalDoubleDictionaryCoverageCases
         }
 
         var bytes = stream.ToArray();
-        using (var source = new MemoryReadSource(bytes))
+        using (var source = FullValueOracle.Source(bytes))
         using (var reader = schema.CreateReader(source))
         {
             var expectedGroups = primesAscendingOrder || primesDescendingOrder ? 2 : 1;

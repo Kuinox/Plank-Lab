@@ -44,7 +44,7 @@ internal static class OptionalUuidBloomGapWriterCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Optional UUID Bloom write changed the row-group shape.");
 

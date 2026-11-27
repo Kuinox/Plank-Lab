@@ -41,6 +41,37 @@ The reader target drains Plank's decoders and then uses ParquetSharp as an indep
 
 The suppression predicates intentionally match specific diagnostics. New exceptions, new value mismatches, crashes, hangs, and resource-limit failures remain findings.
 
+## Full-value oracle (`Plank.Fuzzing/FullValueOracle.cs`)
+
+Plank→Plank round trips cannot see a defect that is symmetric in the writer and reader. Two hooks:
+
+- **Reader target** (file-schema route, after the Arrow value comparison): `VerifyAccepted` compares what Plank
+  exposes about the footer with Arrow's reading of the same footer: every leaf's path, max levels, physical type,
+  FLBA length and logical type (all parameters: decimal precision/scale, time/timestamp unit and isAdjustedToUTC,
+  int width/sign, string/enum/json/bson/uuid/float16/interval/unknown); row-group and file row counts; chunk
+  `num_values`; statistics null_count, distinct_count and min/max bytes; key/value metadata; row-group sorting
+  columns; and every Bloom probe: `MightContainHash` must equal a spec SBBF lookup over the bitset, typed
+  `MightContain` overloads must not miss a value the spec XXH64 of its plain encoding finds.
+- **Writer routes** (every `new MemoryReadSource(...)`/`new MemoryStream(x.ToArray(), writable: false)` read-back in
+  the writer, row-API, dataset, merger and *Cases routes goes through `FullValueOracle.Source`/`Checked`; the generic
+  route calls `VerifyWritten`): a file Plank wrote and reads in full must be opened and decoded by Arrow; Plank's
+  levels and physical values must equal Arrow's for every column (any type, encoding, nesting); flat logical values are
+  checked by `LogicalOracle`; then all metadata is recomputed from Arrow-decoded values: row-group rows and chunk
+  `num_values` from the levels, chunk statistics (null_count, distinct_count, min/max with the column's type-defined
+  order — signed/unsigned ints, numeric floats/float16 without NaN and with ±0 equal, signed big-endian decimals,
+  unsigned bytes; undefined for INT96/INTERVAL; inexact bounds only have to bound), offset index (first_row_index from 0,
+  increasing, page row counts), column index per page (null_count, null_pages, min/max, boundary_order), Bloom
+  membership of every present value with the specification's hash, and — on the append-sorting route only, where Plank
+  decides it — declared sorting columns against the rows. Files Plank itself rejects are left to the route.
+  `PLANK_FUZZ_ORACLE_DUMP=<dir>` saves each mismatching written file; `PLANK_FUZZ_FULL_ORACLE=0` disables both hooks.
+
+Oracle capability gaps (narrow, by name; value and metadata mismatches are never suppressed): encoding 10 (ALP) columns
+and pages, dictionary-encoded BOOLEAN (Arrow cannot decode them); logical types ParquetSharp 24 has no class for
+(GEOMETRY, GEOGRAPHY, VARIANT: no logical-type comparison); key/value pairs with NUL or invalid UTF-8, or duplicate keys
+(ParquetSharp marshals a dictionary of C strings); Arrow's own min/max only compared when it reports `HasMinMax`; Arrow
+reports an absent null/distinct count as 0, so presence is compared one way only. Page indexes and Bloom filters are not
+exposed by ParquetSharp 24, so those are checked against Arrow-decoded values (writer side) and the spec (both sides).
+
 ## Running
 
 Build the instrumented target, generate the corpus, install the pinned AFL++ 4.x binaries, and run `fuzz/verify-harness.sh reader` before starting a campaign. AFL++ 5.x is incompatible with the current persistent harness: it can report very high throughput while treating the whole coverage map as already covered.

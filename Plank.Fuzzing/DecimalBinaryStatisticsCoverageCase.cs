@@ -30,7 +30,7 @@ internal static class DecimalBinaryStatisticsCoverageCase
         rowGroup.Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         var statistics = reader.RowGroups[0].GetColumnMetadata(0).Statistics;
         byte[] expectedMin = order == 2 ? [0xff, 0] : [0x80];

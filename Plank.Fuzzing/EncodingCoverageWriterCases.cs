@@ -336,7 +336,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(boolColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertReadBack(reader, 0, ints);
         AssertReadBack(reader, 1, bools);
     }
@@ -504,7 +504,7 @@ internal static class EncodingCoverageWriterCases
         Write(4, decimals);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertReadBack(reader, 0, ints);
         AssertReadBack(reader, 1, bytes);
         AssertReadBack(reader, 2, ushorts);
@@ -560,7 +560,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(int96Column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertBinaryReadBack(reader, 0, expectedFixed);
         AssertBinaryReadBack(reader, 1, expectedInt96);
     }
@@ -648,7 +648,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(nullColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertNullableInt32ReadBack(reader, 0, allPresent);
         AssertNullableInt32ReadBack(reader, 1, withNulls);
     }
@@ -676,7 +676,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertNullableInt32ReadBack(reader, 0, values);
     }
 
@@ -741,7 +741,7 @@ internal static class EncodingCoverageWriterCases
         }
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != valueCount)
             throw new InvalidOperationException("RLE boolean/BSS case changed the row-group shape.");
         AssertReadBack(reader, 0, int32Values);
@@ -774,7 +774,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Optional single-byte memory null-run case changed the row-group shape.");
@@ -803,7 +803,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Dictionary drop-checkpoint case changed the row-group shape.");
@@ -842,7 +842,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("INT96 PLAIN case changed the row-group shape.");
@@ -881,7 +881,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(byteArrayColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertBinaryReadBack(reader, 0, fixedValues);
         AssertBinaryReadBack(reader, 1, int96Values);
         AssertBinaryReadBack(reader, 2, byteArrayValues);
@@ -937,7 +937,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(dictionaryColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Optional byte-array target-page case changed the row-group shape.");
         AssertBinaryReadBack(reader, 0, expected);
@@ -1060,7 +1060,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(dictionaryByteArrayColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)count)
             throw new InvalidOperationException("SerializedColumn optional branch case changed the row-group shape.");
     }
@@ -1079,7 +1079,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != 0)
             throw new InvalidOperationException("Empty required-memory case changed the row-group shape.");
     }
@@ -1142,7 +1142,7 @@ internal static class EncodingCoverageWriterCases
         optionalRowGroup.Write(optionalColumn);
         optionalWriter.CloseFile();
 
-        using var reader = optionalSchema.CreateReader(new MemoryReadSource(output.ToArray()));
+        using var reader = optionalSchema.CreateReader(FullValueOracle.Source(output.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != 0)
             throw new InvalidOperationException("Empty optional Int64 case changed the row-group shape.");
     }
@@ -1206,7 +1206,7 @@ internal static class EncodingCoverageWriterCases
         optionalRowGroup.Write(optionalColumn);
         optionalWriter.CloseFile();
 
-        using var reader = optionalSchema.CreateReader(new MemoryReadSource(output.ToArray()));
+        using var reader = optionalSchema.CreateReader(FullValueOracle.Source(output.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Optional Delta INT64 control changed the row-group shape.");
     }
@@ -1247,7 +1247,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(dictionaryColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)descending.Length)
             throw new InvalidOperationException("Optional memory page-budget case changed the row-group shape.");
     }
@@ -1276,7 +1276,7 @@ internal static class EncodingCoverageWriterCases
         sizedColumn.Serialize(values);
         sizedRowGroup.Write(sizedColumn);
         sizedWriter.CloseFile();
-        using (var reader = sizedSchema.CreateReader(new MemoryReadSource(sizedStream.ToArray())))
+        using (var reader = sizedSchema.CreateReader(FullValueOracle.Source(sizedStream.ToArray())))
             AssertBinaryReadBack(reader, 0, values);
 
         var strategySchema = new ParquetSchema([
@@ -1291,7 +1291,7 @@ internal static class EncodingCoverageWriterCases
         strategyColumn.Serialize(values);
         strategyRowGroup.Write(strategyColumn);
         strategyWriter.CloseFile();
-        using var strategyReader = strategySchema.CreateReader(new MemoryReadSource(strategyStream.ToArray()));
+        using var strategyReader = strategySchema.CreateReader(FullValueOracle.Source(strategyStream.ToArray()));
         AssertBinaryReadBack(strategyReader, 0, values);
     }
 
@@ -1384,7 +1384,7 @@ internal static class EncodingCoverageWriterCases
         column.Serialize(values);
         rowGroup.Write(column);
         writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Optional DateTime predicate case changed the row-group shape.");
     }
@@ -1425,7 +1425,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(fixedColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)required.Length)
             throw new InvalidOperationException("Byte-array CountPresent case changed the row-group shape.");
     }
@@ -1489,7 +1489,7 @@ internal static class EncodingCoverageWriterCases
         successfulColumn.Serialize(values);
         rowGroup.Write(successfulColumn);
         outputWriter.CloseFile();
-        using var reader = schema.CreateReader(new MemoryReadSource(output.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(output.ToArray()));
         AssertNullableInt32ReadBack(reader, 0, values);
     }
 
@@ -1509,7 +1509,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Plain INT32 decimal case changed the row-group shape.");
         var actual = new List<decimal>();
@@ -1574,7 +1574,7 @@ internal static class EncodingCoverageWriterCases
         }
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != descendingGroups.Length)
             throw new InvalidOperationException("Forced required BYTE_ARRAY groups were not all written.");
         for (var groupIndex = 0; groupIndex < descendingGroups.Length; groupIndex++)
@@ -1597,7 +1597,7 @@ internal static class EncodingCoverageWriterCases
         singletonColumn.Serialize(singletonValues);
         singletonRowGroup.Write(singletonColumn);
         singletonWriter.CloseFile();
-        using var singletonReader = singletonSchema.CreateReader(new MemoryReadSource(singletonStream.ToArray()));
+        using var singletonReader = singletonSchema.CreateReader(FullValueOracle.Source(singletonStream.ToArray()));
         AssertRequiredBinaryGroup(singletonReader, 0, 0, singletonValues);
     }
 
@@ -1757,7 +1757,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(decimalColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         var actualFloats = new List<float>();
         foreach (var buffer in reader.RowGroups[0].Column<float>(schema.LeafColumns[0]))
             actualFloats.AddRange(buffer.Values.ToArray());
@@ -1791,7 +1791,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Optional single-byte memory case changed the row-group shape.");
@@ -1850,7 +1850,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Optional DOUBLE dictionary case changed the row-group shape.");
@@ -1916,7 +1916,7 @@ internal static class EncodingCoverageWriterCases
         WriteOptionalMemoryColumn(rowGroup, schema, 2, forced);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertBinaryReadBack(reader, 0, maybeRetained.Select(static value => value?.ToArray()).ToArray());
         AssertBinaryReadBack(reader, 1, maybeDropped.Select(static value => value?.ToArray()).ToArray());
         AssertBinaryReadBack(reader, 2, forced.Select(static value => value?.ToArray()).ToArray());
@@ -1944,7 +1944,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException($"{name} case changed the row-group shape.");
@@ -2087,7 +2087,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Forced binary dictionary changed the row-group shape.");
@@ -2148,7 +2148,7 @@ internal static class EncodingCoverageWriterCases
         writer.CloseFile();
 
         var expected = firstValues.Concat(secondValues).Concat(thirdValues).ToArray();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 3)
             throw new InvalidOperationException(
@@ -2206,7 +2206,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         double?[][] expected = [firstValues, secondValues];
         if (reader.RowGroups.Count != expected.Length)
             throw new InvalidOperationException("Optional double small-index case changed row-group count.");
@@ -2241,7 +2241,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(binary);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != 0)
             throw new InvalidOperationException("Empty optional columns changed the row-group shape.");
 
@@ -2310,7 +2310,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Nullable INT32 statistics case changed the row-group shape.");
         var actual = new List<int?>();
@@ -2338,7 +2338,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("All-null optional INT32 case changed row-group shape.");
         var actual = new List<int?>();
@@ -2371,7 +2371,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("All-null optional INT64 case changed row-group shape.");
         var actual = new List<long?>();
@@ -2422,7 +2422,7 @@ internal static class EncodingCoverageWriterCases
         writer.CloseFile();
 
         var bytes = stream.ToArray();
-        using var source = new MemoryReadSource(bytes);
+        using var source = FullValueOracle.Source(bytes);
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException($"Encoding case '{name}' changed the row-group shape.");
@@ -2481,7 +2481,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(doubleColumn);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != 1_024)
             throw new InvalidOperationException("ALP exception case changed the row-group shape.");
@@ -2524,7 +2524,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(decimalColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)guids.Length)
             throw new InvalidOperationException("Fixed-binary BSS changed the row-group shape.");
         var actualGuids = new List<byte[]>();
@@ -2567,7 +2567,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
             throw new InvalidOperationException("Fixed BSS ReadOnlyMemory changed the row-group shape.");
         var actual = new List<byte[]>();
@@ -2603,7 +2603,7 @@ internal static class EncodingCoverageWriterCases
         writer.StartRowGroup().Write(column);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         var actual = new List<byte[]>();
         foreach (var buffer in reader.RowGroups[0].Column<byte>(schema.LeafColumns[0]))
             for (var i = 0; i < buffer.Count; i++)
@@ -2696,7 +2696,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(optionalByteArrayColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)required.Length)
             throw new InvalidOperationException("DELTA_LENGTH_BYTE_ARRAY ReadOnlyMemory case changed the row-group shape.");
         AssertBinaryReadBack(reader, 0, expected[0]);
@@ -2762,7 +2762,7 @@ internal static class EncodingCoverageWriterCases
         rowGroup.Write(optionalEmptyColumn);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         AssertBinaryReadBack(reader, 0, required.Select(static value => value.ToArray()).ToArray());
         AssertBinaryReadBack(reader, 1,
             optional.Select(static value => value?.ToArray()).ToArray());

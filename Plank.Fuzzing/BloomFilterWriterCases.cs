@@ -55,7 +55,7 @@ internal static class BloomFilterWriterCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rows.Length)
@@ -93,7 +93,7 @@ internal static class BloomFilterWriterCases
                 ParquetRepetition.Optional)
         ]);
         var bytes = WriteRepeated(schema, rows, 0);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rows.Length)
             throw new InvalidOperationException("Optional Bloom list changed row count.");
@@ -168,7 +168,7 @@ internal static class BloomFilterWriterCases
                 new ColumnOptions(encodings: Plain(), bloomFilter: BloomWithExpectedDistinctValues))
         ]);
         var bytes = WriteFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertBloomContains(filter, values);
@@ -185,7 +185,7 @@ internal static class BloomFilterWriterCases
                 new ColumnOptions(encodings: Plain(), bloomFilter: BloomWithExpectedDistinctValues))
         ]);
         var bytes = WriteOptionalFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         foreach (var value in values)
@@ -206,7 +206,7 @@ internal static class BloomFilterWriterCases
                         (selector & 0x80) != 0 ? BloomWithExpectedDistinctValues : Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -223,7 +223,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -241,7 +241,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -259,7 +259,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -272,7 +272,7 @@ internal static class BloomFilterWriterCases
         var schema = DecimalSchema(Bloom);
         decimal[] values = [1.23m, -4.56m];
         var bytes = WriteFlat(schema, values, 0);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         if (!reader.RowGroups[0].GetColumnMetadata(leaf).HasBloomFilter)
             throw new InvalidOperationException("Decimal Bloom filter was not written.");
@@ -284,7 +284,7 @@ internal static class BloomFilterWriterCases
         var schema = DecimalSchema(null);
         var values = new[] { 1.23m, -4.56m };
         var bytes = WriteFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         AssertFlatRoundTrip(reader.RowGroups[0], schema.LeafColumns[0], values);
     }
 
@@ -304,7 +304,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -322,7 +322,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -339,7 +339,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -357,7 +357,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         AssertAllPresent(filter, expected);
@@ -379,7 +379,7 @@ internal static class BloomFilterWriterCases
                     new ColumnOptions(typeLength: 16, encodings: Plain(), bloomFilter: Bloom)))
         ]);
         var bytes = WriteRepeated(schema, rows, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         foreach (var value in expected)
@@ -396,7 +396,7 @@ internal static class BloomFilterWriterCases
                 new ColumnOptions(encodings: Plain(), bloomFilter: Bloom), new LogicalType.Int(32, false))
         ]);
         var bytes = WriteFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         foreach (var value in values)
@@ -413,7 +413,7 @@ internal static class BloomFilterWriterCases
                 new ColumnOptions(encodings: Plain(), bloomFilter: Bloom), new LogicalType.Int(64, false))
         ]);
         var bytes = WriteFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         foreach (var value in values)
@@ -435,7 +435,7 @@ internal static class BloomFilterWriterCases
                 new ColumnOptions(typeLength: 16, encodings: Plain(), bloomFilter: Bloom), new LogicalType.Uuid())
         ]);
         var bytes = WriteFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         foreach (var value in values)
@@ -459,7 +459,7 @@ internal static class BloomFilterWriterCases
                     (selector & 0x80) != 0 ? BloomWithExpectedDistinctValues : Bloom))
         ]);
         var bytes = WriteFlat(schema, values, selector);
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var leaf = schema.LeafColumns[0];
         using var filter = reader.RowGroups[0].GetColumnMetadata(leaf).OpenBloomFilter();
         if (!filter.MightContain("alpha"u8) || !filter.MightContain(ReadOnlySpan<byte>.Empty) ||

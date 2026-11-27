@@ -597,6 +597,7 @@ public static class PlankReaderFuzzTarget
         if ((selector & 1) == 0 && ReaderAcceptanceOracle.HasParquetHeader(fileBytes))
         {
             ReaderAcceptanceOracle.VerifyWithParquetSharp(fileBytes, traces);
+            FullValueOracle.VerifyAccepted(fileBytes, reader); // oracle agent: schema/stats/KV/sorting/bloom vs Arrow
             if (canCompareWithParquetNet)
             {
                 var types = new ParquetPhysicalType[reader.Schema.LeafColumns.Length];

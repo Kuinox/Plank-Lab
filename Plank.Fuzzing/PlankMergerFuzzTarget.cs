@@ -122,11 +122,11 @@ public static class PlankMergerFuzzTarget
         var firstBytes = WriteFocusedFile(schema, [[1, 3, 5]], options);
         var secondBytes = WriteFocusedFile(schema, [[7, 9], [11, 13]], options);
         using var metadataReader = new Plank.Reading.Physical.ParquetFileReader();
-        using var secondMetadataSource = new MemoryReadSource(secondBytes);
+        using var secondMetadataSource = FullValueOracle.Source(secondBytes);
         metadataReader.Reset(secondMetadataSource);
         var failOffset = metadataReader.Metadata.ColumnChunk(1, 0).ChunkOffset;
 
-        using var firstSource = new MemoryReadSource(firstBytes);
+        using var firstSource = FullValueOracle.Source(firstBytes);
         using var destination = new MemoryReadWriteSource();
         var merger = schema.CreateMerger(firstSource, destination,
             new ParquetMergeOptions { WriterOptions = options });
@@ -154,7 +154,7 @@ public static class PlankMergerFuzzTarget
         var options = new ParquetWriterOptions { Compression = CompressionKind.None };
         var bytes = WriteFocusedFile(schema, [[7, 9], [11, 13]], options);
         using var metadataReader = new Plank.Reading.Physical.ParquetFileReader();
-        using var metadataSource = new MemoryReadSource(bytes);
+        using var metadataSource = FullValueOracle.Source(bytes);
         metadataReader.Reset(metadataSource);
         var failOffset = metadataReader.Metadata.ColumnChunk(failRowGroupIndex, 0).ChunkOffset;
 
@@ -217,7 +217,7 @@ public static class PlankMergerFuzzTarget
         });
 
         using var destination = new MemoryReadWriteSource();
-        var merger = schema.CreateMerger(new MemoryReadSource(sourceFile), destination,
+        var merger = schema.CreateMerger(FullValueOracle.Source(sourceFile), destination,
             new ParquetMergeOptions
             {
                 PreserveFirstFileMetadata = true,
@@ -232,7 +232,7 @@ public static class PlankMergerFuzzTarget
         if (!chunk.HasBloomFilter || chunk.ColumnIndexLength == 0 || chunk.OffsetIndexLength == 0)
             throw new MergeException("Imported metadata lost its Bloom filter or page indexes.");
 
-        using var independentReader = new ParquetFileReader(new MemoryStream(destination.ToArray(), writable: false),
+        using var independentReader = new ParquetFileReader(new MemoryStream(FullValueOracle.Checked(destination.ToArray()), writable: false),
             leaveOpen: true);
         if (independentReader.FileMetaData.NumRowGroups != 1)
             throw new MergeException("Imported metadata changed the independent row-group count.");
@@ -251,7 +251,7 @@ public static class PlankMergerFuzzTarget
             new ColumnOptions(ParquetRepetition.Required, encodings: ImmutableArray.Create(EncodingKind.Plain)))]);
         var sourceFile = sourceBytes.ToArray();
         var expected = new List<int>();
-        using (var source = new MemoryReadSource(sourceFile))
+        using (var source = FullValueOracle.Source(sourceFile))
         using (var reader = schema.CreateReader(source))
         {
             if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != 5)
@@ -277,14 +277,14 @@ public static class PlankMergerFuzzTarget
         var schema = new ParquetSchema([ColumnDefinition.Leaf("value", ParquetPhysicalType.Int32,
             new ColumnOptions(ParquetRepetition.Required, encodings: ImmutableArray.Create(EncodingKind.Plain)))]);
         using var destination = new MemoryReadWriteSource();
-        var merger = schema.CreateMerger(new MemoryReadSource(sourceFile), destination,
+        var merger = schema.CreateMerger(FullValueOracle.Source(sourceFile), destination,
             new ParquetMergeOptions { PreserveFirstFileMetadata = true });
         if (merger.SourceFileCount != 1 || merger.RowGroupCount != 1 || merger.RowCount != expected.Count)
             throw new MergeException("No-statistics import changed the merger source counters.");
         merger.CloseFile();
 
         var merged = destination.ToArray();
-        using var mergedSource = new MemoryReadSource(merged);
+        using var mergedSource = FullValueOracle.Source(merged);
         using var mergedReader = schema.CreateReader(mergedSource);
         if (mergedReader.RowGroups.Count != 1 || mergedReader.RowGroups[0].RowCount != (ulong)expected.Count)
             throw new MergeException("No-statistics import changed the merged row-group shape.");
@@ -324,7 +324,7 @@ public static class PlankMergerFuzzTarget
             KeyValueMetadata = [new("source", "first"), new("empty-value", null)]
         };
         var firstFile = WriteFocusedFile(schema, [[], [10, 20]], originalOptions);
-        VerifyFocusedFile(schema, new MemoryReadSource(firstFile), [10, 20], [0, 2],
+        VerifyFocusedFile(schema, FullValueOracle.Source(firstFile), [10, 20], [0, 2],
             "first-created-by", [("source", "first"), ("empty-value", null)]);
 
         using (var destination = new MemoryReadWriteSource())
@@ -343,7 +343,7 @@ public static class PlankMergerFuzzTarget
             if (merger.SourceFileCount != 1 || merger.RowGroupCount != 1 || merger.RowCount != 2)
                 throw new MergeException("In-place merger miscounted a zero-row group.");
 
-            merger.AppendFile(new MemoryReadSource(WriteFocusedFile(schema, [[], [30]], originalOptions)));
+            merger.AppendFile(FullValueOracle.Source(WriteFocusedFile(schema, [[], [30]], originalOptions)));
             if (merger.SourceFileCount != 2 || merger.RowGroupCount != 2 || merger.RowCount != 3)
                 throw new MergeException("In-place merger miscounted imported rows.");
             merger.CloseFile();
@@ -351,7 +351,7 @@ public static class PlankMergerFuzzTarget
                 [("source", "first"), ("empty-value", null), ("added", "second")]);
         }
 
-        using (var source = new MemoryReadSource(firstFile))
+        using (var source = FullValueOracle.Source(firstFile))
         using (var destination = new MemoryReadWriteSource())
         {
             var merger = schema.CreateMerger(source, destination, new ParquetMergeOptions
@@ -364,7 +364,7 @@ public static class PlankMergerFuzzTarget
                     KeyValueMetadata = [new("added-copy", "third")]
                 }
             });
-            merger.AppendFile(new MemoryReadSource(WriteFocusedFile(schema, [[40]], originalOptions)));
+            merger.AppendFile(FullValueOracle.Source(WriteFocusedFile(schema, [[40]], originalOptions)));
             if (merger.SourceFileCount != 2 || merger.RowGroupCount != 2 || merger.RowCount != 3)
                 throw new MergeException("Out-of-place merger miscounted imported rows.");
             merger.CloseFile();
@@ -391,10 +391,10 @@ public static class PlankMergerFuzzTarget
             appender.CloseFile();
             appendedFile = stream.ToArray();
         }
-        VerifyFocusedFile(bloomSchema, new MemoryReadSource(appendedFile), [1, 2, 5, 6, 7], [2, 3], null, []);
+        VerifyFocusedFile(bloomSchema, FullValueOracle.Source(appendedFile), [1, 2, 5, 6, 7], [2, 3], null, []);
         using (var physicalReader = new Plank.Reading.Physical.ParquetFileReader())
         {
-            physicalReader.Reset(new MemoryReadSource(appendedFile));
+            physicalReader.Reset(FullValueOracle.Source(appendedFile));
             var firstChunk = physicalReader.Metadata.ColumnChunk(0, 0);
             if (firstChunk.ColumnIndexLength == 0 || !firstChunk.HasBloomFilter)
                 throw new MergeException("Append-to-latest lost the earlier row group's index or Bloom filter.");
@@ -413,7 +413,7 @@ public static class PlankMergerFuzzTarget
             appender.CloseFile();
             unchangedAppendFile = stream.ToArray();
         }
-        VerifyFocusedFile(bloomSchema, new MemoryReadSource(unchangedAppendFile), [1, 2, 5, 6], [2, 2], null,
+        VerifyFocusedFile(bloomSchema, FullValueOracle.Source(unchangedAppendFile), [1, 2, 5, 6], [2, 2], null,
             []);
 
         var metadataSource = new MemoryReadWriteSource();
@@ -433,7 +433,7 @@ public static class PlankMergerFuzzTarget
             Compression = CompressionKind.None,
             SortingColumns = [new ParquetSortingColumn(0)]
         });
-        using (var source = new MemoryReadSource(sortedFile))
+        using (var source = FullValueOracle.Source(sortedFile))
         using (var destination = new MemoryReadWriteSource())
         {
             var appender = sortedSchema.CreateAppender(source, destination, new ParquetAppendOptions
@@ -570,11 +570,11 @@ public static class PlankMergerFuzzTarget
         }
         else
         {
-            merger = schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+            merger = schema.CreateMerger(FullValueOracle.Source(files[0]), destination, options);
         }
 
         for (var i = 1; i < fileCount; i++)
-            merger.AppendFile(new MemoryReadSource(files[i]));
+            merger.AppendFile(FullValueOracle.Source(files[i]));
 
         if (merger.SourceFileCount != fileCount)
             throw new MergeException($"Merger counted {merger.SourceFileCount} source files, expected {fileCount}.");
@@ -600,9 +600,9 @@ public static class PlankMergerFuzzTarget
         };
 
         using var destination = new MemoryReadWriteSource();
-        var merger = schema.CreateMerger(new MemoryReadSource(files[0]), destination,
+        var merger = schema.CreateMerger(FullValueOracle.Source(files[0]), destination,
             new ParquetMergeOptions { PreserveFirstFileMetadata = true });
-        merger.AppendFile(new MemoryReadSource(files[1]));
+        merger.AppendFile(FullValueOracle.Source(files[1]));
         if (merger.SourceFileCount != files.Length || merger.RowGroupCount != files.Length
             || merger.RowCount != expectedRowCount)
             throw new MergeException(
@@ -632,7 +632,7 @@ public static class PlankMergerFuzzTarget
     static void VerifyOptionalAllNull(byte[] merged, ParquetSchema schema,
         ReadOnlySpan<int> expectedRowsPerGroup, int expectedRowCount)
     {
-        using var source = new MemoryReadSource(merged);
+        using var source = FullValueOracle.Source(merged);
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != expectedRowsPerGroup.Length)
             throw new MergeException(

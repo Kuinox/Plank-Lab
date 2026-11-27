@@ -109,6 +109,9 @@ static class Program
         Console.WriteLine($"done: {files.Count} inputs, {faulted} threw outside the expected set, {mismatches} oracle mismatches, "
             + $"{ColumnTrace.ComparedColumns} columns / {ColumnTrace.ComparedValues} values compared with Arrow, {LogicalOracle.ComparedValues} logical values checked, "
             + $"{stopwatch.Elapsed.TotalSeconds:F0}s");
+        Console.WriteLine($"full-value oracle: {FullValueOracle.CheckedFiles} accepted + {FullValueOracle.CheckedWrittenFiles} written files, "
+            + $"{FullValueOracle.CheckedStatistics} chunk statistics vs Arrow, {FullValueOracle.CheckedPages} pages, "
+            + $"{FullValueOracle.CheckedBloomValues} bloom values, {FullValueOracle.CheckedSortedRows} sorted-row pairs");
         return 0;
     }
 

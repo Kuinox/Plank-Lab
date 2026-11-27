@@ -49,7 +49,7 @@ internal static class FixedBinaryDeltaWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Fixed-width BSS changed the row-group shape.");
@@ -86,7 +86,7 @@ internal static class FixedBinaryDeltaWriterCases
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Decimal DELTA changed the row-group shape.");

@@ -93,7 +93,7 @@ public static class PlankDatasetBinaryFuzzTarget
                 throw new DatasetSnapshotException($"Unknown dataset partition path '{path}'.");
 
             using var reader = RowFuzzDatasetBinary.CreateRowReader(
-                new MemoryStream(file.ToArray(), writable: false));
+                new MemoryStream(FullValueOracle.Checked(file.ToArray()), writable: false));
             while (reader.MoveNext())
             {
                 var row = reader.Current;
@@ -217,7 +217,7 @@ public static class PlankDatasetBinaryFuzzTarget
                 throw new DatasetSnapshotException($"Unknown scalar dataset path '{path}'.");
 
             using var reader = RowFuzzDatasetMemory.CreateRowReader(
-                new MemoryStream(file.ToArray(), writable: false));
+                new MemoryStream(FullValueOracle.Checked(file.ToArray()), writable: false));
             while (reader.MoveNext())
             {
                 var row = reader.Current;

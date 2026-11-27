@@ -34,7 +34,7 @@ public static partial class PlankRowApiFuzzTarget
             writer.Complete();
         }
 
-        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         var index = 0;
         while (reader.MoveNext())
         {

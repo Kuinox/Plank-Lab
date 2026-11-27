@@ -41,7 +41,7 @@ internal static class RowApiGrowthWriterCases
             writer.Complete();
         }
 
-        using var reader = RowFuzzBinary.CreateRowReader(new MemoryStream(bytes.ToArray(), writable: false));
+        using var reader = RowFuzzBinary.CreateRowReader(new MemoryStream(FullValueOracle.Checked(bytes.ToArray()), writable: false));
         var index = 0;
         while (reader.MoveNext())
         {

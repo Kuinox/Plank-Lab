@@ -677,7 +677,10 @@ public static class PlankWriterFuzzTarget
 
         if (!data.IsEmpty && data[0] == AppendSortingMarker)
         {
-            ExerciseAppendSortingCase(data[1..]);
+            // oracle agent: here Plank decides whether the declared order survives the append.
+            FullValueOracle.SortDeclarationsAreClaims = true;
+            try { ExerciseAppendSortingCase(data[1..]); }
+            finally { FullValueOracle.SortDeclarationsAreClaims = false; }
             return;
         }
 
@@ -816,7 +819,7 @@ public static class PlankWriterFuzzTarget
         rowGroup.Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rowCount)
             throw new InvalidOperationException("Optional timestamp route changed the row-group shape.");
@@ -905,7 +908,7 @@ public static class PlankWriterFuzzTarget
         writer.CloseFile();
 
         var bytes = stream.ToArray();
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var expectedValues = new List<int>(presentValueCount);
         var expectedRepetitions = new List<int>();
         var expectedDefinitions = new List<int>();
@@ -990,7 +993,7 @@ public static class PlankWriterFuzzTarget
         rowGroup.Write(serialized);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         var expectedValues = new List<int>(presentValueCount);
         var expectedRepetitions = new List<int>();
         var expectedDefinitions = new List<int>();
@@ -1103,7 +1106,7 @@ public static class PlankWriterFuzzTarget
         serialized.Serialize(rows);
         rowGroup.Write(serialized);
         writer.CloseFile();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
             expectedValues, repetitions, definitions, "typed nested");
@@ -1279,7 +1282,7 @@ public static class PlankWriterFuzzTarget
         serialized.Serialize(rows);
         rowGroup.Write(serialized);
         writer.CloseFile();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         AssertNestedBinaryRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
             expectedValues, repetitions, definitions);
@@ -1343,7 +1346,7 @@ public static class PlankWriterFuzzTarget
         serialized.Serialize(rows);
         rowGroup.Write(serialized);
         writer.CloseFile();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         AssertNestedBinaryRows(reader.RowGroups[0], schema.LeafColumns[0], rowCount,
             expectedValues, repetitions, definitions);
@@ -1369,7 +1372,7 @@ public static class PlankWriterFuzzTarget
         serialized.Serialize(rows);
         rowGroup.Write(serialized);
         writer.CloseFile();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rows.Length,
             expectedValues, repetitions, definitions, shape, valuesEqual);
@@ -1424,7 +1427,7 @@ public static class PlankWriterFuzzTarget
         serialized.Serialize(rows);
         rowGroup.Write(serialized);
         writer.CloseFile();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         AssertNestedRows(reader.RowGroups[0], schema.LeafColumns[0], rows.Length,
             expectedValues, repetitions, definitions, shape);
@@ -2350,7 +2353,7 @@ public static class PlankWriterFuzzTarget
         appendGroup.Write(payload);
         appender.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(appendStream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appendStream.ToArray()));
         var group = reader.RowGroups[0];
         if (reader.RowGroups.Count != 1 || group.RowCount != (ulong)(rowCount * 2) ||
             !ReadAllBuffers(group.Column<int>(schema.LeafColumns[0])).SequenceEqual(retainedKey.Concat(incomingKey)) ||
@@ -2388,7 +2391,7 @@ public static class PlankWriterFuzzTarget
         column.Serialize(incoming);
         appender.StartRowGroup().Write(column);
         appender.CloseFile();
-        using var reader = schema.CreateReader(new MemoryReadSource(appendStream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appendStream.ToArray()));
         if (reader.RowGroups.Count != 1 ||
             !ReadAllBuffers(reader.RowGroups[0].Column<int>(schema.LeafColumns[0]))
                 .SequenceEqual(retained.Concat(incoming)) ||
@@ -2435,7 +2438,7 @@ public static class PlankWriterFuzzTarget
         initialColumn.Serialize(retained);
         writer.StartRowGroup().Write(initialColumn);
         writer.CloseFile();
-        using (var initialSource = new MemoryReadSource(initial.ToArray()))
+        using (var initialSource = FullValueOracle.Source(initial.ToArray()))
         using (var initialReader = schema.CreateReader(initialSource))
         {
             var initialSorting = initialReader.PhysicalReader.Metadata.RowGroupSortingColumns(0);
@@ -2460,7 +2463,7 @@ public static class PlankWriterFuzzTarget
         var expected = new T[retained.Length + incoming.Length];
         retained.CopyTo(expected, 0);
         incoming.CopyTo(expected, retained.Length);
-        using var reader = schema.CreateReader(new MemoryReadSource(appendStream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appendStream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Append sorting route changed the row-group shape.");
         var actual = read(reader.RowGroups[0], schema.LeafColumns[0]);
@@ -2499,6 +2502,7 @@ public static class PlankWriterFuzzTarget
         // have to be taken from the MemoryStream rather than rewinding it.
         // (ToArray still works on a closed MemoryStream.)
         var bytes = ms.ToArray();
+        FullValueOracle.VerifyWritten(bytes); // oracle agent: metadata vs Arrow-decoded values
         AssertPlankCanRead(new MemoryStream(bytes, writable: false), fuzzCase);
         AssertParquetSharpCanRead(new MemoryStream(bytes, writable: false), fuzzCase);
     }

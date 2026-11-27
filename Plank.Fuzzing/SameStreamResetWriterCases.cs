@@ -26,7 +26,7 @@ internal static class SameStreamResetWriterCases
         WriteValues(writer, schema, expected);
         writer.CloseFile();
 
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Same-stream reset retained the old file shape.");
 

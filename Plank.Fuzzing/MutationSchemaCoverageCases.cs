@@ -93,7 +93,7 @@ internal static class MutationSchemaCoverageCases
 
     static void Check(ParquetSchema schema, byte[] bytes, bool shouldMatch, string label)
     {
-        using var source = new MemoryReadSource(bytes);
+        using var source = FullValueOracle.Source(bytes);
         using var destination = new MemoryDestination();
         var rejected = false;
         try

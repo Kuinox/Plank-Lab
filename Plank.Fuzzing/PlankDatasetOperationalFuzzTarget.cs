@@ -119,7 +119,7 @@ public static class PlankDatasetOperationalFuzzTarget
             if (!HasParquetTrailer(fileBytes))
                 continue;
             using var reader = RowFuzzFixed.CreateRowReader(
-                new MemoryStream(fileBytes.ToArray(), writable: false));
+                new MemoryStream(FullValueOracle.Checked(fileBytes.ToArray()), writable: false));
             while (reader.MoveNext())
             {
                 var row = (reader.Current.Id, reader.Current.Sequence);
@@ -186,7 +186,7 @@ public static class PlankDatasetOperationalFuzzTarget
             if (!HasParquetTrailer(stream))
                 continue;
             using var reader = RowFuzzDatasetBinary.CreateRowReader(
-                new MemoryStream(stream.ToArray(), writable: false));
+                new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
             while (reader.MoveNext())
             {
                 var row = reader.Current;
@@ -354,7 +354,7 @@ public static class PlankDatasetOperationalFuzzTarget
             var dash = path.IndexOf('-');
             if (dash != 2 || !int.TryParse(path.AsSpan(1, 1), out var partition))
                 throw new InvalidOperationException($"Bad {scenario} dataset part path '{path}'.");
-            using var reader = RowFuzzDatasetBinary.CreateRowReader(new MemoryStream(file.ToArray(), writable: false));
+            using var reader = RowFuzzDatasetBinary.CreateRowReader(new MemoryStream(FullValueOracle.Checked(file.ToArray()), writable: false));
             while (reader.MoveNext())
             {
                 var row = reader.Current;

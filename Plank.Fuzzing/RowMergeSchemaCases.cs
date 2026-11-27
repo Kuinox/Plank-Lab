@@ -28,7 +28,7 @@ public static partial class PlankRowApiFuzzTarget
         var acceptedRows = firstCount;
 
         using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
-        var merger = target.Schema.CreateMerger(new MemoryReadSource(first), destination, new ParquetMergeOptions());
+        var merger = target.Schema.CreateMerger(FullValueOracle.Source(first), destination, new ParquetMergeOptions());
         for (var f = 1; f < fileCount; f++)
         {
             var writer = c.NextBool() ? target : classes[c.NextInt(0, classes.Length)];
@@ -37,7 +37,7 @@ public static partial class PlankRowApiFuzzTarget
             var compatible = ReferenceEquals(writer, target);
             try
             {
-                merger.AppendFile(new MemoryReadSource(bytes));
+                merger.AppendFile(FullValueOracle.Source(bytes));
                 if (!compatible)
                     throw new RowApiRoundTripException($"Merger for {target.Name} accepted a file written by {writer.Name}.");
                 expectedSeqs.AddRange(Enumerable.Range(seq, count));

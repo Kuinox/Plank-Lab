@@ -205,7 +205,7 @@ public static partial class PlankRowApiFuzzTarget
         writer.Complete();
 
         var index = 0;
-        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(stream.ToArray(), writable: false),
+        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false),
             options: ReaderOptions(ref cursor));
         while (reader.MoveNext())
         {
@@ -248,7 +248,7 @@ public static partial class PlankRowApiFuzzTarget
         writer.Complete();
 
         var index = 0;
-        using var reader = RowFuzzNullable.CreateRowReader(new MemoryStream(stream.ToArray(), writable: false),
+        using var reader = RowFuzzNullable.CreateRowReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false),
             options: ReaderOptions(ref cursor));
         while (reader.MoveNext())
         {
@@ -284,7 +284,7 @@ public static partial class PlankRowApiFuzzTarget
         writer.Complete();
 
         var index = 0;
-        using var reader = RowFuzzBinary.CreateRowReader(new MemoryStream(stream.ToArray(), writable: false),
+        using var reader = RowFuzzBinary.CreateRowReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false),
             options: ReaderOptions(ref cursor));
         while (reader.MoveNext())
         {
@@ -316,7 +316,7 @@ public static partial class PlankRowApiFuzzTarget
         }
 
         using var reader = RowFuzzNullableBinary.CreateRowReader(
-            new MemoryStream(stream.ToArray(), writable: false));
+            new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         var index = 0;
         while (reader.MoveNext())
         {
@@ -362,7 +362,7 @@ public static partial class PlankRowApiFuzzTarget
         writer.Complete();
 
         var index = 0;
-        using var reader = RowFuzzNested.CreateRowReader(new MemoryStream(stream.ToArray(), writable: false),
+        using var reader = RowFuzzNested.CreateRowReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false),
             options: ReaderOptions(ref cursor));
         while (reader.MoveNext())
         {
@@ -503,7 +503,7 @@ public static partial class PlankRowApiFuzzTarget
         }
         writer.Complete();
 
-        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         for (var i = 0; i < count; i++)
         {
             if (!reader.MoveNext())

@@ -700,10 +700,10 @@ static class RowFuzzWideRoutes
         }
         else
         {
-            merger = RowFuzzWide.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+            merger = RowFuzzWide.Schema.CreateMerger(FullValueOracle.Source(files[0]), destination, options);
         }
         for (var f = 1; f < fileCount; f++)
-            merger.AppendFile(new MemoryReadSource(files[f]));
+            merger.AppendFile(FullValueOracle.Source(files[f]));
         if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzWide merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
@@ -717,7 +717,7 @@ static class RowFuzzWideRoutes
         var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
         var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
         using var physical = new Plank.Reading.Physical.ParquetFileReader();
-        using var mergedSource = new MemoryReadSource(merged);
+        using var mergedSource = FullValueOracle.Source(merged);
         physical.Reset(mergedSource);
         var footer = physical.Metadata;
         var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
@@ -793,7 +793,7 @@ static class RowFuzzWideRoutes
             // The same reader object re-opened on the same bytes must read the same rows.
             var first = index;
             if (s.ReadViaSource)
-                reader.Reset(new MemoryReadSource(bytes), projection);
+                reader.Reset(FullValueOracle.Source(bytes), projection);
             else
                 reader.Reset(new MemoryStream(bytes, writable: false), projection);
             var again = 0;
@@ -815,7 +815,7 @@ static class RowFuzzWideRoutes
 
     static RowFuzzWide.RowReader Open(byte[] bytes, RowFuzzWide.Projection projection, Plank.RowApi.RowReaderOptions options, bool viaSource)
         => viaSource
-            ? RowFuzzWide.CreateRowReader(new MemoryReadSource(bytes), projection, options)
+            ? RowFuzzWide.CreateRowReader(FullValueOracle.Source(bytes), projection, options)
             : RowFuzzWide.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
 }
 
@@ -1501,10 +1501,10 @@ static class RowFuzzWideNullableRoutes
         }
         else
         {
-            merger = RowFuzzWideNullable.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+            merger = RowFuzzWideNullable.Schema.CreateMerger(FullValueOracle.Source(files[0]), destination, options);
         }
         for (var f = 1; f < fileCount; f++)
-            merger.AppendFile(new MemoryReadSource(files[f]));
+            merger.AppendFile(FullValueOracle.Source(files[f]));
         if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzWideNullable merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
@@ -1518,7 +1518,7 @@ static class RowFuzzWideNullableRoutes
         var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
         var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
         using var physical = new Plank.Reading.Physical.ParquetFileReader();
-        using var mergedSource = new MemoryReadSource(merged);
+        using var mergedSource = FullValueOracle.Source(merged);
         physical.Reset(mergedSource);
         var footer = physical.Metadata;
         var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
@@ -1594,7 +1594,7 @@ static class RowFuzzWideNullableRoutes
             // The same reader object re-opened on the same bytes must read the same rows.
             var first = index;
             if (s.ReadViaSource)
-                reader.Reset(new MemoryReadSource(bytes), projection);
+                reader.Reset(FullValueOracle.Source(bytes), projection);
             else
                 reader.Reset(new MemoryStream(bytes, writable: false), projection);
             var again = 0;
@@ -1616,7 +1616,7 @@ static class RowFuzzWideNullableRoutes
 
     static RowFuzzWideNullable.RowReader Open(byte[] bytes, RowFuzzWideNullable.Projection projection, Plank.RowApi.RowReaderOptions options, bool viaSource)
         => viaSource
-            ? RowFuzzWideNullable.CreateRowReader(new MemoryReadSource(bytes), projection, options)
+            ? RowFuzzWideNullable.CreateRowReader(FullValueOracle.Source(bytes), projection, options)
             : RowFuzzWideNullable.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
 }
 
@@ -2293,10 +2293,10 @@ static class RowFuzzFlatNullableRoutes
         }
         else
         {
-            merger = RowFuzzFlatNullable.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+            merger = RowFuzzFlatNullable.Schema.CreateMerger(FullValueOracle.Source(files[0]), destination, options);
         }
         for (var f = 1; f < fileCount; f++)
-            merger.AppendFile(new MemoryReadSource(files[f]));
+            merger.AppendFile(FullValueOracle.Source(files[f]));
         if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzFlatNullable merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
@@ -2310,7 +2310,7 @@ static class RowFuzzFlatNullableRoutes
         var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
         var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
         using var physical = new Plank.Reading.Physical.ParquetFileReader();
-        using var mergedSource = new MemoryReadSource(merged);
+        using var mergedSource = FullValueOracle.Source(merged);
         physical.Reset(mergedSource);
         var footer = physical.Metadata;
         var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
@@ -2386,7 +2386,7 @@ static class RowFuzzFlatNullableRoutes
             // The same reader object re-opened on the same bytes must read the same rows.
             var first = index;
             if (s.ReadViaSource)
-                reader.Reset(new MemoryReadSource(bytes), projection);
+                reader.Reset(FullValueOracle.Source(bytes), projection);
             else
                 reader.Reset(new MemoryStream(bytes, writable: false), projection);
             var again = 0;
@@ -2408,7 +2408,7 @@ static class RowFuzzFlatNullableRoutes
 
     static RowFuzzFlatNullable.RowReader Open(byte[] bytes, RowFuzzFlatNullable.Projection projection, Plank.RowApi.RowReaderOptions options, bool viaSource)
         => viaSource
-            ? RowFuzzFlatNullable.CreateRowReader(new MemoryReadSource(bytes), projection, options)
+            ? RowFuzzFlatNullable.CreateRowReader(FullValueOracle.Source(bytes), projection, options)
             : RowFuzzFlatNullable.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
 }
 
@@ -2818,10 +2818,10 @@ static class RowFuzzDeepRoutes
         }
         else
         {
-            merger = RowFuzzDeep.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+            merger = RowFuzzDeep.Schema.CreateMerger(FullValueOracle.Source(files[0]), destination, options);
         }
         for (var f = 1; f < fileCount; f++)
-            merger.AppendFile(new MemoryReadSource(files[f]));
+            merger.AppendFile(FullValueOracle.Source(files[f]));
         if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzDeep merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
@@ -2835,7 +2835,7 @@ static class RowFuzzDeepRoutes
         var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
         var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
         using var physical = new Plank.Reading.Physical.ParquetFileReader();
-        using var mergedSource = new MemoryReadSource(merged);
+        using var mergedSource = FullValueOracle.Source(merged);
         physical.Reset(mergedSource);
         var footer = physical.Metadata;
         var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
@@ -2911,7 +2911,7 @@ static class RowFuzzDeepRoutes
             // The same reader object re-opened on the same bytes must read the same rows.
             var first = index;
             if (s.ReadViaSource)
-                reader.Reset(new MemoryReadSource(bytes), projection);
+                reader.Reset(FullValueOracle.Source(bytes), projection);
             else
                 reader.Reset(new MemoryStream(bytes, writable: false), projection);
             var again = 0;
@@ -2933,7 +2933,7 @@ static class RowFuzzDeepRoutes
 
     static RowFuzzDeep.RowReader Open(byte[] bytes, RowFuzzDeep.Projection projection, Plank.RowApi.RowReaderOptions options, bool viaSource)
         => viaSource
-            ? RowFuzzDeep.CreateRowReader(new MemoryReadSource(bytes), projection, options)
+            ? RowFuzzDeep.CreateRowReader(FullValueOracle.Source(bytes), projection, options)
             : RowFuzzDeep.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
 }
 

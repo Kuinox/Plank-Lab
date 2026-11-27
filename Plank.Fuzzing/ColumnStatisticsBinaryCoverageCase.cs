@@ -51,7 +51,7 @@ internal static class ColumnStatisticsBinaryCoverageCase
         rowGroup.Write(allNullColumn);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         var requiredStatistics = reader.RowGroups[0].GetColumnMetadata(0).Statistics;
         var optionalStatistics = reader.RowGroups[0].GetColumnMetadata(1).Statistics;
@@ -79,7 +79,7 @@ internal static class ColumnStatisticsBinaryCoverageCase
         rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         var statistics = reader.RowGroups[0].GetColumnMetadata(0).Statistics;
         if (statistics.HasMinimum || statistics.HasMaximum)
@@ -106,7 +106,7 @@ internal static class ColumnStatisticsBinaryCoverageCase
         rowGroup.Write(optionalColumn);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         var requiredStatistics = reader.RowGroups[0].GetColumnMetadata(0).Statistics;
         var optionalStatistics = reader.RowGroups[0].GetColumnMetadata(1).Statistics;

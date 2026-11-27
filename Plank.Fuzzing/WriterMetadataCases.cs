@@ -158,7 +158,7 @@ internal static class WriterMetadataCases
         rowGroup.Write(uint64);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected32.Length)
@@ -202,7 +202,7 @@ internal static class WriterMetadataCases
         rowGroup.Write(timestamp);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
@@ -264,7 +264,7 @@ internal static class WriterMetadataCases
         rowGroup.Write(timestamp);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
@@ -316,7 +316,7 @@ internal static class WriterMetadataCases
         rowGroup.Write(timestamp);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         var actual = ReadAllBuffers(reader.RowGroups[0].Column<DateTime>(reader.Schema.LeafColumns[0]));
@@ -352,7 +352,7 @@ internal static class WriterMetadataCases
             WriteNullablePrimitive(writer, rowGroup, schema.LeafColumns[i], i, expected[i]);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         for (var i = 0; i < expected.Length; i++)
@@ -399,7 +399,7 @@ internal static class WriterMetadataCases
         WriteNullable(writer, rowGroup, schema.LeafColumns[5], nanDouble);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1)
@@ -460,7 +460,7 @@ internal static class WriterMetadataCases
         WriteNullable(writer, rowGroup, schema.LeafColumns[1], doubles);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         AssertNullableFloatValues(ReadAllBuffers(reader.RowGroups[0].Column<float?>(0)), floats);
@@ -617,7 +617,7 @@ internal static class WriterMetadataCases
     {
         using var stream = new MemoryStream();
         schema.CreateWriter(stream, WriterOptions(ParquetDataPageVersion.V2)).CloseFile();
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 0)
@@ -821,7 +821,7 @@ internal static class WriterMetadataCases
             rowGroup.Write(column);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1)
@@ -861,7 +861,7 @@ internal static class WriterMetadataCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1)
@@ -881,7 +881,7 @@ internal static class WriterMetadataCases
         writer.StartRowGroup().Write(serialized);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = new ParquetReader();
         reader.Reset(source);
         if (reader.RowGroups.Count != 1)

@@ -48,7 +48,7 @@ internal static class DifferentWriteSourceResetWriterCases
 
     static void Verify(ParquetSchema schema, byte[] bytes, int[] expected)
     {
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException("Distinct-source reset retained the wrong file shape.");
         var actual = new List<int>(expected.Length);

@@ -172,7 +172,7 @@ public static class PlankDatasetFuzzTarget
             parts.Add((partIndex, ReadSequences(file)));
 
             using var reader = RowFuzzFixed.CreateRowReader(
-                new MemoryStream(file.ToArray(), writable: false));
+                new MemoryStream(FullValueOracle.Checked(file.ToArray()), writable: false));
             while (reader.MoveNext())
             {
                 var row = (reader.Current.Id, reader.Current.Sequence);
@@ -224,7 +224,7 @@ public static class PlankDatasetFuzzTarget
     static List<(int Id, long Sequence)> ReadSequences(MemoryStream file)
     {
         var rows = new List<(int Id, long Sequence)>();
-        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(file.ToArray(), writable: false));
+        using var reader = RowFuzzFixed.CreateRowReader(new MemoryStream(FullValueOracle.Checked(file.ToArray()), writable: false));
         while (reader.MoveNext())
             rows.Add((reader.Current.Id, reader.Current.Sequence));
         return rows;

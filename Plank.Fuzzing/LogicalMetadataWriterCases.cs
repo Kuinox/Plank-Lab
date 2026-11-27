@@ -110,7 +110,7 @@ internal static class LogicalMetadataWriterCases
             ColumnDefinition.RequiredLeaf("value", ParquetPhysicalType.ByteArray))]);
         using var stream = new MemoryStream();
         schema.CreateWriter(stream, new ParquetWriterOptions { Compression = CompressionKind.None }).CloseFile();
-        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(stream.ToArray()));
         if (reader.RowGroups.Count != 0)
             throw new InvalidOperationException("Variant metadata route unexpectedly wrote a row group.");
     }

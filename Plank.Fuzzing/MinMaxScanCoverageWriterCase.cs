@@ -33,7 +33,7 @@ internal static class MinMaxScanCoverageWriterCase
         rowGroup.Write(highColumn);
         writer.CloseFile();
 
-        using var source = new MemoryReadSource(stream.ToArray());
+        using var source = FullValueOracle.Source(stream.ToArray());
         using var reader = schema.CreateReader(source);
         AssertColumn(reader, 0, lowTail, int.MinValue, 600);
         AssertColumn(reader, 1, highTail, -200, int.MaxValue);

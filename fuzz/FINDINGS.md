@@ -80,6 +80,29 @@ header probing. Their fixes landed as #169 and #171, and in reworked form as
   surfaces as `OverflowException` instead of the documented `ArgumentOutOfRangeException(WorkerCount)`.
   Low severity (invalid input is rejected either way). The harness accepts both types.
 
+## Open library defects found by the full-value oracle (oracle agent, 2026-11-27)
+
+Both are symmetric in Plank's writer and reader (Plank and Arrow read the written metadata back
+unchanged), so no round trip could see them; `FullValueOracle.VerifyWritten` recomputes the
+metadata from Arrow-decoded values.
+
+- **`distinct_count = 0` for columns without a defined sort order.** INT96, INTERVAL, GEOMETRY and
+  GEOGRAPHY chunks get `statistics { null_count, distinct_count: 0 }` whatever their values (no min/max,
+  which is right). Repro: [`repros/statistics-distinct-count-zero-unordered/`](repros/statistics-distinct-count-zero-unordered/)
+  (13 writer seeds hit it, e.g. `corpus/encoding-plain-int96.bin`).
+- **`uint` written to an unannotated (signed) INT32 column gets statistics in unsigned order.**
+  `CreateSerializedColumn<uint>` on `Leaf(..., Int32)` with no logical type is accepted and writes
+  `min_value = 0, max_value = -1` for values `{0, 1, 65536, 1000000, 0xFFFFFFFF}`: min > max in the column's
+  signed order, so `col < 0` pruning skips a chunk containing -1. Repro:
+  [`repros/statistics-uint-in-signed-int32-order/`](repros/statistics-uint-in-signed-int32-order/)
+  (`writer-gap-seeds/delta-binary-packed-int32/public-generic-dispatch.bin`).
+
+Not defects (checked by the same oracle): Plank's Bloom writer hashes -0.0 and NaN payloads by their
+plain bytes as the spec says, and its typed `MightContain(±0.0)` also answers true for the other zero
+(an allowed false positive; `Plank.Lab.Tests/FullValueOracleTests`). `ParquetWriterOptions.SortingColumns`
+is the caller's declaration and is not validated by Plank, so the generic route declaring an order over
+unsorted rows is not a defect; the oracle checks declared orders only on the append-sorting route.
+
 ## Fuzz-harness defects (fixed)
 
 - A one-byte `FA` writer input indexed `data[1]`

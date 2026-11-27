@@ -1270,7 +1270,7 @@ internal static class PlankExecutionFuzzTarget
         switch (sourceKind)
         {
             case 0:
-                source = new MemoryReadSource(bytes);
+                source = FullValueOracle.Source(bytes);
                 break;
             case 1:
                 source = new FaultingReadSource(bytes, failRead, failOffset, state);

@@ -95,7 +95,7 @@ internal static class OptionalDecimalBloomGapWriterCases
 
     static void VerifyBloom(byte[] bytes, ParquetSchema schema, decimal?[] values)
     {
-        using var reader = schema.CreateReader(new MemoryReadSource(bytes));
+        using var reader = schema.CreateReader(FullValueOracle.Source(bytes));
         var rowGroup = reader.RowGroups[0];
         var leaf = schema.LeafColumns[0];
         var metadata = rowGroup.GetColumnMetadata(leaf);

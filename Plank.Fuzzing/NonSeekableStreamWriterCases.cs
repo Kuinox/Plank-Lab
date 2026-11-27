@@ -48,7 +48,7 @@ internal static class NonSeekableStreamWriterCases
 
     static void ValidateReadback(ParquetSchema schema, byte[] bytes, int[] expected, string fileName)
     {
-        using var source = new MemoryReadSource(bytes);
+        using var source = FullValueOracle.Source(bytes);
         using var reader = schema.CreateReader(source);
         if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)expected.Length)
             throw new InvalidOperationException($"Non-seekable {fileName} output changed its row-group shape.");

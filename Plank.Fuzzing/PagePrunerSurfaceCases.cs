@@ -287,7 +287,7 @@ internal static class PagePrunerSurfaceCases
         };
         // Alternate between the shared (reused) reader and a fresh one: both must behave identically.
         if (useSource)
-            shared.Reset(new MemoryReadSource(file), pruner);
+            shared.Reset(FullValueOracle.Source(file), pruner);
         else
             shared.Reset(new MemoryStream(file, writable: false), pruner);
         for (var g = 0; g < shared.RowGroups.Count; g++)

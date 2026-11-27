@@ -114,7 +114,7 @@ public static partial class PlankRowApiFuzzTarget
             writer.CloseFile();
         }
 
-        using var reader = schema.CreateReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         var read = 0;
         for (var g = 0; g < reader.RowGroups.Count; g++)
         {

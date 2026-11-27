@@ -84,7 +84,7 @@ internal static class LatestRowGroupValuesCoverageCases
             writer.CloseFile();
         }
 
-        using var reader = schema.CreateReader(new MemoryReadSource(appended.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appended.ToArray()));
         var group = reader.RowGroups[0];
         if (reader.RowGroups.Count != 1 || group.RowCount != 6)
             throw new InvalidOperationException("Optional primitive append changed row-group shape.");
@@ -200,7 +200,7 @@ internal static class LatestRowGroupValuesCoverageCases
             writer.CloseFile();
         }
 
-        using var reader = schema.CreateReader(new MemoryReadSource(appended.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appended.ToArray()));
         if (reader.RowGroups.Count != 2 || reader.RowGroups[0].RowCount != 2 || reader.RowGroups[1].RowCount != 4)
             throw new InvalidOperationException("Replacement-offset append changed the row-group layout.");
         AssertExactReadBack(reader.RowGroups[0].Column<int>(schema.LeafColumns[0]), initialGroups[0]);
@@ -261,7 +261,7 @@ internal static class LatestRowGroupValuesCoverageCases
             writer.CloseFile();
         }
 
-        using var reader = schema.CreateReader(new MemoryReadSource(appended.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appended.ToArray()));
         if (reader.RowGroups.Count != 2 || reader.RowGroups[0].RowCount != 2 || reader.RowGroups[1].RowCount != 4)
             throw new InvalidOperationException("Indexed replacement-offset append changed the row-group layout.");
         AssertExactReadBack(reader.RowGroups[0].Column<int>(schema.LeafColumns[0]), initialGroups[0]);
@@ -279,7 +279,7 @@ internal static class LatestRowGroupValuesCoverageCases
             ColumnDefinition.RequiredLeaf("x", ParquetPhysicalType.Int32,
                 new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain)))
         ]);
-        using (var sourceReader = schema.CreateReader(new MemoryReadSource(sourceBytes)))
+        using (var sourceReader = schema.CreateReader(FullValueOracle.Source(sourceBytes)))
         {
             if (sourceReader.RowGroups.Count != 2)
                 throw new InvalidOperationException("External append source must contain two row groups.");
@@ -318,7 +318,7 @@ internal static class LatestRowGroupValuesCoverageCases
             writer.CloseFile();
         }
 
-        using var reader = schema.CreateReader(new MemoryReadSource(appended.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.Source(appended.ToArray()));
         if (reader.RowGroups.Count != 2 || reader.RowGroups[0].RowCount != 2 || reader.RowGroups[1].RowCount != 4)
             throw new InvalidOperationException("External replacement-offset append changed row-group shape.");
         if (layout == 4)

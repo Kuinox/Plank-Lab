@@ -669,7 +669,7 @@ internal static class WriterTypeMatrixCases
         using var pool = WriterFuzzPool.Create(p.Pool);
         var writer = schema.CreateWriter(stream, Options(p, p.Pool, pool));
         writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         var leafColumn = reader.Schema.LeafColumns[0];
         if (viaFieldIdOverload && leafColumn.FieldId != leafId)
             throw new InvalidOperationException($"{what}: leaf field id {leafColumn.FieldId} != {leafId}.");

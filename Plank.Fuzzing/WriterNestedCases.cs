@@ -214,7 +214,7 @@ internal static class WriterNestedCases
         }
 
         writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         if (reader.RowGroups.Count != rowArrays.Count)
             throw new InvalidOperationException($"{what}: {reader.RowGroups.Count} row groups, expected {rowArrays.Count}.");
         for (var g = 0; g < rowArrays.Count; g++)
@@ -353,7 +353,7 @@ internal static class WriterNestedCases
         }
 
         writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         const string what = "nested map";
         for (var g = 0; g < groups; g++)
         {
