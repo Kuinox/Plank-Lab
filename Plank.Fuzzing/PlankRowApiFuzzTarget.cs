@@ -24,7 +24,7 @@ namespace Plank.Fuzzing;
 /// finding and not just a crash — the same standard the columnar writer target
 /// holds itself to.
 /// </remarks>
-public static class PlankRowApiFuzzTarget
+public static partial class PlankRowApiFuzzTarget
 {
     // Rows are cheap but each one costs a write and a read-back, and AFL wants
     // many small executions rather than few large ones.
@@ -35,52 +35,64 @@ public static class PlankRowApiFuzzTarget
     static ReadOnlySpan<byte> NullableBinaryMagic => "RBN1"u8;
     static ReadOnlySpan<byte> PipelineControlMagic => "RWP1"u8;
     static ReadOnlySpan<byte> DirectRowGroupMagic => "RWG1"u8;
+    static ReadOnlySpan<byte> WideMagic => "RWW1"u8;
+    static ReadOnlySpan<byte> WideNullableMagic => "RWN1"u8;
 
     public static void Execute(ReadOnlySpan<byte> data)
     {
         if (data.IsEmpty)
             return;
 
-        try
+        // No expected-exception filter: every route below is valid API usage over bytes the
+        // writer produced itself, so any exception (including InvalidOperationException,
+        // NotSupportedException and CorruptParquetException) is a library finding.
+        if (data.StartsWith(WideMagic))
         {
-            if (data.StartsWith(NullableBinaryMagic))
-            {
-                RunNullableBinary();
-                return;
-            }
-
-            if (data.StartsWith(DirectRowGroupMagic))
-            {
-                var directCursor = new Cursor(data[DirectRowGroupMagic.Length..]);
-                RunDirectRowGroups(ref directCursor);
-                return;
-            }
-
-            if (data.StartsWith(PipelineControlMagic))
-            {
-                var pipelineCursor = new Cursor(data[PipelineControlMagic.Length..]);
-                RunPipelineControls(ref pipelineCursor);
-                return;
-            }
-
-            if (data.StartsWith(NestedRowMagic))
-            {
-                var nestedCursor = new Cursor(data[NestedRowMagic.Length..]);
-                RunNested(ref nestedCursor);
-                return;
-            }
-
-            var cursor = new Cursor(data[1..]);
-            switch (data[0] % 3)
-            {
-                case 0: RunFixed(ref cursor); break;
-                case 1: RunNullable(ref cursor); break;
-                default: RunBinary(ref cursor); break;
-            }
+            var wideCursor = new Cursor(data[WideMagic.Length..]);
+            RowFuzzWideRoutes.Run(ref wideCursor);
+            return;
         }
-        catch (Exception ex) when (ex is CorruptParquetException or NotSupportedException
-            or InvalidOperationException)
+
+        if (data.StartsWith(WideNullableMagic))
         {
+            var wideCursor = new Cursor(data[WideNullableMagic.Length..]);
+            RowFuzzWideNullableRoutes.Run(ref wideCursor);
+            return;
+        }
+
+        if (data.StartsWith(NullableBinaryMagic))
+        {
+            RunNullableBinary();
+            return;
+        }
+
+        if (data.StartsWith(DirectRowGroupMagic))
+        {
+            var directCursor = new Cursor(data[DirectRowGroupMagic.Length..]);
+            RunDirectRowGroups(ref directCursor);
+            return;
+        }
+
+        if (data.StartsWith(PipelineControlMagic))
+        {
+            var pipelineCursor = new Cursor(data[PipelineControlMagic.Length..]);
+            RunPipelineControls(ref pipelineCursor);
+            return;
+        }
+
+        if (data.StartsWith(NestedRowMagic))
+        {
+            var nestedCursor = new Cursor(data[NestedRowMagic.Length..]);
+            RunNested(ref nestedCursor);
+            return;
+        }
+
+        var cursor = new Cursor(data[1..]);
+        switch (data[0] % 3)
+        {
+            case 0: RunFixed(ref cursor); break;
+            case 1: RunNullable(ref cursor); break;
+            default: RunBinary(ref cursor); break;
         }
     }
 
@@ -777,12 +789,12 @@ public static class PlankRowApiFuzzTarget
     // Deliberately not the writer target's ByteCursor: that one is private to it
     // and shaped for column specs. Running out of input yields zeros rather than
     // throwing, so a truncated case stays a valid smaller case.
-    ref struct Cursor(ReadOnlySpan<byte> data)
+    internal ref partial struct Cursor(ReadOnlySpan<byte> data)
     {
         readonly ReadOnlySpan<byte> _data = data;
         int _offset;
 
-        byte NextByte()
+        internal byte NextByte()
             => _offset < _data.Length ? _data[_offset++] : (byte)0;
 
         internal int NextInt(int minInclusive, int maxExclusive)
