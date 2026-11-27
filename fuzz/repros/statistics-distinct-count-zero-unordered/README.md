@@ -28,3 +28,7 @@ Plank.Fuzzing.Replay writer fuzz/corpus/encoding-plain-int96.bin fuzz/corpus/log
 ```
 
 Columns with a defined order get a correct distinct count (e.g. BYTE_ARRAY DELTA seeds write 1 for one distinct value).
+
+`append-sorting-geometry-key.bin` is a writer input (found by AFL) on the append-sorting route that writes a GEOMETRY
+(`kind` 34) column named `key`: same defect, `distinct_count=0` for 6 distinct values. The oracle prints the geometry
+annotation as `none`.

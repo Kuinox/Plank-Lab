@@ -81,7 +81,10 @@ internal static class KnownFindings
                     || (Chain<ArgumentOutOfRangeException>() && Has("Row index is outside the buffer slot") && Has("RowApiNestedLeafBuffer"));
             case "distinct-count-zero-unordered":
                 return Has("written: statistics distinct_count differs from the values") && Has("distinct_count=0,")
-                    && (Has("(Int96,") || Has(", Interval,") || Has("Geometry") || Has("Geography") || Has("'logical-metadata'"));
+                    && (Has("(Int96,") || Has(", Interval,")
+                        // GEOMETRY/GEOGRAPHY columns are described as "none" by the oracle. Only the two routes that
+                        // build them are accepted, so a plain unannotated BYTE_ARRAY with distinct_count = 0 stays a crash.
+                        || Has("'logical-metadata' (ByteArray, none,") || Has("'key' (ByteArray, none,"));
             case "uint-ulong-signed-stats":
                 return (Has("annotatedUnsigned=False clr=unsigned") && Has("statistics"))
                     || (Has("chunk statistics m") && Has("differs from the values") && (Has("(Int32, None") || Has("(Int64, None"))

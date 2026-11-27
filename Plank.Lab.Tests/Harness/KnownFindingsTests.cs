@@ -14,6 +14,7 @@ public class KnownFindingsTests
     [Arguments("repros/statistics-ulong-in-signed-int64-order/wtm1-ulong-optional-in-signed-int64-plain-dictionary.bin", "uint-ulong-signed-stats")]
     [Arguments("writer-gap-seeds/delta-binary-packed-int32/public-generic-dispatch.bin", "uint-ulong-signed-stats")]
     [Arguments("corpus/encoding-plain-int96.bin", "distinct-count-zero-unordered")]
+    [Arguments("repros/statistics-distinct-count-zero-unordered/append-sorting-geometry-key.bin", "distinct-count-zero-unordered")]
     public async Task ReproInputIsRecognisedAsItsKnownFinding(string relativePath, string expectedId)
     {
         var data = File.ReadAllBytes(Path.Combine(FuzzDirectory(), relativePath));
@@ -41,6 +42,9 @@ public class KnownFindingsTests
             "written: statistics distinct_count differs from the values — row group 0, column 0 'x' (Int96, None, def=0, rep=0): distinct_count=5, actual=3"), all)).IsNull();
         await Assert.That(KnownFindings.Match(new InvalidOperationException(
             "written: statistics distinct_count differs from the values — row group 0, column 0 'x' (Int32, None, def=0, rep=0): distinct_count=0, actual=3"), all)).IsNull();
+        // A plain unannotated BYTE_ARRAY column (any other name) reporting distinct_count = 0 is not the geometry finding.
+        await Assert.That(KnownFindings.Match(new InvalidOperationException(
+            "written: statistics distinct_count differs from the values — row group 0, column 0 'name' (ByteArray, none, def=0, rep=0): distinct_count=0, actual=3"), all)).IsNull();
     }
 
     [Test]
