@@ -1,0 +1,6 @@
+Schemas/
+rejected/
+bin/
+obj/
+*.json
+build.log

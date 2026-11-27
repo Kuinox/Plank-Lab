@@ -64,6 +64,13 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.StartsWith(RandomSchemaMagic))
+        {
+            var randomCursor = new Cursor(data[RandomSchemaMagic.Length..]);
+            RunRandomSchema(ref randomCursor);
+            return;
+        }
+
         if (data.StartsWith(MergeSchemaMagic))
         {
             var mergeSchemaCursor = new Cursor(data[MergeSchemaMagic.Length..]);

@@ -9,6 +9,10 @@ public static partial class PlankRowApiFuzzTarget
     // byte stream onto a value that is valid for the column, including extremes.
     internal ref partial struct Cursor
     {
+        internal int Offset => _offset;
+
+        internal ReadOnlySpan<byte> Rest => _offset < _data.Length ? _data[_offset..] : [];
+
         internal bool NextBool() => NextByte() % 2 == 0;
 
         // Extremes are drawn on purpose: a uniformly random digit string almost never

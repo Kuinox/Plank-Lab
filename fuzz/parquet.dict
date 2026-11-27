@@ -193,3 +193,6 @@ surface_magic_options_sweep="OPT1"
 surface_marker_options_sweep="\xC2"
 surface_magic_nested_surface="NST1"
 surface_marker_nested_surface="\xC1"
+rowapi_random_schema_magic="RRS1"
+
+
