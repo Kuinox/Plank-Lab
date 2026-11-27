@@ -79,7 +79,50 @@ public static class PlankReaderFuzzTarget
     static readonly ParquetSchema[] Schemas = BuildSchemas();
 
     public static void Execute(ReadOnlySpan<byte> data)
-        => Execute(data, DefaultParquetBufferPool.Shared);
+    {
+        // Variant 0 keeps the process-wide shared pool; the others vary the pool
+        // the reader sees (exact-fit guarded buffers, zero-allocation retention,
+        // tiny retention caps) because the default pool's power-of-two slack hides
+        // reads/writes past the requested length.
+        var variant = PoolVariant(data);
+        if (variant == 0)
+        {
+            Execute(data, DefaultParquetBufferPool.Shared);
+            return;
+        }
+        using var pool = CreatePool(variant);
+        Execute(data, pool);
+    }
+
+    // Deterministic in the input so a crash replays, but independent of the
+    // selector bits so every route sees every pool.
+    internal static int PoolVariant(ReadOnlySpan<byte> data)
+    {
+        uint hash = 2166136261;
+        foreach (var b in data)
+            hash = (hash ^ b) * 16777619;
+        return (int)((hash >> 8) % PoolVariants);
+    }
+
+    const int PoolVariants = 7;
+
+    static IParquetBufferPool CreatePoolCore(int variant) => variant switch
+    {
+        1 => new ExactFitBufferPool(poison: false),
+        2 => new ExactFitBufferPool(poison: true),
+        3 => new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation),
+        4 => new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.Adaptive, 0),
+        5 => new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.Adaptive, 4096),
+        _ => new DefaultParquetBufferPool()
+    };
+
+    sealed class PoolHolder(IParquetBufferPool pool) : IParquetBufferPool, IDisposable
+    {
+        public ParquetBuffer Rent(uint minimumByteLength) => pool.Rent(minimumByteLength);
+        public void Dispose() => (pool as IDisposable)?.Dispose();
+    }
+
+    static PoolHolder CreatePool(int variant) => new(CreatePoolCore(variant));
 
     // Persistent AFL repeats the same testcase during calibration. A process-wide
     // adaptive buffer pool changes allocation/reuse branches between those runs,
@@ -87,7 +130,7 @@ public static class PlankReaderFuzzTarget
     // shared-pool behavior for normal coverage and validation.
     public static void ExecuteWithFreshBufferPool(ReadOnlySpan<byte> data)
     {
-        using var bufferPool = new DefaultParquetBufferPool();
+        using var bufferPool = CreatePool(PoolVariant(data));
         Execute(data, bufferPool);
     }
 
