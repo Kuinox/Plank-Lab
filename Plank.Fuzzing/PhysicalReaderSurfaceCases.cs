@@ -115,7 +115,7 @@ internal static class PhysicalReaderSurfaceCases
             ColumnDefinition.RequiredLeaf("c", ParquetPhysicalType.Int32)
         ]);
         var cuts = new SortedSet<int> { 0, rows };
-        while (cuts.Count < groups + 1)
+        for (var attempt = 0; attempt < 64 && cuts.Count < groups + 1; attempt++)
             cuts.Add(c.Int(1, rows));
         var bounds = cuts.ToArray();
         var what = $"PHY1 rows={rows} groups={bounds.Length - 1} page={pageBytes} {compression} {version} idx={indexes} crc={crc} bloom={bloom0}/{bloom1}";

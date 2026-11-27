@@ -108,7 +108,7 @@ internal static class PagePrunerSurfaceCases
                 ImmutableArray.Create(encoding)), pageStrategy: null);
         var schema = new PlankSchema([definition]);
         var cutSet = new SortedSet<int> { 0, rows };
-        while (cutSet.Count < groups + 1)
+        for (var attempt = 0; attempt < 64 && cutSet.Count < groups + 1; attempt++)
             cutSet.Add(c.Int(1, rows));
         var bounds = cutSet.ToArray();
 

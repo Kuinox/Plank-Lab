@@ -139,6 +139,12 @@ unsorted rows is not a defect; the oracle checks declared orders only on the app
   equality reaches `ParquetColumnChunkEncodings` (inline-array storage, no custom equality); later calls succeed. Repro:
   [`repros/chunk-info-equality/`](repros/chunk-info-equality/). Found by route `PHY1` (marker 0xC5, `PhysicalReaderSurfaceCases`),
   which otherwise passes (page cursor, chunk layout, per-page CRC, Bloom no-false-negative, ordinal probes, stale handles).
+- **`default(...)` of public handle structs throws `NullReferenceException`.** `default(NestedRowGroupColumn<T>).GetEnumerator()` and
+  `default(<its Enumerator>).MoveNext()` (found by route `SRF1`, `SurfaceReflectionCases`, counted not faulted; set
+  `PLANK_FUZZ_STRICT_DEFAULT_STRUCTS=1`). Low severity: a defined `InvalidOperationException` would be expected for an unusable default.
+- Routes `PRN1` (page pruner vs unfiltered read), `WRG1` (RowGroupWriter protocol misuse is refused atomically), `SRF1`
+  (value-type laws over every public type, default structs, ColumnBuffer/RowGroups index edges, MemoryReadSource/StreamReadSource/FileReadSource
+  offset+length boundaries) found no further defect in ~1200 random inputs each.
 
 ## Open library defect found by hand-rewritten footers (reader agent, 2026-11-27)
 

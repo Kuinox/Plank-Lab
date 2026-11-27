@@ -875,3 +875,21 @@ Status: **unreached** = no covered line in any target/ISA tier (W=writer, R=read
 | RowFuzzNullableBinary | .ctor, CreateDatasetWriterx2, CreateReaderx2, CreateRowReaderx2, CreateRowWriterx6, CreateWriter, Payload, Schema |
 | RowFuzzWide | .ctor, Blob, Clock, CreateDatasetWriterx2, CreateReaderx2, CreateRowReaderx2, CreateRowWriterx6, CreateWriter, Day, Dec32, Dec64, DecBytes, DecFixed, Dict, F32, F64, F64Alp, Flag, I32, I64, Instant, Mem, Odd, Schema, Seq, Stamp, Tag, Text, U16, U32, U64, U8, Uuid |
 | RowFuzzWideNullable | .ctor, Blob, Clock, CreateDatasetWriterx2, CreateReaderx2, CreateRowReaderx2, CreateRowWriterx6, CreateWriter, Day, Dec32, Dec64, DecBytes, DecFixed, Dict, F32, F64, F64Alp, Flag, I32, I64, Instant, Mem, Odd, Schema, Seq, Stamp, Tag, Text, U16, U32, U64, U8, Uuid |
+
+## Route review (surface agent): which public members are driven with fuzzer-chosen arguments
+
+Measured table above is *reach* only (cobertura of the seed corpus, master 3a6a28a: 429 reached, 42 unreached methods/properties — the unreached
+ones are attribute properties read only by SourceGen at compile time, geospatial statistics, a few offset/version getters, and
+`ParquetFileMetadata(ParquetSchema)`; 234 `no-code-map` entries are records' compiler-generated members, delegates, interfaces). Whether the
+arguments are fuzzer-chosen was judged by reading the routes. Routes added by this pass (each with seeds in `fuzz/corpus/surface-*`, magic in `parquet.dict`):
+
+| route (marker+magic) | file | members now driven with fuzzer-chosen args + correctness check |
+|---|---|---|
+| 0xC6 `PRN1` | PagePrunerSurfaceCases | `ParquetReader.Reset(stream/source, pruner)` reuse; `ParquetPagePruner` (subset mask, statistics predicate, accept/reject all) compared with the unfiltered read; `OpenPages` metadata (Count, indexer incl. ±1 bounds, `BoundaryOrder`, `RowGroupIndex`, `FirstRowIndex/RowCount` tiling, `IsNullPage`, `Offset/CompressedSize`) |
+| 0xC5 `PHY1` | PhysicalReaderSurfaceCases | `ParquetFileReader` (Reset/OpenPages/OpenBloomFilter/Dispose ordering, stale handles), `ParquetFileMetadata` (all counts, footer/chunk layout, key-values, created-by, sorting), `ParquetPageCursor` (header/payload/CRC32/value counts), `ParquetBloomFilter.MightContain` no false negatives, ordinal probes -1/0/n-1/n/int.Max |
+| 0xC4 `SRF1` | SurfaceReflectionCases | reflection over *all* public types: equality/hash/ToString/clone laws with edge-valued constructor args, `default(struct)` members, `ColumnBuffer.IsNull/GetValue/Retain`, `RowGroups[]`, `Column(int)`, `GetColumnMetadata(int)` index edges, `MemoryReadSource/StreamReadSource/FileReadSource.ReadExactly` offset/length boundaries |
+| 0xC3 `WRG1` | RowGroupProtocolCases | `RowGroupWriter.Write/CreateSerializedColumn`, `ParquetWriter.StartRowGroup/CloseFile/Reset/Dispose` ordering misuse and refusal atomicity |
+
+Still shallow (next): `ParquetFileMerger`/appender argument edges beyond the merger target, `DatasetWriter` rollover with fuzzed `PendingRowCapacity`,
+`ParquetGeospatialStatistics`, `RowReaderOptions` combinations on the row-API reader, `SerializedColumn.Serialize(ReadOnlySpan<T>)` exact/short span edges.
+Regenerate the table with `Plank.Fuzzing.ApiSurface` + `fuzz/api-surface-join.py` (see script header).
