@@ -31,6 +31,8 @@ COLS = [
     ("Tag", "RowFuzzId", "Converter = typeof(RowFuzzIdConverter)", "tag"),
     ("Odd", "int", r'"odd name.with\\back\u00e9\t\'q", FieldId = 77, BloomFilter = true', "i32"),
 ]
+ALL_COLS = COLS
+NO_CONVERTER = [c for c in COLS if c[3] != 'tag']
 # An id column is added first and always set to the row index, so rows can be matched
 # after reordering across files/partitions.
 
@@ -85,7 +87,8 @@ def eq_expr(kind, a, b, nullable, col):
         core = lambda x, y: f"{x} == {y}"
     return core
 
-def emit_class(name, nullable):
+def emit_class(name, nullable, cols=None):
+    COLS = cols if cols is not None else ALL_COLS
     o = []
     a = o.append
     a(f"[ParquetSchema(AllowAllocatingValues = true)]")
@@ -370,8 +373,8 @@ static class @S@Routes
             PreserveExistingMetadata = c.NextBool(),
             // The Tag column uses a value converter, and appending to the latest row group of an
             // existing file fails on such columns (fuzz/repros/dataset-append-latest-converter),
-            // so that option is kept off here until the library handles it.
-            AppendToLatestRowGroup = c.NextBool() && false,
+            // so for the wide schemas that option is off unless PLANK_FUZZ_APPEND_LATEST_CONVERTER=1.
+            AppendToLatestRowGroup = c.NextBool() && @APPENDLATEST@,
             WriterOptions = s.WriterOptions()
         };
         var failAt = c.NextInt(0, 3) == 0 ? c.NextInt(1, 40) : 0;
@@ -685,6 +688,10 @@ public sealed class RowFuzzIdConverter : ParquetValueConverter<RowFuzzId, int>
 """)
 for n, nl in (("RowFuzzWide", False), ("RowFuzzWideNullable", True)):
     print(emit_class(n, nl))
-    print(ROUTES.replace("@S@", n))
+    print(ROUTES.replace("@S@", n).replace("@APPENDLATEST@", 'Environment.GetEnvironmentVariable("PLANK_FUZZ_APPEND_LATEST_CONVERTER") == "1"'))
+# A converter-free nullable copy, for the dataset appends that re-read the latest row group.
+print(emit_class("RowFuzzFlatNullable", True, NO_CONVERTER))
+print(ROUTES.replace("@S@", "RowFuzzFlatNullable").replace("@APPENDLATEST@", "true"))
 # RowFuzzDeep is hand-written (RowFuzzDeep.cs); only its routes are generated.
-print(ROUTES.replace("@S@", "RowFuzzDeep"))
+# Appending to the latest row group is documented as unsupported for repeated columns (NotSupportedException).
+print(ROUTES.replace("@S@", "RowFuzzDeep").replace("@APPENDLATEST@", "false"))

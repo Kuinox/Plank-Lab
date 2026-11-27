@@ -57,6 +57,13 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.Length >= 4 && data[..4].SequenceEqual("RDA1"u8))
+        {
+            var appendCursor = new Cursor(data[4..]);
+            RowFuzzFlatNullableRoutes.RunDataset(ref appendCursor);
+            return;
+        }
+
         if (data.Length >= 4 && data[..4].SequenceEqual("RWD1"u8))
         {
             var deepCursor = new Cursor(data[4..]);

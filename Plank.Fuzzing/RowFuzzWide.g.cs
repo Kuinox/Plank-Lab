@@ -448,8 +448,8 @@ static class RowFuzzWideRoutes
             PreserveExistingMetadata = c.NextBool(),
             // The Tag column uses a value converter, and appending to the latest row group of an
             // existing file fails on such columns (fuzz/repros/dataset-append-latest-converter),
-            // so that option is kept off here until the library handles it.
-            AppendToLatestRowGroup = c.NextBool() && false,
+            // so for the wide schemas that option is off unless PLANK_FUZZ_APPEND_LATEST_CONVERTER=1.
+            AppendToLatestRowGroup = c.NextBool() && Environment.GetEnvironmentVariable("PLANK_FUZZ_APPEND_LATEST_CONVERTER") == "1",
             WriterOptions = s.WriterOptions()
         };
         var failAt = c.NextInt(0, 3) == 0 ? c.NextInt(1, 40) : 0;
@@ -1170,8 +1170,8 @@ static class RowFuzzWideNullableRoutes
             PreserveExistingMetadata = c.NextBool(),
             // The Tag column uses a value converter, and appending to the latest row group of an
             // existing file fails on such columns (fuzz/repros/dataset-append-latest-converter),
-            // so that option is kept off here until the library handles it.
-            AppendToLatestRowGroup = c.NextBool() && false,
+            // so for the wide schemas that option is off unless PLANK_FUZZ_APPEND_LATEST_CONVERTER=1.
+            AppendToLatestRowGroup = c.NextBool() && Environment.GetEnvironmentVariable("PLANK_FUZZ_APPEND_LATEST_CONVERTER") == "1",
             WriterOptions = s.WriterOptions()
         };
         var failAt = c.NextInt(0, 3) == 0 ? c.NextInt(1, 40) : 0;
@@ -1462,6 +1462,720 @@ static class RowFuzzWideNullableRoutes
             : RowFuzzWideNullable.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
 }
 
+[ParquetSchema(AllowAllocatingValues = true)]
+public sealed partial class RowFuzzFlatNullable
+{
+    public int Seq { get; set; }
+
+    public bool? Flag { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Integer)]
+    public byte? U8 { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Integer)]
+    public ushort? U16 { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Integer)]
+    public uint? U32 { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Integer)]
+    public ulong? U64 { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.DeltaBinaryPacked])]
+    public int? I32 { get; set; }
+
+    [ParquetColumn(Compression = CompressionKind.Zstd)]
+    public long? I64 { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.ByteStreamSplit])]
+    public float? F32 { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.ByteStreamSplit], Compression = CompressionKind.Snappy)]
+    public double? F64 { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.Alp])]
+    public double? F64Alp { get; set; }
+
+    [ParquetColumn(Precision = 9, Scale = 2)]
+    public decimal? Dec32 { get; set; }
+
+    [ParquetColumn(Precision = 18, Scale = 4)]
+    public decimal? Dec64 { get; set; }
+
+    [ParquetColumn(Precision = 28, Scale = 8)]
+    public decimal? DecFixed { get; set; }
+
+    [ParquetColumn(ParquetPhysicalType.ByteArray, Precision = 20, Scale = 3)]
+    public decimal? DecBytes { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.DeltaByteArray])]
+    public string? Text { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.RleDictionary])]
+    public string? Dict { get; set; }
+
+    [ParquetColumn(Encodings = [EncodingKind.DeltaLengthByteArray], Compression = CompressionKind.Gzip, CompressionLevel = 3)]
+    public byte[]? Blob { get; set; }
+
+    [ParquetColumn(BloomFilter = true)]
+    public ReadOnlyMemory<byte>? Mem { get; set; }
+
+    [ParquetColumn(BloomFilter = true)]
+    public Guid? Uuid { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Date)]
+    public DateOnly? Day { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Time)]
+    public TimeOnly? Clock { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Timestamp)]
+    public DateTime? Stamp { get; set; }
+
+    [ParquetColumn(LogicalType = LogicalTypeKind.Timestamp, Compression = CompressionKind.Lz4)]
+    public DateTimeOffset? Instant { get; set; }
+
+    [ParquetColumn("odd name.with\\back\u00e9\t\'q", FieldId = 77, BloomFilter = true)]
+    public int? Odd { get; set; }
+
+}
+
+static class RowFuzzFlatNullableOps
+{
+    internal const int MaxBinaryLength = 24;
+    internal const int ColumnCount = 25;
+
+    internal static RowFuzzFlatNullable Generate(ref PlankRowApiFuzzTarget.Cursor c, int seq)
+    {
+        var v = new RowFuzzFlatNullable { Seq = seq };
+        v.Flag = c.NextInt(0, 4) == 0 ? null : (bool?)(c.NextInt(0, 2) == 0);
+        v.U8 = c.NextInt(0, 4) == 0 ? null : (byte?)((byte)c.NextInt32());
+        v.U16 = c.NextInt(0, 4) == 0 ? null : (ushort?)((ushort)c.NextInt32());
+        v.U32 = c.NextInt(0, 4) == 0 ? null : (uint?)((uint)c.NextInt32());
+        v.U64 = c.NextInt(0, 4) == 0 ? null : (ulong?)((ulong)c.NextInt64());
+        v.I32 = c.NextInt(0, 4) == 0 ? null : (int?)(c.NextInt32());
+        v.I64 = c.NextInt(0, 4) == 0 ? null : (long?)(c.NextInt64());
+        v.F32 = c.NextInt(0, 4) == 0 ? null : (float?)(BitConverter.Int32BitsToSingle(c.NextInt32()));
+        v.F64 = c.NextInt(0, 4) == 0 ? null : (double?)(c.NextDouble());
+        v.F64Alp = c.NextInt(0, 4) == 0 ? null : (double?)(c.NextDouble());
+        v.Dec32 = c.NextInt(0, 4) == 0 ? null : (decimal?)(c.NextDecimal(9, 2));
+        v.Dec64 = c.NextInt(0, 4) == 0 ? null : (decimal?)(c.NextDecimal(18, 4));
+        v.DecFixed = c.NextInt(0, 4) == 0 ? null : (decimal?)(c.NextDecimal(28, 8));
+        v.DecBytes = c.NextInt(0, 4) == 0 ? null : (decimal?)(c.NextDecimal(20, 3));
+        v.Text = c.NextInt(0, 4) == 0 ? null : (string?)(c.NextLabel());
+        v.Dict = c.NextInt(0, 4) == 0 ? null : (string?)(c.NextDictLabel());
+        v.Blob = c.NextInt(0, 4) == 0 ? null : (byte[]?)(c.NextBytes(MaxBinaryLength));
+        v.Mem = c.NextInt(0, 4) == 0 ? null : (ReadOnlyMemory<byte>?)(new ReadOnlyMemory<byte>(c.NextBytes(MaxBinaryLength)));
+        v.Uuid = c.NextInt(0, 4) == 0 ? null : (Guid?)(c.NextGuid());
+        v.Day = c.NextInt(0, 4) == 0 ? null : (DateOnly?)(c.NextDate());
+        v.Clock = c.NextInt(0, 4) == 0 ? null : (TimeOnly?)(c.NextTime());
+        v.Stamp = c.NextInt(0, 4) == 0 ? null : (DateTime?)(c.NextTimestamp());
+        v.Instant = c.NextInt(0, 4) == 0 ? null : (DateTimeOffset?)(c.NextTimestampOffset());
+        v.Odd = c.NextInt(0, 4) == 0 ? null : (int?)(c.NextInt32());
+        return v;
+    }
+
+    internal static void Set(RowFuzzFlatNullable.Row r, RowFuzzFlatNullable v)
+    {
+        r.Seq = v.Seq;
+        r.Flag = v.Flag;
+        r.U8 = v.U8;
+        r.U16 = v.U16;
+        r.U32 = v.U32;
+        r.U64 = v.U64;
+        r.I32 = v.I32;
+        r.I64 = v.I64;
+        r.F32 = v.F32;
+        r.F64 = v.F64;
+        r.F64Alp = v.F64Alp;
+        r.Dec32 = v.Dec32;
+        r.Dec64 = v.Dec64;
+        r.DecFixed = v.DecFixed;
+        r.DecBytes = v.DecBytes;
+        r.Text = v.Text;
+        r.Dict = v.Dict;
+        r.Blob = v.Blob;
+        r.Mem = v.Mem;
+        r.Uuid = v.Uuid;
+        r.Day = v.Day;
+        r.Clock = v.Clock;
+        r.Stamp = v.Stamp;
+        r.Instant = v.Instant;
+        r.Odd = v.Odd;
+    }
+
+    internal static void SetCursor(ref RowFuzzFlatNullable.RowCursor r, RowFuzzFlatNullable v)
+    {
+        r.NextRow();
+        r.Seq = v.Seq;
+        r.Flag = v.Flag;
+        r.U8 = v.U8;
+        r.U16 = v.U16;
+        r.U32 = v.U32;
+        r.U64 = v.U64;
+        r.I32 = v.I32;
+        r.I64 = v.I64;
+        r.F32 = v.F32;
+        r.F64 = v.F64;
+        r.F64Alp = v.F64Alp;
+        r.Dec32 = v.Dec32;
+        r.Dec64 = v.Dec64;
+        r.DecFixed = v.DecFixed;
+        r.DecBytes = v.DecBytes;
+        r.Text = v.Text;
+        r.Dict = v.Dict;
+        r.Blob = v.Blob;
+        r.Mem = v.Mem;
+        r.Uuid = v.Uuid;
+        r.Day = v.Day;
+        r.Clock = v.Clock;
+        r.Stamp = v.Stamp;
+        r.Instant = v.Instant;
+        r.Odd = v.Odd;
+    }
+
+    internal static RowFuzzFlatNullable.Projection Project(int mask)
+    {
+        var p = RowFuzzFlatNullable.Projection.None;
+        if ((mask & 1) != 0) p |= RowFuzzFlatNullable.Projection.Seq;
+        if ((mask & 2) != 0) p |= RowFuzzFlatNullable.Projection.Flag;
+        if ((mask & 4) != 0) p |= RowFuzzFlatNullable.Projection.U8;
+        if ((mask & 8) != 0) p |= RowFuzzFlatNullable.Projection.U16;
+        if ((mask & 16) != 0) p |= RowFuzzFlatNullable.Projection.U32;
+        if ((mask & 32) != 0) p |= RowFuzzFlatNullable.Projection.U64;
+        if ((mask & 64) != 0) p |= RowFuzzFlatNullable.Projection.I32;
+        if ((mask & 128) != 0) p |= RowFuzzFlatNullable.Projection.I64;
+        if ((mask & 256) != 0) p |= RowFuzzFlatNullable.Projection.F32;
+        if ((mask & 512) != 0) p |= RowFuzzFlatNullable.Projection.F64;
+        if ((mask & 1024) != 0) p |= RowFuzzFlatNullable.Projection.F64Alp;
+        if ((mask & 2048) != 0) p |= RowFuzzFlatNullable.Projection.Dec32;
+        if ((mask & 4096) != 0) p |= RowFuzzFlatNullable.Projection.Dec64;
+        if ((mask & 8192) != 0) p |= RowFuzzFlatNullable.Projection.DecFixed;
+        if ((mask & 16384) != 0) p |= RowFuzzFlatNullable.Projection.DecBytes;
+        if ((mask & 32768) != 0) p |= RowFuzzFlatNullable.Projection.Text;
+        if ((mask & 65536) != 0) p |= RowFuzzFlatNullable.Projection.Dict;
+        if ((mask & 131072) != 0) p |= RowFuzzFlatNullable.Projection.Blob;
+        if ((mask & 262144) != 0) p |= RowFuzzFlatNullable.Projection.Mem;
+        if ((mask & 524288) != 0) p |= RowFuzzFlatNullable.Projection.Uuid;
+        if ((mask & 1048576) != 0) p |= RowFuzzFlatNullable.Projection.Day;
+        if ((mask & 2097152) != 0) p |= RowFuzzFlatNullable.Projection.Clock;
+        if ((mask & 4194304) != 0) p |= RowFuzzFlatNullable.Projection.Stamp;
+        if ((mask & 8388608) != 0) p |= RowFuzzFlatNullable.Projection.Instant;
+        if ((mask & 16777216) != 0) p |= RowFuzzFlatNullable.Projection.Odd;
+        return p;
+    }
+
+    // Returns the first column whose value differs from v, or null.
+    internal static string? Compare(RowFuzzFlatNullable.ReadRow r, RowFuzzFlatNullable v, int mask)
+    {
+        if ((mask & 1) != 0 && r.Seq != v.Seq) return "Seq";
+        if ((mask & 2) != 0 && (r.Flag != v.Flag)) return "Flag";
+        if ((mask & 4) != 0 && (r.U8 != v.U8)) return "U8";
+        if ((mask & 8) != 0 && (r.U16 != v.U16)) return "U16";
+        if ((mask & 16) != 0 && (r.U32 != v.U32)) return "U32";
+        if ((mask & 32) != 0 && (r.U64 != v.U64)) return "U64";
+        if ((mask & 64) != 0 && (r.I32 != v.I32)) return "I32";
+        if ((mask & 128) != 0 && (r.I64 != v.I64)) return "I64";
+        if ((mask & 256) != 0 && ((r.F32 is null) != (v.F32 is null) || (r.F32 is { } pv7 && BitConverter.SingleToInt32Bits(pv7) != BitConverter.SingleToInt32Bits(v.F32!.Value)))) return "F32";
+        if ((mask & 512) != 0 && ((r.F64 is null) != (v.F64 is null) || (r.F64 is { } pv8 && BitConverter.DoubleToInt64Bits(pv8) != BitConverter.DoubleToInt64Bits(v.F64!.Value)))) return "F64";
+        if ((mask & 1024) != 0 && ((r.F64Alp is null) != (v.F64Alp is null) || (r.F64Alp is { } pv9 && BitConverter.DoubleToInt64Bits(pv9) != BitConverter.DoubleToInt64Bits(v.F64Alp!.Value)))) return "F64Alp";
+        if ((mask & 2048) != 0 && (r.Dec32 != v.Dec32)) return "Dec32";
+        if ((mask & 4096) != 0 && (r.Dec64 != v.Dec64)) return "Dec64";
+        if ((mask & 8192) != 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
+        if ((mask & 16384) != 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
+        if ((mask & 32768) != 0 && (!string.Equals(r.Text, v.Text, StringComparison.Ordinal))) return "Text";
+        if ((mask & 65536) != 0 && (!string.Equals(r.Dict, v.Dict, StringComparison.Ordinal))) return "Dict";
+        if ((mask & 131072) != 0 && ((r.Blob.IsNull != (v.Blob is null)) || (!r.Blob.IsNull && !r.Blob.Value.SequenceEqual(v.Blob)))) return "Blob";
+        if ((mask & 262144) != 0 && ((r.Mem.IsNull != !v.Mem.HasValue) || (!r.Mem.IsNull && !r.Mem.Value.SequenceEqual(v.Mem.Value.Span)))) return "Mem";
+        if ((mask & 524288) != 0 && (r.Uuid != v.Uuid)) return "Uuid";
+        if ((mask & 1048576) != 0 && (r.Day != v.Day)) return "Day";
+        if ((mask & 2097152) != 0 && (r.Clock != v.Clock)) return "Clock";
+        if ((mask & 4194304) != 0 && (r.Stamp != v.Stamp)) return "Stamp";
+        if ((mask & 8388608) != 0 && (r.Instant != v.Instant)) return "Instant";
+        if ((mask & 16777216) != 0 && (r.Odd != v.Odd)) return "Odd";
+        return null;
+    }
+}
+
+
+static class RowFuzzFlatNullableRoutes
+{
+    internal static void Run(ref PlankRowApiFuzzTarget.Cursor c)
+    {
+        var s = RowRouteSettings.Draw(ref c);
+        RowRouteSettings.Announce(s);
+        try
+        {
+            RunCore(ref c, s);
+        }
+        catch (PlankRowApiFuzzTarget.RowApiRoundTripException ex)
+        {
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(ex.Message + " | " + s);
+        }
+        catch (Exception ex) when (RowRouteSettings.Trace(ex, s))
+        {
+            throw;
+        }
+    }
+
+    static void RunCore(ref PlankRowApiFuzzTarget.Cursor c, RowRouteSettings s)
+    {
+        var rows = new RowFuzzFlatNullable[s.Count];
+        for (var i = 0; i < rows.Length; i++)
+            rows[i] = RowFuzzFlatNullableOps.Generate(ref c, i);
+        var options = s.WriterOptions();
+        switch (s.Route)
+        {
+            case RowWriteRoute.PipelineStream:
+            case RowWriteRoute.PipelineCursor:
+            {
+                using var stream = new MemoryStream();
+                var flushed = 0;
+                using (var w = CreatePipeline(stream, s, options, n => flushed += n))
+                {
+                    if (s.Route == RowWriteRoute.PipelineCursor)
+                    {
+                        var cursor = w.CreateCursor();
+                        foreach (var v in rows)
+                            RowFuzzFlatNullableOps.SetCursor(ref cursor, v);
+                    }
+                    else
+                    {
+                        foreach (var v in rows)
+                            RowFuzzFlatNullableOps.Set(w.GetRow(), v);
+                    }
+                    w.Complete();
+                }
+                if ((s.WriterVariant & 1) != 0 && flushed != rows.Length)
+                    throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable flush callback saw {flushed} rows; expected {rows.Length}.");
+                CheckFile(stream.ToArray(), rows, s, "RowFuzzFlatNullable pipeline");
+                break;
+            }
+            case RowWriteRoute.PipelineReset:
+            {
+                var split = rows.Length / 2;
+                using var first = new MemoryStream();
+                using var second = new MemoryStream();
+                using (var w = CreatePipeline(first, s, options, null))
+                {
+                    foreach (var v in rows.AsSpan(0, split))
+                        RowFuzzFlatNullableOps.Set(w.GetRow(), v);
+                    w.Complete();
+                    w.Reset(second);
+                    foreach (var v in rows.AsSpan(split))
+                        RowFuzzFlatNullableOps.Set(w.GetRow(), v);
+                    w.Complete();
+                }
+                CheckFile(first.ToArray(), rows[..split], s, "RowFuzzFlatNullable before reset");
+                CheckFile(second.ToArray(), rows[split..], s, "RowFuzzFlatNullable after reset");
+                break;
+            }
+            case RowWriteRoute.Rolling:
+            {
+                var store = new InMemoryFileStore();
+                using var file = new InMemoryDatasetFile(store);
+                ParquetFilePath path = (ulong index, IParquetBufferPool _, out ParquetBuffer? allocation) =>
+                {
+                    allocation = null;
+                    return System.Text.Encoding.UTF8.GetBytes($"part-{index:D6}.parquet");
+                };
+                using (var w = RowFuzzFlatNullable.CreateRowWriter(path, file, options))
+                {
+                    foreach (var v in rows)
+                        RowFuzzFlatNullableOps.Set(w.GetRow(), v);
+                    w.Complete();
+                }
+                var parts = store.Files.OrderBy(static f => f.Key, StringComparer.Ordinal).ToArray();
+                var next = 0;
+                for (var i = 0; i < parts.Length; i++)
+                {
+                    if (parts[i].Key != $"part-{i:D6}.parquet")
+                        throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable rolling writer skipped a file index before '{parts[i].Key}'.");
+                    var bytes = parts[i].Value.ToArray();
+                    var count = ReadAll(bytes, rows, next, s, "RowFuzzFlatNullable rolling part " + i);
+                    if (count == 0 && rows.Length > 0)
+                        throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable rolling writer produced an empty file part {i}.");
+                    next += count;
+                }
+                if (next != rows.Length)
+                    throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable rolling writer kept {next} of {rows.Length} rows.");
+                break;
+            }
+            case RowWriteRoute.DirectGroups:
+            {
+                // Several row groups per file, each with its own writer and an
+                // independently drawn capacity; the groups are never the same size.
+                using var stream = new MemoryStream();
+                var sizes = new int[s.Groups];
+                var left = rows.Length;
+                for (var g = 0; g < sizes.Length; g++)
+                {
+                    sizes[g] = g == sizes.Length - 1 ? left : Math.Min(left, c.NextInt(0, rows.Length + 1));
+                    left -= sizes[g];
+                }
+                using (var parquetWriter = RowFuzzFlatNullable.Schema.CreateWriter(stream, options))
+                {
+                    var at = 0;
+                    for (var g = 0; g < sizes.Length; g++)
+                    {
+                        var groupOptions = new ParquetWriterOptions
+                        {
+                            RowApiInitialRowCapacity = g == 0 ? s.InitialCapacity : c.NextInt(1, 6),
+                            TargetRowGroupSizeBytes = options.TargetRowGroupSizeBytes,
+                            TargetFileSizeBytes = options.TargetFileSizeBytes
+                        };
+                        var gw = RowFuzzFlatNullable.CreateRowWriter(parquetWriter.StartRowGroup(), groupOptions);
+                        for (var i = 0; i < sizes[g]; i++)
+                            RowFuzzFlatNullableOps.Set(gw.GetRow(), rows[at++]);
+                        gw.Write();
+                    }
+                    parquetWriter.CloseFile();
+                }
+                var bytes = stream.ToArray();
+                using (var meta = RowFuzzFlatNullable.Schema.CreateReader(new MemoryStream(bytes, writable: false)))
+                {
+                    if (meta.RowGroups.Count != sizes.Length)
+                        throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable direct writer wrote {meta.RowGroups.Count} row groups; expected {sizes.Length}.");
+                    for (var g = 0; g < sizes.Length; g++)
+                        if (meta.RowGroups[g].RowCount != (ulong)sizes[g])
+                            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable direct row group {g} has {meta.RowGroups[g].RowCount} rows; expected {sizes[g]}.");
+                }
+                CheckFile(bytes, rows, s, "RowFuzzFlatNullable direct groups");
+                break;
+            }
+        }
+    }
+
+
+    static readonly byte[][] DatasetKeys = [.. Enumerable.Range(0, 6).Select(static i => System.Text.Encoding.UTF8.GetBytes($"part{i}"))];
+
+    static int PartitionOf(RowFuzzFlatNullable v, int partitions)
+        => (int)((((uint)v.Seq * 2654435761u) >> 8) % (uint)partitions);
+
+    // Routes generated rows through the generated dataset writer with independent pool size,
+    // pending capacity, append options, rollover and (optionally) an injected I/O fault.
+    internal static void RunDataset(ref PlankRowApiFuzzTarget.Cursor c)
+    {
+        var s = RowRouteSettings.Draw(ref c);
+        RowRouteSettings.Announce(s);
+        try
+        {
+            RunDatasetCore(ref c, s);
+        }
+        catch (PlankRowApiFuzzTarget.RowApiRoundTripException ex)
+        {
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(ex.Message + " | " + s);
+        }
+        catch (Exception ex) when (RowRouteSettings.Trace(ex, s))
+        {
+            throw;
+        }
+    }
+
+    static void RunDatasetCore(ref PlankRowApiFuzzTarget.Cursor c, RowRouteSettings s)
+    {
+        var partitions = c.NextInt(1, 7);
+        var createParts = c.NextBool();
+        var ownedPath = c.NextBool();
+        var poolSize = c.NextInt(1, 5);
+        var pending = (uint)(c.NextInt(0, 4) == 0 ? 0 : c.NextInt(1, 12));
+        var append = new ParquetAppendOptions
+        {
+            PreserveExistingMetadata = c.NextBool(),
+            // The Tag column uses a value converter, and appending to the latest row group of an
+            // existing file fails on such columns (fuzz/repros/dataset-append-latest-converter),
+            // so for the wide schemas that option is off unless PLANK_FUZZ_APPEND_LATEST_CONVERTER=1.
+            AppendToLatestRowGroup = c.NextBool() && true,
+            WriterOptions = s.WriterOptions()
+        };
+        var failAt = c.NextInt(0, 3) == 0 ? c.NextInt(1, 40) : 0;
+        var plan = new DatasetFaultPlan(failAt, c.NextInt(1, 64), c.NextBool());
+        var rows = new RowFuzzFlatNullable[s.Count];
+        for (var i = 0; i < rows.Length; i++)
+            rows[i] = RowFuzzFlatNullableOps.Generate(ref c, i);
+
+        var store = new InMemoryFileStore();
+        var files = new FaultingDatasetFile[poolSize];
+        for (var i = 0; i < files.Length; i++)
+            files[i] = new FaultingDatasetFile(new InMemoryDatasetFile(store), plan);
+        var options = new DatasetWriterOptions
+        {
+            AppendOptions = append,
+            WriterOptions = append.WriterOptions,
+            PendingRowCapacity = createParts ? 0 : pending
+        };
+        RowFuzzFlatNullable.Route route = (RowFuzzFlatNullable row, IParquetBufferPool pool, out ParquetBuffer? allocation) =>
+        {
+            var key = DatasetKeys[PartitionOf(row, partitions)];
+            if (!ownedPath)
+            {
+                allocation = null;
+                return key;
+            }
+            var owner = pool.Rent(checked((uint)(key.Length + 1)));
+            allocation = owner;
+            key.CopyTo(owner.Span[1..]);
+            return owner.Span[1..(key.Length + 1)];
+        };
+        DatasetFilePath filePath = (ReadOnlySpan<byte> key, ulong index, IParquetBufferPool pool, out ParquetBuffer? allocation) =>
+        {
+            allocation = null;
+            return System.Text.Encoding.UTF8.GetBytes($"{System.Text.Encoding.UTF8.GetString(key)}-{index}");
+        };
+
+        var writer = createParts
+            ? RowFuzzFlatNullable.CreateDatasetWriter(route, filePath, files, options)
+            : RowFuzzFlatNullable.CreateDatasetWriter(route, files, options);
+        Exception? injected = null;
+        try
+        {
+            foreach (var row in rows)
+                writer.Queue(row);
+        }
+        catch (Exception ex) when (DatasetFaultPlan.IsInjected(ex))
+        {
+            injected = ex;
+        }
+
+        if (injected is not null)
+        {
+            // A failed dataset writer is permanently faulted: later calls rethrow the original failure.
+            try
+            {
+                writer.Queue(rows.Length > 0 ? rows[0] : RowFuzzFlatNullableOps.Generate(ref c, 0));
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException("RowFuzzFlatNullable dataset writer accepted a row after a failure.");
+            }
+            catch (IOException again) when (again.Message == injected.Message)
+            {
+            }
+            // The failure was already reported to the caller, so cleanup must not throw it again.
+            writer.Dispose();
+        }
+        else
+        {
+            try
+            {
+                writer.Dispose();
+            }
+            catch (Exception ex) when (DatasetFaultPlan.IsInjected(ex))
+            {
+                injected = ex;
+            }
+        }
+
+        try
+        {
+            writer.Dispose();
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException("RowFuzzFlatNullable dataset writer accepted a second Dispose.");
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        if (Environment.GetEnvironmentVariable("PLANK_FUZZ_TRACE") == "2")
+            Console.Error.WriteLine($"DATASET rows={rows.Length} parts={partitions} files={store.Files.Count} pool={poolSize} pending={pending} createParts={createParts} failAt={failAt} fired={plan.Fired} injected={injected is not null}");
+        if (injected is not null)
+        {
+            if (!plan.Fired)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException("RowFuzzFlatNullable dataset reported an injected fault that never fired.");
+            return;
+        }
+        if (plan.Fired)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException("RowFuzzFlatNullable dataset swallowed an injected fault.");
+
+        var expectedByPartition = Enumerable.Range(0, partitions).Select(static _ => new List<int>()).ToArray();
+        foreach (var row in rows)
+            expectedByPartition[PartitionOf(row, partitions)].Add(row.Seq);
+        var actualByPartition = Enumerable.Range(0, partitions).Select(static _ => new List<(ulong Part, List<int> Seqs)>()).ToArray();
+        foreach (var (path, stream) in store.Files)
+        {
+            if (stream.Length == 0)
+                continue;
+            var partition = -1;
+            for (var i = 0; i < partitions; i++)
+                if (path.StartsWith($"part{i}", StringComparison.Ordinal) && (path.Length == 5 || path[5] == '-'))
+                    partition = i;
+            if (partition < 0)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable dataset file '{path}' names no partition.");
+            var part = createParts && ulong.TryParse(path.AsSpan(path.LastIndexOf('-') + 1), out var index) ? index : 0;
+            actualByPartition[partition].Add((part, ReadSeqs(stream.ToArray(), rows, s, partition, partitions, path)));
+        }
+        for (var p = 0; p < partitions; p++)
+        {
+            var merged = actualByPartition[p].OrderBy(static x => x.Part).SelectMany(static x => x.Seqs).ToList();
+            if (!merged.SequenceEqual(expectedByPartition[p]))
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
+                    $"RowFuzzFlatNullable dataset partition {p} holds {merged.Count} rows in a different order or set than the {expectedByPartition[p].Count} queued.");
+        }
+    }
+
+    static List<int> ReadSeqs(byte[] bytes, RowFuzzFlatNullable[] rows, RowRouteSettings s, int partition, int partitions, string path)
+    {
+        var seqs = new List<int>();
+        using var reader = RowFuzzFlatNullable.CreateRowReader(new MemoryStream(bytes, writable: false), default, s.ReaderOptions());
+        while (reader.MoveNext())
+        {
+            var seq = reader.Current.Seq;
+            if ((uint)seq >= (uint)rows.Length)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable dataset file '{path}' returned unknown Seq {seq}.");
+            if (PartitionOf(rows[seq], partitions) != partition)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable dataset row {seq} was written to '{path}' (partition {partition}).");
+            var diff = RowFuzzFlatNullableOps.Compare(reader.Current, rows[seq], (1 << RowFuzzFlatNullableOps.ColumnCount) - 1);
+            if (diff is not null)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable dataset lost '{diff}' of row {seq} in '{path}'.");
+            seqs.Add(seq);
+        }
+        return seqs;
+    }
+
+
+    // Writes several files with independently drawn writer settings (so each has its own
+    // row-group layout, codec and page version), merges them with drawn merge options, and
+    // checks the merged file holds exactly the concatenation, with consistent counters.
+    internal static void RunMerge(ref PlankRowApiFuzzTarget.Cursor c)
+    {
+        var s = RowRouteSettings.Draw(ref c);
+        RowRouteSettings.Announce(s);
+        try
+        {
+            RunMergeCore(ref c, s);
+        }
+        catch (PlankRowApiFuzzTarget.RowApiRoundTripException ex)
+        {
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(ex.Message + " | " + s);
+        }
+        catch (Exception ex) when (RowRouteSettings.Trace(ex, s))
+        {
+            throw;
+        }
+    }
+
+    static void RunMergeCore(ref PlankRowApiFuzzTarget.Cursor c, RowRouteSettings s)
+    {
+        var fileCount = c.NextInt(1, 5);
+        var all = new List<RowFuzzFlatNullable>();
+        var files = new byte[fileCount][];
+        var groupCounts = new int[fileCount];
+        for (var f = 0; f < fileCount; f++)
+        {
+            var fs = RowRouteSettings.Draw(ref c);
+            var count = Math.Min(fs.Count, 40);
+            var rows = new RowFuzzFlatNullable[count];
+            for (var i = 0; i < count; i++)
+                rows[i] = RowFuzzFlatNullableOps.Generate(ref c, all.Count + i);
+            all.AddRange(rows);
+            using var stream = new MemoryStream();
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            {
+                foreach (var v in rows)
+                    RowFuzzFlatNullableOps.Set(w.GetRow(), v);
+                w.Complete();
+            }
+            files[f] = stream.ToArray();
+            using var meta = RowFuzzFlatNullable.Schema.CreateReader(new MemoryStream(files[f], writable: false));
+            groupCounts[f] = meta.RowGroups.Count;
+        }
+
+        var options = new ParquetMergeOptions
+        {
+            PreserveFirstFileMetadata = c.NextBool(),
+            WriterOptions = s.WriterOptions()
+        };
+        using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
+        ParquetFileMerger merger;
+        if (c.NextBool())
+        {
+            destination.Write(0, files[0]);
+            merger = RowFuzzFlatNullable.Schema.CreateMerger(destination, options);
+        }
+        else
+        {
+            merger = RowFuzzFlatNullable.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+        }
+        for (var f = 1; f < fileCount; f++)
+            merger.AppendFile(new MemoryReadSource(files[f]));
+        if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
+                $"RowFuzzFlatNullable merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
+        merger.CloseFile();
+        CheckFile(destination.ToArray(), all.ToArray(), s, "RowFuzzFlatNullable merged");
+    }
+
+    static RowFuzzFlatNullable.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)
+        => s.WriterVariant switch
+        {
+            0 => RowFuzzFlatNullable.CreateRowWriter(stream, options),
+            1 => RowFuzzFlatNullable.CreateRowWriter(stream, onFlush, options),
+            2 => RowFuzzFlatNullable.CreateRowWriter(stream, s.ExplicitParallelism, options),
+            _ => RowFuzzFlatNullable.CreateRowWriter(stream, s.ExplicitParallelism, onFlush, options)
+        };
+
+    static void CheckFile(byte[] bytes, RowFuzzFlatNullable[] rows, RowRouteSettings s, string what)
+    {
+        var count = ReadAll(bytes, rows, 0, s, what);
+        if (count != rows.Length)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} read back {count} rows; expected {rows.Length}.");
+        using var meta = RowFuzzFlatNullable.Schema.CreateReader(new MemoryStream(bytes, writable: false));
+        ulong total = 0;
+        foreach (var group in meta.RowGroups)
+            total += group.RowCount;
+        if (total != (ulong)rows.Length)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} footer row groups sum to {total} rows; expected {rows.Length}.");
+    }
+
+    // Reads the whole file through the generated row reader (optionally projected, via
+    // a read source, or on a reader reused across files) and compares every row from
+    // rows[offset..] with the projected columns. Returns the rows read.
+    static int ReadAll(byte[] bytes, RowFuzzFlatNullable[] rows, int offset, RowRouteSettings s, string what)
+    {
+        var mask = s.ProjectionMask(RowFuzzFlatNullableOps.ColumnCount);
+        var projection = s.ProjectionMode == 0 ? default : RowFuzzFlatNullableOps.Project(mask);
+        var readerOptions = s.ReaderOptions();
+        var index = 0;
+        using var reader = Open(bytes, projection, readerOptions, s.ReadViaSource);
+        var pass = 0;
+        while (true)
+        {
+            while (reader.MoveNext())
+            {
+                if (offset + index >= rows.Length)
+                    throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} returned an extra row {index}.");
+                var diff = RowFuzzFlatNullableOps.Compare(reader.Current, rows[offset + index], mask);
+                if (diff is not null)
+                    throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} lost '{diff}' at row {offset + index} (mask {mask:x}).");
+                index++;
+            }
+            if (!s.ReuseReader || pass++ > 0)
+                break;
+            // The same reader object re-opened on the same bytes must read the same rows.
+            var first = index;
+            if (s.ReadViaSource)
+                reader.Reset(new MemoryReadSource(bytes), projection);
+            else
+                reader.Reset(new MemoryStream(bytes, writable: false), projection);
+            var again = 0;
+            while (reader.MoveNext())
+            {
+                if (offset + again >= rows.Length)
+                    throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} reset reader returned an extra row {again}.");
+                var diff = RowFuzzFlatNullableOps.Compare(reader.Current, rows[offset + again], mask);
+                if (diff is not null)
+                    throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} reset reader lost '{diff}' at row {offset + again}.");
+                again++;
+            }
+            if (again != first)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"{what} reset reader returned {again} rows; first pass {first}.");
+            break;
+        }
+        return index;
+    }
+
+    static RowFuzzFlatNullable.RowReader Open(byte[] bytes, RowFuzzFlatNullable.Projection projection, Plank.RowApi.RowReaderOptions options, bool viaSource)
+        => viaSource
+            ? RowFuzzFlatNullable.CreateRowReader(new MemoryReadSource(bytes), projection, options)
+            : RowFuzzFlatNullable.CreateRowReader(new MemoryStream(bytes, writable: false), projection, options);
+}
+
 
 static class RowFuzzDeepRoutes
 {
@@ -1649,7 +2363,7 @@ static class RowFuzzDeepRoutes
             PreserveExistingMetadata = c.NextBool(),
             // The Tag column uses a value converter, and appending to the latest row group of an
             // existing file fails on such columns (fuzz/repros/dataset-append-latest-converter),
-            // so that option is kept off here until the library handles it.
+            // so for the wide schemas that option is off unless PLANK_FUZZ_APPEND_LATEST_CONVERTER=1.
             AppendToLatestRowGroup = c.NextBool() && false,
             WriterOptions = s.WriterOptions()
         };

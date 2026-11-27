@@ -95,17 +95,21 @@ public static class PlankDatasetOperationalFuzzTarget
             {
             }
 
-            // The failed promotion leaves both parked rows in the full pool.
-            // Promoting the newest key (p2) leaves p1 pending, so this retry
-            // also takes QueueRow's full-pool path where the requested key is
-            // not the key just activated.
-            writer.Queue(new RowFuzzFixed { Id = 1, Sequence = 12 });
+            // Since Plank #274 a Queue failure faults the writer permanently: the original
+            // failure is rethrown by every later call, and Dispose (below) must not throw it
+            // again nor leak the parked rows and pending keys. Retrying is no longer supported.
+            try
+            {
+                writer.Queue(new RowFuzzFixed { Id = 1, Sequence = 12 });
+                throw new InvalidOperationException("A faulted dataset writer accepted a row.");
+            }
+            catch (IOException exception) when (exception.Message == "Injected dataset Open failure for p2.")
+            {
+            }
         }
 
-        var expected = new HashSet<(int Id, long Sequence)>
-        {
-            (0, 10), (1, 11), (1, 12), (2, 21)
-        };
+        // Every row that did reach a file must be intact and unique; rows may be lost with the fault.
+        var allowed = new HashSet<(int Id, long Sequence)> { (0, 10), (1, 11), (1, 12), (2, 21) };
         var seen = new HashSet<(int Id, long Sequence)>();
         foreach (var fileBytes in file.Files.Values)
         {
@@ -114,12 +118,14 @@ public static class PlankDatasetOperationalFuzzTarget
             using var reader = RowFuzzFixed.CreateRowReader(
                 new MemoryStream(fileBytes.ToArray(), writable: false));
             while (reader.MoveNext())
-                if (!seen.Add((reader.Current.Id, reader.Current.Sequence)))
+            {
+                var key = (reader.Current.Id, reader.Current.Sequence);
+                if (!allowed.Contains(key))
+                    throw new InvalidOperationException("An unexpected dataset row appeared after an Open failure.");
+                if (!seen.Add(key))
                     throw new InvalidOperationException("A dataset row was duplicated after an Open failure.");
+            }
         }
-
-        if (!seen.SetEquals(expected))
-            throw new InvalidOperationException("A dataset row was lost after an Open failure and retry.");
     }
 
     static void RunParkedCopyFailure(bool throwBeforeFirstPark)
@@ -148,36 +154,23 @@ public static class PlankDatasetOperationalFuzzTarget
             {
             }
 
-            writer.Queue(new RowFuzzDatasetBinary
+            // The failure is permanent (Plank #274): the next Queue rethrows it.
+            try
             {
-                Id = throwBeforeFirstPark ? 2 : 4,
-                Payload = [throwBeforeFirstPark ? (byte)20 : (byte)40]
-            });
-        }
-
-        var expected = throwBeforeFirstPark ? new[] { 2 } : new[] { 2, 4 };
-        var seen = new HashSet<int>();
-        foreach (var (path, stream) in store.Files)
-        {
-            if (stream.Length == 0)
-                continue;
-            using var reader = RowFuzzDatasetBinary.CreateRowReader(
-                new MemoryStream(stream.ToArray(), writable: false));
-            while (reader.MoveNext())
-            {
-                var row = reader.Current;
-                if (path == "p1" && expected.Contains(row.Id))
+                writer.Queue(new RowFuzzDatasetBinary
                 {
-                    var payload = row.Id == 2 ? (byte)20 : (byte)40;
-                    if (row.Payload.IsNull || !row.Payload.Value.SequenceEqual([payload]))
-                        throw new InvalidOperationException($"Parked row {row.Id} changed after a copy failure.");
-                    if (!seen.Add(row.Id))
-                        throw new InvalidOperationException($"Parked row {row.Id} was duplicated after a copy failure.");
-                }
+                    Id = throwBeforeFirstPark ? 2 : 4,
+                    Payload = [throwBeforeFirstPark ? (byte)20 : (byte)40]
+                });
+                throw new InvalidOperationException("A faulted dataset writer accepted a row.");
+            }
+            catch (ArgumentNullException exception) when (exception.ParamName == "bytes")
+            {
             }
         }
-        if (!seen.SetEquals(expected))
-            throw new InvalidOperationException("Valid parked rows were lost after a copy failure.");
+
+        // The faulted writer abandons its files, so they may legitimately be incomplete:
+        // nothing further is read back here (the rows that reached disk are not promised).
     }
 
     static void RunDisposedGuards()

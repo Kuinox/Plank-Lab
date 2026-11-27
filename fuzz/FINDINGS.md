@@ -61,8 +61,8 @@ header probing. Their fixes landed as #169 and #171, and in reworked form as
 - **Dataset append with `AppendToLatestRowGroup = true` fails for a column with a value converter.** Re-opening an existing
   partition file reaches `LatestRowGroupValues.ReadFixed<int>` which throws `InvalidOperationException: Column 'Tag' uses a
   converter for 'RowFuzzId' and cannot be read as 'Int32'` (`ParquetWriter.OpenAppendFile`). Repro:
-  [`repros/dataset-append-latest-converter/`](repros/dataset-append-latest-converter/) (an `RDN1` input from before the option
-  was gated off in the generated dataset route).
+  [`repros/dataset-append-latest-converter/`](repros/dataset-append-latest-converter/) (an `RDN1` input; replay it with
+  `PLANK_FUZZ_APPEND_LATEST_CONVERTER=1`, the option is off for the converter-bearing wide schemas by default).
 - **Source generator emits uncompilable code for a column name containing `"`.** `Escape()` in `ParquetRowGenerator` and
   `NestedParquetRowEmitter` uses `SymbolDisplay.FormatLiteral(value, quote: false)`, which does not escape the double quote.
   `[ParquetColumn("a\"b")]` yields `Leaf("a"b", ...)`. (A compile-time defect; no fuzz seed.)

@@ -159,3 +159,5 @@ writer_magic_column_statistics_binary_coverage="CSB1"
 writer_magic_repeated_accumulator_coverage="RAL1"
 writer_magic_row_group_write_coverage="RGW1"
 magic_EXEC="EXEC"
+rowapi_flat_dataset_append_magic="RDA1"
+

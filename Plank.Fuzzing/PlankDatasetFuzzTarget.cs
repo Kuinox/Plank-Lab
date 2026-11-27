@@ -35,14 +35,9 @@ public static class PlankDatasetFuzzTarget
         if (data.Length < 2)
             return;
 
-        try
-        {
-            Run(data);
-        }
-        catch (Exception ex) when (ex is CorruptParquetException or NotSupportedException
-            or InvalidOperationException)
-        {
-        }
+        // No blanket filter: the only rejected input is the deliberate empty rollover path,
+        // handled in Run. Any other exception is a library finding.
+        Run(data);
     }
 
     static void Run(ReadOnlySpan<byte> data)
@@ -65,18 +60,29 @@ public static class PlankDatasetFuzzTarget
         for (var i = 0; i < files.Length; i++)
             files[i] = new InMemoryDatasetFile(store);
 
+        // Small enough that a 64-row case flushes more than once, which is the
+        // only way to reach the append path rather than a single create.
+        var pending = createParts ? 0 : (uint)cursor.NextInt(1, 17);
+        // Read after the original draws so existing seeds keep their meaning. Capacity, row-group
+        // size and the append options are independent of the row count and of each other.
+        var capacity = cursor.NextInt(1, 9);
+        var rowGroupBytes = cursor.NextInt(0, 3) switch { 0 => 1UL, 1 => 64UL, _ => 128UL * 1024 * 1024 };
+        var append = new Plank.Writing.ParquetAppendOptions
+        {
+            PreserveExistingMetadata = cursor.NextInt(0, 2) == 0,
+            AppendToLatestRowGroup = cursor.NextInt(0, 2) == 0
+        };
+        var writerOptions = new Plank.Writing.ParquetWriterOptions
+        {
+            RowApiInitialRowCapacity = capacity,
+            TargetRowGroupSizeBytes = createParts ? 1 : rowGroupBytes,
+            TargetFileSizeBytes = createParts ? 1 : 512UL * 1024 * 1024
+        };
         var options = new DatasetWriterOptions
         {
-            // Small enough that a 64-row case flushes more than once, which is the
-            // only way to reach the append path rather than a single create.
-            PendingRowCapacity = createParts ? 0 : (uint)cursor.NextInt(1, 17),
-            WriterOptions = createParts
-                ? new Plank.Writing.ParquetWriterOptions
-                {
-                    TargetRowGroupSizeBytes = 1,
-                    TargetFileSizeBytes = 1
-                }
-                : Plank.Writing.ParquetWriterOptions.Default
+            PendingRowCapacity = pending,
+            AppendOptions = append,
+            WriterOptions = writerOptions
         };
 
         RowFuzzFixed.Route route = (RowFuzzFixed row, IParquetBufferPool pool,
@@ -104,12 +110,19 @@ public static class PlankDatasetFuzzTarget
                 return ReadOnlySpan<byte>.Empty;
             return Encoding.UTF8.GetBytes($"{Encoding.UTF8.GetString(key)}-{index}");
         };
-        using (var writer = createParts
-                   ? RowFuzzFixed.CreateDatasetWriter(route, filePath, files, options)
-                   : RowFuzzFixed.CreateDatasetWriter(route, files, options))
+        try
         {
+            using var writer = createParts
+                ? RowFuzzFixed.CreateDatasetWriter(route, filePath, files, options)
+                : RowFuzzFixed.CreateDatasetWriter(route, files, options);
             foreach (var (id, sequence) in rows)
                 writer.Queue(new RowFuzzFixed { Id = id, Sequence = sequence, Flag = false, Measure = 0 });
+        }
+        catch (InvalidOperationException exception) when (failRolloverPath
+            && exception.Message == "The dataset file path selector returned an empty path.")
+        {
+            // Invalid input on purpose: a selector that returns an empty path for the second file part.
+            return;
         }
 
         VerifyRouting(store, rows, partitions, createParts);
