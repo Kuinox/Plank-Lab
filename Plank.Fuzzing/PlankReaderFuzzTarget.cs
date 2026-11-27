@@ -134,8 +134,26 @@ public static class PlankReaderFuzzTarget
         Execute(data, bufferPool);
     }
 
+    // Two more options the public surface cannot set but Plank.Fuzzing can
+    // (InternalsVisibleTo): the row API turns BorrowRequiredPlainValues off and
+    // BorrowBinaryValues on, the column API does the opposite, and each flips
+    // which decoders run (borrowed-span vs. owned/native buffers; the binary
+    // "descriptor" decoders for DELTA_*_BYTE_ARRAY and BYTE_STREAM_SPLIT only run
+    // with borrowing on). Chosen from the input like the pool, independent of the
+    // selector bits.
+    [ThreadStatic] static int borrowBits;
+
+    internal static int BorrowBitsOf(ReadOnlySpan<byte> data)
+    {
+        uint hash = 2166136261;
+        foreach (var b in data)
+            hash = (hash ^ b) * 16777619;
+        return (int)((hash >> 20) & 3);
+    }
+
     static void Execute(ReadOnlySpan<byte> data, IParquetBufferPool bufferPool)
     {
+        borrowBits = BorrowBitsOf(data);
         try
         {
             Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : data[1..].ToArray(), bufferPool);
@@ -443,7 +461,9 @@ public static class PlankReaderFuzzTarget
         {
             BufferPool = bufferPool,
             VerifyPageCrc = (selector & 0x10) != 0,
-            Strict = (selector & 0x20) == 0
+            Strict = (selector & 0x20) == 0,
+            BorrowRequiredPlainValues = (borrowBits & 1) == 0,
+            BorrowBinaryValues = (borrowBits & 2) != 0
         };
 
         // A quarter of the inputs go through the row-oriented API. It is a

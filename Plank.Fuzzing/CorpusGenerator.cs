@@ -22,7 +22,7 @@ namespace Plank.Fuzzing;
 /// Every file is deliberately tiny. AFL spends time proportional to input size,
 /// and the point is to reach a decoder, not to carry data.
 /// </remarks>
-public static class CorpusGenerator
+public static partial class CorpusGenerator
 {
     // Each seed is prefixed with the selector byte the target reads, so the file
     // is a complete test case rather than something AFL has to grow a byte onto.
@@ -535,6 +535,11 @@ public static class CorpusGenerator
                 }
             }
         }
+
+        // Larger, boundary-sized files for the batched/native decoders and the
+        // encodings the five-value seeds above cannot reach. See ReaderGapSeedCases.
+        foreach (var gapCase in ReaderGapCases())
+            yield return gapCase;
     }
 
     // The V1 pass reuses every family rather than a hand-picked slice: the page

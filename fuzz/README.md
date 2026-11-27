@@ -46,3 +46,11 @@ The suppression predicates intentionally match specific diagnostics. New excepti
 Build the instrumented target, generate the corpus, install the pinned AFL++ 4.x binaries, and run `fuzz/verify-harness.sh reader` before starting a campaign. AFL++ 5.x is incompatible with the current persistent harness: it can report very high throughput while treating the whole coverage map as already covered.
 
 Each AFL worker needs its own `AFL_TMPDIR`; sharing one temporary directory prevents secondary workers from starting. Use `-x fuzz/parquet.dict` and set `PLANK_FUZZ_CRASH_DIR` to a durable crash directory.
+
+## Generated reader seeds
+
+`Plank.Fuzzing.Reader.Target --generate-corpus <dir>` writes the full generated corpus (≈8.5k seeds, `gen-*`);
+only a bounded subset is committed: `fuzz/reader-gap-generated/` (boundary-size, nested-leaf, logical×encoding,
+nullable-dictionary, multi-page seeds from `Plank.Fuzzing/ReaderGapSeedCases.cs`, files ≤ 8 KB) and the
+`gen-codec-*` decompressor seeds in `fuzz/reader-corpus/` (every block codec × size × level × destination length ±1).
+Coverage runs must replay the generated corpus too: the committed `reader-*` dirs alone miss most of the reader.

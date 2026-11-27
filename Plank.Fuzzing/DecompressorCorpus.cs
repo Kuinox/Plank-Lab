@@ -49,6 +49,73 @@ static class DecompressorCorpus
             payload.CopyTo(seed, 3);
             yield return (name, seed);
         }
+
+        foreach (var c in CodecMatrixCases())
+            yield return c;
+    }
+
+    // Every block codec at several sizes, compression levels and content shapes,
+    // each also with the destination length off by one in both directions (the
+    // decoder is told how long the page is, so the exact-length checks and the
+    // "stream ended early / trailing bytes" branches are on the page's own say-so).
+    static IEnumerable<(string Name, byte[] Bytes)> CodecMatrixCases()
+    {
+        foreach (var size in (int[])[1, 17, 255, 4096, 60000])
+        {
+            var shapes = new (string Name, byte[] Data)[]
+            {
+                ("text", [.. System.Text.Encoding.ASCII.GetBytes(string.Concat(Enumerable.Range(0, size / 8 + 1).Select(static i => $"row{i % 97:D4}"))).Take(size)]),
+                ("noise", Incompressible(size)),
+                ("zeros", new byte[size])
+            };
+            foreach (var (shape, data) in shapes)
+            {
+                var payloads = new List<(string, byte, byte[])>
+                {
+                    ("snappy", Snappy, SnappyCompress(data)),
+                    ("gzip", Gzip, Deflate(data)),
+                    ("lz4raw", Lz4Raw, Lz4Block(data)),
+                    ("zstd1", Zstd, ZstdCompress(data, 1)),
+                    ("zstd19", Zstd, ZstdCompress(data, 19)),
+                    ("brotli0", Brotli, BrotliCompress(data, 0)),
+                    ("brotli5", Brotli, BrotliCompress(data, 5)),
+                    ("brotli11", Brotli, BrotliCompress(data, 11)),
+                };
+                foreach (var (codecName, codec, payload) in payloads)
+                    foreach (var delta in (int[])[0, -1, 1])
+                    {
+                        var destination = size + delta;
+                        if (destination is <= 0 or > ushort.MaxValue)
+                            continue;
+                        var seed = new byte[3 + payload.Length];
+                        seed[0] = codec;
+                        BinaryPrimitives.WriteUInt16BigEndian(seed.AsSpan(1, 2), (ushort)destination);
+                        payload.CopyTo(seed, 3);
+                        yield return ($"{codecName}-{shape}-{size}{(delta == 0 ? "" : delta > 0 ? "-plus1" : "-minus1")}", seed);
+                    }
+            }
+        }
+    }
+
+    static byte[] SnappyCompress(byte[] source)
+    {
+        var buffer = new byte[Snappier.Snappy.GetMaxCompressedLength(source.Length)];
+        var written = Snappier.Snappy.Compress(source, buffer);
+        return buffer[..written];
+    }
+
+    static byte[] ZstdCompress(byte[] source, int level)
+    {
+        using var compressor = new ZstdSharp.Compressor(level);
+        return compressor.Wrap(source).ToArray();
+    }
+
+    static byte[] BrotliCompress(byte[] source, int quality)
+    {
+        var buffer = new byte[BrotliEncoder.GetMaxCompressedLength(source.Length)];
+        if (!BrotliEncoder.TryCompress(source, buffer, out var written, quality, 22))
+            throw new InvalidOperationException("Brotli compression of a seed failed.");
+        return buffer[..written];
     }
 
     // Codec ordinals are positions in PlankDecompressorFuzzTarget's table.

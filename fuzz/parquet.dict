@@ -164,3 +164,11 @@ rowapi_flat_dataset_append_magic="RDA1"
 rowapi_rowschema_magic="RSC1"
 rowapi_evolution_magic="RSE1"
 rowapi_merge_schemas_magic="RMS1"
+
+
+# Reader selector bytes (first byte of every reader input): bit 7 = raw decompressor route
+# (then: codec ordinal, 2-byte big-endian destination length, payload); 0xFF = variable-bytes type-mismatch route.
+selector_decompressor="\x80"
+selector_type_mismatch="\xff"
+selector_rowapi="\x02"
+selector_stream_fragmented="\x60"

@@ -61,12 +61,58 @@ public static class PlankDecompressorFuzzTarget
         {
             ParquetDecompressor.DecompressInto(payload, codec, destination);
         }
-        catch (Exception ex) when (ex is CorruptParquetException or NotSupportedException
-            or InvalidOperationException)
+        catch (CorruptParquetException)
         {
             // What a malformed frame is supposed to produce. Anything else —
-            // IndexOutOfRange, an unhandled overflow, an access violation — is a
-            // finding, and reaches the harness uncaught.
+            // IndexOutOfRange, an unhandled overflow, InvalidOperation, a codec
+            // reporting NotSupported for a codec the library does support, an
+            // access violation — is a finding, and reaches the harness uncaught.
+            return;
         }
+
+        // Plank accepted the payload: an independent decoder must agree. The
+        // direction "Plank rejects, the oracle accepts" is not asserted, because
+        // Plank is deliberately stricter about exact length and trailing bytes.
+        if (destination.Length == 0)
+            return;
+        var expected = IndependentDecode(codec, payload, destination.Length);
+        if (expected is not null && !expected.AsSpan().SequenceEqual(destination))
+            throw new InvalidDataException(
+                $"{codec} decompression disagrees with the independent decoder ({destination.Length} bytes).");
+    }
+
+    // Brotli and Gzip have a BCL decoder that shares no code with Plank's. Null
+    // means "no opinion" (unsupported codec, or the oracle rejects the stream).
+    static byte[]? IndependentDecode(CompressionKind codec, ReadOnlySpan<byte> payload, int length)
+    {
+        try
+        {
+            if (codec == CompressionKind.Brotli)
+            {
+                var result = new byte[length];
+                return System.IO.Compression.BrotliDecoder.TryDecompress(payload, result, out var written)
+                    && written == length ? result : null;
+            }
+
+            if (codec == CompressionKind.Gzip)
+            {
+                using var input = new MemoryStream(payload.ToArray());
+                using var gzip = new System.IO.Compression.GZipStream(input, System.IO.Compression.CompressionMode.Decompress);
+                var result = new byte[length];
+                var total = 0;
+                while (total < length)
+                {
+                    var read = gzip.Read(result, total, length - total);
+                    if (read == 0)
+                        break;
+                    total += read;
+                }
+                return total == length ? result : null;
+            }
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+        }
+        return null;
     }
 }
