@@ -51,7 +51,7 @@ internal static class WriterTypeMatrixCases
     internal static void Execute(ReadOnlySpan<byte> data)
     {
         var c = new Cur(data);
-        var kind = c.Int(0, 12);
+        var kind = c.Int(0, 13);
         var p = DrawParams(c);
         switch (kind)
         {
@@ -66,6 +66,7 @@ internal static class WriterTypeMatrixCases
             case 9: Floating(c, p); break;
             case 10: Unsigned(c, p); break;
             case 11: Temporal(c, p); break;
+            case 12: Converted(c, p); break;
             default: SchemaFactories(c, p); break;
         }
     }
@@ -158,18 +159,18 @@ internal static class WriterTypeMatrixCases
     }
 
     static (byte[] File, int[] Bounds) RoundTrip<T>(string what, PlankSchema schema, Params p, T[] values,
-        Func<RowGroup, T[]> read, Func<T, T, bool> equal, Cur c, bool bloom = false)
+        Func<RowGroup, T[]> read, Func<T, T, bool> equal, Cur c, bool bloom = false, Func<T, IComparable?>? key = null)
     {
         var bounds = Boundaries(c, values.Length, p.Groups);
         var file = WriteColumn(schema, p, values, bounds);
-        VerifyFile(what, schema, p, file, values, bounds, read, equal, bloom);
-        AppendMergeVariant(what, schema, p, file, values, bounds, read, equal, c, bloom);
+        VerifyFile(what, schema, p, file, values, bounds, read, equal, bloom, key);
+        AppendMergeVariant(what, schema, p, file, values, bounds, read, equal, c, bloom, key);
         return (file, bounds);
     }
 
     // Reads `file` back and checks the values, the group shapes, and the statistics / page index / bloom oracle.
     static void VerifyFile<T>(string what, PlankSchema schema, Params p, byte[] file, T[] values, int[] bounds,
-        Func<RowGroup, T[]> read, Func<T, T, bool> equal, bool bloom)
+        Func<RowGroup, T[]> read, Func<T, T, bool> equal, bool bloom, Func<T, IComparable?>? key = null)
     {
         CheckGroups(file, schema, bounds, what);
         using var reader = schema.CreateReader(new MemoryStream(file, writable: false));
@@ -185,7 +186,7 @@ internal static class WriterTypeMatrixCases
                         $"{what}: group {g} value {i} differs: expected '{values[bounds[g] + i]}', got '{actual[i]}'.");
         }
 
-        WriterStatisticsOracle.Check(what, schema, file, bounds, values, p.PageIndexes, bloom);
+        WriterStatisticsOracle.Check(what, schema, file, bounds, values, p.PageIndexes, bloom, key);
     }
 
     // After the first file is verified, a second batch is added in one of three ways and the WHOLE result is
@@ -193,7 +194,7 @@ internal static class WriterTypeMatrixCases
     // retained and the new values, not just one of them.
     //   1 append a new row group      2 append into the latest row group      3 merge a second file
     static void AppendMergeVariant<T>(string what, PlankSchema schema, Params p, byte[] file, T[] values, int[] bounds,
-        Func<RowGroup, T[]> read, Func<T, T, bool> equal, Cur c, bool bloom)
+        Func<RowGroup, T[]> read, Func<T, T, bool> equal, Cur c, bool bloom, Func<T, IComparable?>? key = null)
     {
         var variant = c.Int(0, 6);
         if (variant is 0 or 4 or 5)
@@ -214,17 +215,26 @@ internal static class WriterTypeMatrixCases
                 using var stream = new MemoryStream();
                 stream.Write(file);
                 stream.Position = 0;
-                using (var writer = schema.CreateAppender(stream, new ParquetAppendOptions
-                       {
-                           AppendToLatestRowGroup = latest,
-                           WriterOptions = options
-                       }))
+                try
                 {
+                    using var writer = schema.CreateAppender(stream, new ParquetAppendOptions
+                    {
+                        AppendToLatestRowGroup = latest,
+                        WriterOptions = options
+                    });
                     var group = writer.StartRowGroup();
                     var column = group.CreateSerializedColumn<T>(schema.LeafColumns[0]);
                     column.Serialize(extra);
                     group.Write(column);
                     writer.CloseFile();
+                }
+                catch (InvalidOperationException error) when (latest && schema.LeafColumns[0].Converter is not null
+                    && error.Message.Contains("uses a converter for", StringComparison.Ordinal))
+                {
+                    // Appending into the latest row group has to read the retained values back as their CLR
+                    // type, which a value-converted column does not allow (same limitation the append-sorting
+                    // route asserts). Appending a new row group and merging work for such columns.
+                    return;
                 }
 
                 result = stream.ToArray();
@@ -248,7 +258,7 @@ internal static class WriterTypeMatrixCases
             }
         }
 
-        VerifyFile(what, schema, p, result, all, resultBounds, read, equal, bloom);
+        VerifyFile(what, schema, p, result, all, resultBounds, read, equal, bloom, key);
     }
 
     // Min/max/null_count of a binary column against what was written. Statistics may be truncated for long
@@ -444,22 +454,74 @@ internal static class WriterTypeMatrixCases
             new LogicalType.Decimal(precision, scale), Strategy(c));
         var schema = new PlankSchema([definition]);
         var what = $"decimal p={precision} s={scale} {physical} {encoding} optional={optional} rows={rows}";
-        if (optional)
+
+        // CLR value vs column mismatches. The writer's contract (ParquetDecimalConverter.ToUnscaled): extra
+        // fractional digits are accepted only when they are zeros, fewer digits are padded, and a magnitude
+        // that does not fit the precision is an OverflowException. Statistics follow the stored (rescaled) value.
+        var mode = c.Int(0, 9); // 0-4 plain, 5 trailing zeros, 6 lossy fraction, 7 overflow, 8 trailing zeros + fewer digits
+        if (mode is 5 or 8 && scale + 3 <= 28)
+            for (var i = 0; i < pool.Length; i++)
+                pool[i] *= 1.000m; // same number, three more (zero) fractional digits
+        else if (mode is 5 or 8)
+            mode = 0;
+        if (mode == 6 && scale + 1 <= 27)
+            pool[0] += 1m / (decimal)Math.Pow(10, scale + 1) * 3m; // a non-zero digit past the scale
+        else if (mode == 6)
+            mode = 0;
+        if (mode == 7)
         {
-            var values = new decimal?[rows];
-            for (var i = 0; i < rows; i++)
-                values[i] = c.Int(0, 4) == 0 ? null : pool[c.Int(0, pool.Length)];
-            RoundTrip(what, schema, p, values,
-                g => Target.ReadAllBuffers(g.Column<decimal?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+            var limitValue = 1m;
+            for (var i = 0; i < precision - scale; i++)
+                limitValue *= 10m;
+            pool[0] = limitValue; // 10^(precision-scale): one past the largest representable magnitude
         }
-        else
+
+        void Run()
         {
-            var values = new decimal[rows];
-            for (var i = 0; i < rows; i++)
-                values[i] = pool[c.Int(0, pool.Length)];
-            RoundTrip(what, schema, p, values,
-                g => Target.ReadAllBuffers(g.Column<decimal>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+            if (optional)
+            {
+                var values = new decimal?[rows];
+                for (var i = 0; i < rows; i++)
+                    values[i] = c.Int(0, 4) == 0 ? null : pool[c.Int(0, pool.Length)];
+                if (mode >= 6)
+                    values[0] = pool[0];
+                RoundTrip(what + $" mode={mode}", schema, p, values,
+                    g => Target.ReadAllBuffers(g.Column<decimal?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+            }
+            else
+            {
+                var values = new decimal[rows];
+                for (var i = 0; i < rows; i++)
+                    values[i] = pool[c.Int(0, pool.Length)];
+                if (mode >= 6)
+                    values[0] = pool[0];
+                RoundTrip(what + $" mode={mode}", schema, p, values,
+                    g => Target.ReadAllBuffers(g.Column<decimal>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+            }
         }
+
+        if (mode is 6 or 7)
+        {
+            try
+            {
+                Run();
+            }
+            catch (InvalidOperationException error) when (mode == 6
+                && error.Message.Contains("more fractional digits than scale", StringComparison.Ordinal))
+            {
+                return;
+            }
+            catch (OverflowException error) when (mode == 7
+                && error.Message.Contains("exceeds precision", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"{what} mode={mode}: a decimal that does not fit the column was accepted.");
+        }
+
+        Run();
     }
 
     // ---- 8/16-bit narrowing ------------------------------------------------------------------------------
@@ -883,23 +945,56 @@ internal static class WriterTypeMatrixCases
 
     // ---- dates, times, timestamps ---------------------------------------------------------------------------
 
+    static long UnitTicks(TimeUnit unit)
+        => unit switch { TimeUnit.Millis => TimeSpan.TicksPerMillisecond, TimeUnit.Micros => 10L, _ => 1L };
+
+    // A DateTime of the requested kind that is an exact multiple of the unit, before or after the epoch.
+    static DateTime Instant(Cur c, TimeUnit unit, DateTimeKind kind)
+    {
+        var u = UnitTicks(unit);
+        var epoch = DateTime.UnixEpoch.Ticks;
+        var maxK = unit == TimeUnit.Nanos ? 90_000_000_000_000_000L : Math.Min(epoch / u, (DateTime.MaxValue.Ticks - epoch) / u);
+        var span = c.Pick(1_000L, 1_000_000_000L, maxK);
+        span = Math.Min(span, maxK);
+        var k = (c.Long() & long.MaxValue) % (2 * span + 1) - span;
+        if (c.Int(0, 12) == 0 && unit != TimeUnit.Nanos)
+            k = c.Int(0, 2) == 0 ? -epoch / u : (DateTime.MaxValue.Ticks - epoch) / u; // 0001-01-01 and the top of the range
+        return new DateTime(epoch + k * u, kind);
+    }
+
     static void Temporal(Cur c, Params p)
     {
-        var form = c.Int(0, 5); // date, time, DateTime, DateTimeOffset, time-with-nulls
+        // 0 DateOnly, 1 TimeOnly, 2 DateTime, 3 DateTimeOffset, 4 DateTime of a kind the column rejects,
+        // 5 DateTimeOffset into a column that is not adjusted to UTC
+        var form = c.Int(0, 6);
         var optional = c.Int(0, 2) == 0;
         var unit = c.Pick(TimeUnit.Millis, TimeUnit.Micros, TimeUnit.Nanos);
         var encoding = c.Pick(EncodingKind.Plain, EncodingKind.DeltaBinaryPacked, EncodingKind.RleDictionary);
         var rows = c.Pick(1, 3, 80, 900, 4000);
         var repetition = optional ? ParquetRepetition.Optional : ParquetRepetition.Required;
         var strategy = Strategy(c);
-        long Units(long maxSeconds)
-            => c.Int(0, int.MaxValue) % maxSeconds * (unit == TimeUnit.Millis ? 1000L : unit == TimeUnit.Micros ? 1_000_000L : 1_000_000_000L)
-                + c.Int(0, 1000) * (unit == TimeUnit.Millis ? 1L : unit == TimeUnit.Micros ? 1000L : 1_000_000L);
-        // Values are built from whole units so the writer's tick conversion is lossless.
-        DateTime Instant()
-            => DateTime.SpecifyKind(DateTime.UnixEpoch.AddSeconds(c.Int(0, int.MaxValue) % 3_000_000_000L)
-                .AddTicks(unit == TimeUnit.Millis ? c.Int(0, 1000) * TimeSpan.TicksPerMillisecond
-                    : c.Int(0, 1_000_000) * 10L), DateTimeKind.Unspecified);
+        var adjusted = c.Int(0, 2) == 0;
+        bool Null() => c.Int(0, 5) == 0;
+
+        void Go<T>(string label, PlankSchema schema, T[] values)
+            => RoundTrip(label, schema, p, values, g => Target.ReadAllBuffers(g.Column<T>(schema.LeafColumns[0])),
+                static (a, b) => EqualityComparer<T>.Default.Equals(a, b), c);
+
+        T[] Fill<T>(Func<T> make) where T : struct
+        {
+            var values = new T[rows];
+            for (var i = 0; i < rows; i++)
+                values[i] = make();
+            return values;
+        }
+
+        T?[] FillNullable<T>(Func<T> make) where T : struct
+        {
+            var values = new T?[rows];
+            for (var i = 0; i < rows; i++)
+                values[i] = Null() ? null : make();
+            return values;
+        }
 
         switch (form)
         {
@@ -907,93 +1002,176 @@ internal static class WriterTypeMatrixCases
             {
                 var def = ColumnDefinition.Leaf("d", ParquetPhysicalType.Int32, Opts(repetition, encoding), new LogicalType.Date(), strategy);
                 var schema = new PlankSchema([def]);
-                var what = $"date {encoding} optional={optional} rows={rows}";
-                if (optional)
+                var label = $"date {encoding} optional={optional} rows={rows}";
+                // 0001-01-01 .. 9999-12-31, with the epoch and its neighbours and both ends always in play.
+                DateOnly Day() => DateOnly.FromDayNumber(c.Int(0, 6) switch
                 {
-                    var v = new DateOnly?[rows];
-                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : DateOnly.FromDayNumber(c.Int(0, 3_000_000));
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateOnly?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
-                }
-                else
-                {
-                    var v = new DateOnly[rows];
-                    for (var i = 0; i < rows; i++) v[i] = DateOnly.FromDayNumber(c.Int(0, 3_000_000));
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateOnly>(schema.LeafColumns[0])), static (a, b) => a == b, c);
-                }
-
+                    0 => 0,
+                    1 => 3_652_058,
+                    2 => 719_161,
+                    3 => 719_162,
+                    4 => 719_163,
+                    _ => c.Int(0, 3_652_059)
+                });
+                if (optional) Go(label, schema, FillNullable(Day)); else Go(label, schema, Fill(Day));
                 break;
             }
-            case 1 or 4:
+            case 1:
             {
-                var timeUnit = unit == TimeUnit.Nanos ? TimeUnit.Micros : unit;
-                var physical = timeUnit == TimeUnit.Millis ? ParquetPhysicalType.Int32 : ParquetPhysicalType.Int64;
-                var def = ColumnDefinition.Leaf("t", physical, Opts(repetition, encoding), new LogicalType.Time(timeUnit, false), strategy);
+                var physical = unit == TimeUnit.Millis ? ParquetPhysicalType.Int32 : ParquetPhysicalType.Int64;
+                var def = ColumnDefinition.Leaf("t", physical, Opts(repetition, encoding), new LogicalType.Time(unit, adjusted), strategy);
                 var schema = new PlankSchema([def]);
-                var what = $"time {timeUnit} {encoding} optional={optional} rows={rows}";
-                TimeOnly Time() => new(timeUnit == TimeUnit.Millis
-                    ? c.Int(0, 86_400_000) * TimeSpan.TicksPerMillisecond
-                    : c.Int(0, int.MaxValue) % 86_400_000_000L * 10L);
-                if (optional)
+                var label = $"time {unit} adjusted={adjusted} {encoding} optional={optional} rows={rows}";
+                var day = TimeSpan.TicksPerDay;
+                TimeOnly Time()
                 {
-                    var v = new TimeOnly?[rows];
-                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : Time();
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<TimeOnly?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
-                }
-                else
-                {
-                    var v = new TimeOnly[rows];
-                    for (var i = 0; i < rows; i++) v[i] = Time();
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<TimeOnly>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+                    var u = UnitTicks(unit);
+                    var units = day / u; // time of day is [0, units)
+                    var k = c.Int(0, 8) switch
+                    {
+                        0 => 0L,
+                        1 => units - 1,
+                        _ => (c.Long() & long.MaxValue) % units
+                    };
+                    return new TimeOnly(k * u);
                 }
 
+                if (optional) Go(label, schema, FillNullable(Time)); else Go(label, schema, Fill(Time));
                 break;
             }
-            case 2:
+            case 2 or 4:
             {
-                var tsUnit = unit == TimeUnit.Nanos ? TimeUnit.Micros : unit;
-                var adjusted = c.Int(0, 2) == 0; // DateTime kind must follow: Utc <-> adjusted, Unspecified <-> local
-                var def = ColumnDefinition.Leaf("ts", ParquetPhysicalType.Int64, Opts(repetition, encoding), new LogicalType.Timestamp(tsUnit, adjusted), strategy);
+                var def = ColumnDefinition.Leaf("ts", ParquetPhysicalType.Int64, Opts(repetition, encoding), new LogicalType.Timestamp(unit, adjusted), strategy);
                 var schema = new PlankSchema([def]);
-                var what = $"timestamp adjusted={adjusted} {tsUnit} {encoding} optional={optional} rows={rows}";
-                unit = tsUnit;
-                if (optional)
+                var rightKind = adjusted ? DateTimeKind.Utc : DateTimeKind.Unspecified;
+                var label = $"timestamp adjusted={adjusted} {unit} {encoding} optional={optional} rows={rows}";
+                if (form == 4)
                 {
-                    var v = new DateTime?[rows];
-                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : DateTime.SpecifyKind(Instant(), adjusted ? DateTimeKind.Utc : DateTimeKind.Unspecified);
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateTime?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
-                }
-                else
-                {
-                    var v = new DateTime[rows];
-                    for (var i = 0; i < rows; i++) v[i] = DateTime.SpecifyKind(Instant(), adjusted ? DateTimeKind.Utc : DateTimeKind.Unspecified);
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateTime>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+                    // Local always, and the other of Utc / Unspecified: the writer must refuse them by name.
+                    var wrong = c.Pick(DateTimeKind.Local, adjusted ? DateTimeKind.Unspecified : DateTimeKind.Utc);
+                    label += $" wrongKind={wrong}";
+                    try
+                    {
+                        if (optional) Go(label, schema, FillNullable(() => Instant(c, unit, wrong)));
+                        else Go(label, schema, Fill(() => Instant(c, unit, wrong)));
+                    }
+                    catch (InvalidOperationException error) when (error.Message.Contains("DateTime values must have kind", StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+
+                    if (rows > 0 && !optional)
+                        throw new InvalidOperationException($"{label}: a DateTime of the wrong kind was accepted.");
+                    return;
                 }
 
+                if (optional) Go(label, schema, FillNullable(() => Instant(c, unit, rightKind)));
+                else Go(label, schema, Fill(() => Instant(c, unit, rightKind)));
                 break;
             }
             default:
             {
-                var tsUnit = unit == TimeUnit.Nanos ? TimeUnit.Micros : unit;
-                var def = ColumnDefinition.Leaf("tso", ParquetPhysicalType.Int64, Opts(repetition, encoding), new LogicalType.Timestamp(tsUnit, true), strategy);
+                // DateTimeOffset: instants with arbitrary offsets. Only adjusted-to-UTC columns take them.
+                var def = ColumnDefinition.Leaf("tso", ParquetPhysicalType.Int64, Opts(repetition, encoding),
+                    new LogicalType.Timestamp(unit, form == 3 || adjusted), strategy);
                 var schema = new PlankSchema([def]);
-                var what = $"timestamp-utc {tsUnit} {encoding} optional={optional} rows={rows}";
-                unit = tsUnit;
-                DateTimeOffset Utc() => new(DateTime.SpecifyKind(Instant(), DateTimeKind.Utc), TimeSpan.Zero);
-                if (optional)
+                var useAdjusted = form == 3 || adjusted;
+                var label = $"timestamp-offset adjusted={useAdjusted} {unit} {encoding} optional={optional} rows={rows}";
+                DateTimeOffset Offset()
                 {
-                    var v = new DateTimeOffset?[rows];
-                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : Utc();
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateTimeOffset?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+                    var utc = Instant(c, unit, DateTimeKind.Utc);
+                    var minutes = c.Int(-14 * 4, 14 * 4 + 1) * 15; // quarter-hour offsets up to +-14h
+                    try
+                    {
+                        return new DateTimeOffset(utc).ToOffset(TimeSpan.FromMinutes(minutes));
+                    }
+                    catch (ArgumentOutOfRangeException)
+                    {
+                        return new DateTimeOffset(utc); // the shifted local time would leave 0001..9999
+                    }
                 }
-                else
+
+                try
                 {
-                    var v = new DateTimeOffset[rows];
-                    for (var i = 0; i < rows; i++) v[i] = Utc();
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateTimeOffset>(schema.LeafColumns[0])), static (a, b) => a == b, c);
+                    if (optional) Go(label, schema, FillNullable(Offset)); else Go(label, schema, Fill(Offset));
+                }
+                catch (InvalidOperationException error) when (!useAdjusted
+                    && error.Message.Contains("adjusted-to-UTC", StringComparison.Ordinal))
+                {
+                    return;
                 }
 
                 break;
             }
+        }
+    }
+
+    // ---- value converters ----------------------------------------------------------------------------------
+
+    // A converter whose mapping REVERSES the order of the values (bitwise NOT): the column's statistics must be
+    // computed from the converted physical values, not from the CLR wrapper's own order.
+    readonly record struct NotInt(int Value);
+
+    readonly record struct NotLong(long Value);
+
+    sealed class NotIntConverter : ParquetValueConverter<NotInt, int>
+    {
+        public override int ConvertToPhysical(NotInt value) => ~value.Value;
+        public override NotInt ConvertFromPhysical(int value) => new(~value);
+    }
+
+    sealed class NotLongConverter : ParquetValueConverter<NotLong, long>
+    {
+        public override long ConvertToPhysical(NotLong value) => ~value.Value;
+        public override NotLong ConvertFromPhysical(long value) => new(~value);
+    }
+
+    static void Converted(Cur c, Params p)
+    {
+        var is64 = c.Int(0, 2) == 0;
+        var optional = c.Int(0, 2) == 0;
+        var annotated = c.Int(0, 3) == 0; // unsigned column order on top of the converter
+        var encoding = c.Pick(EncodingKind.Plain, EncodingKind.DeltaBinaryPacked, EncodingKind.RleDictionary,
+            EncodingKind.PlainDictionary);
+        var rows = c.Pick(1, 5, 70, 900, 4000);
+        var distinct = c.Pick(1, 3, rows);
+        var bloomOn = c.Int(0, 4) == 0;
+        var def = ColumnDefinition.Leaf("conv", is64 ? ParquetPhysicalType.Int64 : ParquetPhysicalType.Int32,
+            Opts(optional ? ParquetRepetition.Optional : ParquetRepetition.Required, encoding, 0,
+                bloomOn ? ParquetBloomFilterOptions.Default : null),
+            annotated ? new LogicalType.Int((byte)(is64 ? 64 : 32), false) : null, Strategy(c),
+            is64 ? new NotLongConverter() : new NotIntConverter());
+        var schema = new PlankSchema([def]);
+        var column = schema.LeafColumns[0];
+        var what = $"converter {(is64 ? "NotLong" : "NotInt")} unsigned={annotated} {encoding} optional={optional} rows={rows}";
+        var pool = new long[distinct];
+        for (var i = 0; i < pool.Length; i++)
+            pool[i] = is64 ? c.Long() : c.Int(int.MinValue, int.MaxValue);
+        long Draw() => pool[c.Int(0, pool.Length)];
+        bool Null() => c.Int(0, 5) == 0;
+        // The expected key is the order of the CONVERTED value under the column's own order.
+        IComparable? KeyInt(NotInt v) => WriterStatisticsOracle.OrderByColumn(column, ~v.Value);
+        IComparable? KeyLong(NotLong v) => WriterStatisticsOracle.OrderByColumn(column, ~v.Value);
+        try
+        {
+            if (is64 && optional)
+                RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => Null() ? (NotLong?)null : new NotLong(Draw())).ToArray(),
+                    g => Target.ReadAllBuffers(g.Column<NotLong?>(column)), static (a, b) => a == b, c, bloomOn,
+                    v => v is { } x ? KeyLong(x) : null);
+            else if (is64)
+                RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => new NotLong(Draw())).ToArray(),
+                    g => Target.ReadAllBuffers(g.Column<NotLong>(column)), static (a, b) => a == b, c, bloomOn, KeyLong);
+            else if (optional)
+                RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => Null() ? (NotInt?)null : new NotInt((int)Draw())).ToArray(),
+                    g => Target.ReadAllBuffers(g.Column<NotInt?>(column)), static (a, b) => a == b, c, bloomOn,
+                    v => v is { } x ? KeyInt(x) : null);
+            else
+                RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => new NotInt((int)Draw())).ToArray(),
+                    g => Target.ReadAllBuffers(g.Column<NotInt>(column)), static (a, b) => a == b, c, bloomOn, KeyInt);
+        }
+        catch (ArgumentException error) when (annotated && error.ParamName == "converter")
+        {
+            // A converter on an annotated column may be refused at schema construction.
         }
     }
 }

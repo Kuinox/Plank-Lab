@@ -151,7 +151,7 @@ unsorted rows is not a defect; the oracle checks declared orders only on the app
 
 - **`ulong` written to an unannotated (signed) INT64 column gets statistics in unsigned order** (64-bit sibling of the
   `uint` / INT32 finding above): min/max follow the CLR type, so min > max in the column's order for values above
-  `long.MaxValue`. All encodings. Repro: [`repros/statistics-ulong-in-signed-int64-order/`](repros/statistics-ulong-in-signed-int64-order/).
+  `long.MaxValue`. All encodings, required and optional. The 32-bit `uint` form (oracle agent's finding) also reproduces through `WTM1` (PLAIN, PLAIN_DICTIONARY, ...). Repro: [`repros/statistics-ulong-in-signed-int64-order/`](repros/statistics-ulong-in-signed-int64-order/).
   The earlier oracle keyed min/max by CLR type, which is why it could not see either bug; it now keys by the column's
   physical + logical type.
 
@@ -166,6 +166,7 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
 | A CLR `decimal` column inside a repeated structure (list, map) cannot be written: `Array type 'System.Decimal[]' is incompatible with column ...` (`InvalidOperationException`). The same decimal is fine in a flat column or in a non-repeated group. | `Writing/Encoding/RepeatedPageValues.cs:44`; asserted in `WriterGroupCases` |
 | `NestedColumn<decimal>` cannot be read (`NotSupportedException: ... cannot be decoded into pooled values of type 'System.Decimal'`) even for non-repeated nested columns; decimals are compared through their physical form (`int`/`long`/bytes). | `Reading/Logical/Internal/NestedColumnBufferEnumerable.cs` |
 | Optional BYTE_STREAM_SPLIT binary and FLBA DELTA_BYTE_ARRAY are rejected with explicit `NotSupportedException`s. | asserted in `WriterTypeMatrixCases.Binary` |
+| `AppendToLatestRowGroup` on a column with a value converter fails with `InvalidOperationException: Column ... uses a converter for ... and cannot be read as ...` (the retained values are read back as the CLR type). New row groups and merges work. | asserted in `WriterTypeMatrixCases.AppendMergeVariant` |
 | `InitialColumnBufferBytes > int.MaxValue` is accepted by `ParquetWriterOptions.Validate`; it is only rejected when a column buffer is first rented. | `BufferWriterCapacityCases` |
 
 ## Fuzz-harness defects (fixed)

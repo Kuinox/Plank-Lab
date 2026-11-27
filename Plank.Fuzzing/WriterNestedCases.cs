@@ -370,7 +370,9 @@ internal static class WriterNestedCases
             mapOptional ? ParquetRepetition.Optional : ParquetRepetition.Required)]);
         var keyColumn = schema.LeafColumns[0];
         var valueColumn = schema.LeafColumns[1];
-        var groups = c.Int(1, 4);
+        var baseGroups = c.Int(1, 4);
+        var variant = c.Int(0, 5) is var drawn && drawn > 3 ? 0 : drawn; // see WriteAndCheck: 1 append, 2 latest, 3 merge
+        var groups = baseGroups + (variant == 0 ? 0 : c.Int(1, 3));
         var rowsPerGroup = c.Pick(1, 3, 20, 200);
         var maxEntries = c.Pick(0, 1, 3, 8);
         var keyRows = new List<int[]?[]>();
@@ -431,9 +433,8 @@ internal static class WriterNestedCases
 
         using var pool = WriterFuzzPool.Create((WriterPoolKind)c.Int(0, 7));
         var options = Options(c, pool);
-        using var stream = new MemoryStream();
-        var writer = schema.CreateWriter(stream, options);
-        for (var g = 0; g < groups; g++)
+
+        void WriteMapGroup(ParquetWriter writer, int g)
         {
             var group = writer.StartRowGroup();
             var keyColumnWriter = group.CreateSerializedColumn<int[]>(keyColumn);
@@ -453,13 +454,85 @@ internal static class WriterNestedCases
             }
         }
 
-        writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
-        const string what = "nested map";
-        for (var g = 0; g < groups; g++)
+        byte[] WriteMapFile(IEnumerable<int> groupIndexes)
         {
-            CompareGroup<int>(what + " keys", g, reader.RowGroups[g], keyColumn, keyLevels[g], false);
-            CompareGroup<long>(what + " values", g, reader.RowGroups[g], valueColumn, valueLevels[g], false);
+            using var stream = new MemoryStream();
+            var writer = schema.CreateWriter(stream, options);
+            foreach (var g in groupIndexes)
+                WriteMapGroup(writer, g);
+            writer.CloseFile();
+            return stream.ToArray();
+        }
+
+        void VerifyMap(byte[] file, int count, string label)
+        {
+            using var reader = schema.CreateReader(new MemoryStream(file, writable: false));
+            if (reader.RowGroups.Count != count)
+                throw new InvalidOperationException($"{label}: {reader.RowGroups.Count} row groups, expected {count}.");
+            for (var g = 0; g < count; g++)
+            {
+                CompareGroup<int>(label + " keys", g, reader.RowGroups[g], keyColumn, keyLevels[g], false);
+                CompareGroup<long>(label + " values", g, reader.RowGroups[g], valueColumn, valueLevels[g], false);
+            }
+        }
+
+        var baseFile = WriteMapFile(Enumerable.Range(0, baseGroups));
+        VerifyMap(baseFile, baseGroups, "nested map");
+        if (variant == 0)
+            return;
+
+        var extra = Enumerable.Range(baseGroups, groups - baseGroups).ToList();
+        const string variantLabel = "nested map +variant";
+        switch (variant)
+        {
+            case 1:
+            {
+                using var stream = new MemoryStream();
+                stream.Write(baseFile);
+                stream.Position = 0;
+                using (var writer = schema.CreateAppender(stream, new ParquetAppendOptions { WriterOptions = options }))
+                {
+                    foreach (var g in extra)
+                        WriteMapGroup(writer, g);
+                    writer.CloseFile();
+                }
+
+                VerifyMap(stream.ToArray(), groups, variantLabel + "1");
+                break;
+            }
+            case 2:
+            {
+                using var stream = new MemoryStream();
+                stream.Write(baseFile);
+                stream.Position = 0;
+                try
+                {
+                    using var writer = schema.CreateAppender(stream, new ParquetAppendOptions
+                    {
+                        AppendToLatestRowGroup = true,
+                        WriterOptions = options
+                    });
+                }
+                catch (NotSupportedException error) when (error.Message.Contains(
+                    "Appending to the latest row group is not supported for repeated column", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                throw new InvalidOperationException(
+                    "Appending to the latest row group of a map file was accepted; extend this route.");
+            }
+            default:
+            {
+                var second = WriteMapFile(extra);
+                var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
+                var merger = schema.CreateMerger(new MemoryReadSource(baseFile), destination,
+                    new ParquetMergeOptions { WriterOptions = options });
+                merger.AppendFile(new MemoryReadSource(second));
+                merger.CloseFile();
+                VerifyMap(destination.ToArray(), groups, variantLabel + "3");
+                break;
+            }
         }
     }
 }

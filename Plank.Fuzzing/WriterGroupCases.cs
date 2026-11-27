@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using Plank.Reading;
 using Plank.Reading.Logical;
 using Plank.Schema;
 using Plank.Writing;
@@ -127,7 +128,11 @@ internal static class WriterGroupCases
                     $"the Dremel rules give {maxRep} / {maxDef}.");
         }
 
-        var groups = c.Int(1, 4);
+        var baseGroups = c.Int(1, 4);
+        // After the base file is verified more row groups may be added: 1 appended, 2 appended into the latest row
+        // group (rejected by the writer for repeated columns, which every template has), 3 merged from a second file.
+        var variant = c.Int(0, 5) is var drawn && drawn > 3 ? 0 : drawn;
+        var groups = baseGroups + (variant == 0 ? 0 : c.Int(1, 3));
         var rowsPerGroup = c.Pick(1, 2, 7, 33, 120);
         var maxLength = c.Pick(0, 1, 2, 4);
         var nullChance = c.Pick(2, 3, 6, 1000);
@@ -154,53 +159,141 @@ internal static class WriterGroupCases
             BufferPool = pool
         };
 
-        using var stream = new MemoryStream();
-        var writer = schema.CreateWriter(stream, options);
+        // CLR arrays and expected levels of every group and leaf, computed once from the model.
+        var arrays = new Array[groups][];
+        var rowTypes = leaves.Select(leaf => ClrType(root, leaf, false)).ToArray();
         var expected = new List<Emitted[]>();
         for (var g = 0; g < groups; g++)
         {
-            var group = writer.StartRowGroup();
-            var ids = group.CreateSerializedColumn<int>(schema.LeafColumns[0]);
-            ids.Serialize(Enumerable.Range(0, rowsPerGroup).ToArray());
-            group.Write(ids);
+            arrays[g] = new Array[leaves.Count];
             var emitted = new Emitted[leaves.Count];
             for (var l = 0; l < leaves.Count; l++)
             {
                 emitted[l] = new Emitted { Rows = rowsPerGroup };
-                var rowType = ClrType(root, leaves[l], false);
-                var array = Array.CreateInstance(rowType, rowsPerGroup);
+                arrays[g][l] = Array.CreateInstance(rowTypes[l], rowsPerGroup);
                 for (var r = 0; r < rowsPerGroup; r++)
                 {
-                    array.SetValue(BuildClr(root, data1[g][r], leaves[l]), r);
+                    arrays[g][l].SetValue(BuildClr(root, data1[g][r], leaves[l]), r);
                     Shred(root, data1[g][r], leaves[l], 0, 0, 0, emitted[l]);
-                }
-
-                try
-                {
-                    typeof(WriterGroupCases).GetMethod(nameof(WriteColumn), BindingFlags.NonPublic | BindingFlags.Static)!
-                        .MakeGenericMethod(rowType)
-                        .Invoke(null, [group, schema.LeafColumns[l + 1], array]);
-                }
-                catch (TargetInvocationException error) when (leaves[l].Kind == Kind.Decimal
-                    && schema.LeafColumns[l + 1].MaxRepetitionLevel > 0
-                    && error.InnerException is InvalidOperationException inner
-                    && inner.Message.Contains("is incompatible with column", StringComparison.Ordinal))
-                {
-                    _rejectedDecimals++;
-                    return; // documented limitation: CLR decimal in a repeated column; the case ends here.
                 }
             }
 
             expected.Add(emitted);
         }
 
-        writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
-        if (reader.RowGroups.Count != groups)
-            throw new InvalidOperationException($"Expected {groups} row groups, read {reader.RowGroups.Count}.");
-        for (var g = 0; g < groups; g++)
+        void WriteGroup(ParquetWriter writer, int g)
+        {
+            var group = writer.StartRowGroup();
+            var ids = group.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+            ids.Serialize(Enumerable.Range(0, rowsPerGroup).ToArray());
+            group.Write(ids);
             for (var l = 0; l < leaves.Count; l++)
-                Compare(root.Name, g, leaves[l], reader.RowGroups[g], schema.LeafColumns[l + 1], expected[g][l]);
+                typeof(WriterGroupCases).GetMethod(nameof(WriteColumn), BindingFlags.NonPublic | BindingFlags.Static)!
+                    .MakeGenericMethod(rowTypes[l])
+                    .Invoke(null, [group, schema.LeafColumns[l + 1], arrays[g][l]]);
+        }
+
+        // False when the case ended on the documented repeated-decimal rejection.
+        bool WriteFile(IEnumerable<int> groupIndexes, out byte[] file)
+        {
+            using var stream = new MemoryStream();
+            var writer = schema.CreateWriter(stream, options);
+            file = [];
+            try
+            {
+                foreach (var g in groupIndexes)
+                    WriteGroup(writer, g);
+            }
+            catch (TargetInvocationException error) when (error.InnerException is InvalidOperationException inner
+                && inner.Message.Contains("is incompatible with column", StringComparison.Ordinal)
+                && leaves.Any(static leaf => leaf.Kind == Kind.Decimal))
+            {
+                _rejectedDecimals++; // documented limitation: CLR decimal in a repeated column.
+                return false;
+            }
+
+            writer.CloseFile();
+            file = stream.ToArray();
+            return true;
+        }
+
+        void Verify(byte[] file, IReadOnlyList<Emitted[]> want)
+        {
+            using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(file), writable: false));
+            if (reader.RowGroups.Count != want.Count)
+                throw new InvalidOperationException($"Expected {want.Count} row groups, read {reader.RowGroups.Count}.");
+            for (var g = 0; g < want.Count; g++)
+                for (var l = 0; l < leaves.Count; l++)
+                    Compare(root.Name, g, leaves[l], reader.RowGroups[g], schema.LeafColumns[l + 1], want[g][l]);
+        }
+
+        if (!WriteFile(Enumerable.Range(0, baseGroups), out var baseFile))
+            return;
+        Verify(baseFile, expected.Take(baseGroups).ToList());
+        if (variant == 0)
+            return;
+
+        var extra = Enumerable.Range(baseGroups, groups - baseGroups).ToList();
+        switch (variant)
+        {
+            case 1:
+            {
+                using var stream = new MemoryStream();
+                stream.Write(baseFile);
+                stream.Position = 0;
+                try
+                {
+                    using var writer = schema.CreateAppender(stream, new ParquetAppendOptions { WriterOptions = options });
+                    foreach (var g in extra)
+                        WriteGroup(writer, g);
+                    writer.CloseFile();
+                }
+                catch (TargetInvocationException error) when (error.InnerException is InvalidOperationException inner
+                    && inner.Message.Contains("is incompatible with column", StringComparison.Ordinal)
+                    && leaves.Any(static leaf => leaf.Kind == Kind.Decimal))
+                {
+                    _rejectedDecimals++; // the base groups had only empty lists in that column, so no element was typed
+                    return;
+                }
+
+                Verify(stream.ToArray(), expected);
+                break;
+            }
+            case 2:
+            {
+                using var stream = new MemoryStream();
+                stream.Write(baseFile);
+                stream.Position = 0;
+                try
+                {
+                    using var writer = schema.CreateAppender(stream, new ParquetAppendOptions
+                    {
+                        AppendToLatestRowGroup = true,
+                        WriterOptions = options
+                    });
+                }
+                catch (NotSupportedException error) when (error.Message.Contains(
+                    "Appending to the latest row group is not supported for repeated column", StringComparison.Ordinal))
+                {
+                    break; // documented limitation, asserted by its exact message.
+                }
+
+                throw new InvalidOperationException(
+                    "Appending to the latest row group of a file with repeated columns was accepted; extend this route.");
+            }
+            default:
+            {
+                if (!WriteFile(extra, out var second))
+                    return;
+                var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
+                var merger = schema.CreateMerger(new MemoryReadSource(baseFile), destination,
+                    new ParquetMergeOptions { WriterOptions = options });
+                merger.AppendFile(new MemoryReadSource(second));
+                merger.CloseFile();
+                Verify(destination.ToArray(), expected);
+                break;
+            }
+        }
     }
 
     static void WriteColumn<TRow>(RowGroupWriter group, LeafColumn leaf, Array rows)

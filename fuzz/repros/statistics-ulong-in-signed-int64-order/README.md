@@ -20,3 +20,8 @@ one is the oracle agent's finding (generic dispatch route).
 
 Replay: `Plank.Fuzzing.Replay writer fuzz/repros/statistics-ulong-in-signed-int64-order/` ->
 `FAULT ... int 64 annotatedUnsigned=False clr=unsigned ... statistics: chunk min ... vs expected -5`.
+
+Later runs (route `WTM1`, mixed encodings) show the same defect for the optional form (`ulong?`, e.g.
+`wtm1-ulong-optional-in-signed-int64-plain-dictionary.bin`) and for 32 bits (`uint` into an unannotated INT32:
+`wtm1-uint-in-signed-int32-plain.bin`, PLAIN / PLAIN_DICTIONARY / DELTA_BINARY_PACKED / BYTE_STREAM_SPLIT, required
+and optional) - i.e. the whole `uint` / `ulong` x signed-column family, not one encoding.

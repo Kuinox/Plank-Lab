@@ -39,10 +39,11 @@ internal static class WriterStatisticsOracle
     }
 
     internal static void Check<T>(string what, PlankSchema schema, byte[] file, int[] bounds, T[] values,
-        bool pageIndexExpected, bool bloomExpected)
+        bool pageIndexExpected, bool bloomExpected, Func<T, IComparable?>? keyOverride = null)
     {
         var column = schema.LeafColumns[0];
-        var key = KeyFor<T>(column);
+        // `keyOverride` is for columns with a value converter: the order is that of the converted physical value.
+        var key = keyOverride ?? KeyFor<T>(column);
         var decode = DecoderFor(column);
         if (key is null || decode is null)
             return;
