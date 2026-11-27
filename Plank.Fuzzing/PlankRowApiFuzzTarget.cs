@@ -437,14 +437,34 @@ public static class PlankRowApiFuzzTarget
     // alongside the pipeline writer routes above. The explicit second empty group
     // covers Write() when no row is pending and is checked in the generated reader's
     // row-group metadata as well as its row stream.
+    //
+    // The row count and RowApiInitialRowCapacity are drawn independently: tying the
+    // capacity to the row count (as this route first did) means the direct writer
+    // never has to grow, which hid a heap overrun when GetRow() ran past capacity.
+    // Every call sequence here is valid API usage, so an InvalidOperationException
+    // is a finding rather than a rejected input.
     static void RunDirectRowGroups(ref Cursor cursor)
     {
-        var count = cursor.NextInt(1, 5);
+        try
+        {
+            RunDirectRowGroupsCore(ref cursor);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RowApiRoundTripException($"Direct row-group writer rejected valid usage: {ex.Message}");
+        }
+    }
+
+    static void RunDirectRowGroupsCore(ref Cursor cursor)
+    {
+        var count = cursor.NextInt(1, MaxRows + 1);
+        var fixedCapacity = cursor.NextInt(1, 9);
+        var binaryCapacity = cursor.NextInt(1, 9);
         var fixedExpected = new (bool Flag, int Id, long Sequence, double Measure)[count];
         for (var i = 0; i < count; i++)
             fixedExpected[i] = (cursor.NextInt(0, 2) != 0, cursor.NextInt32(), cursor.NextInt64(), cursor.NextDouble());
 
-        var fixedOptions = new ParquetWriterOptions { RowApiInitialRowCapacity = count };
+        var fixedOptions = new ParquetWriterOptions { RowApiInitialRowCapacity = fixedCapacity };
         using var fixedStream = new MemoryStream();
         using (var parquetWriter = RowFuzzFixed.Schema.CreateWriter(fixedStream, fixedOptions))
         {
@@ -494,7 +514,7 @@ public static class PlankRowApiFuzzTarget
         for (var i = 0; i < count; i++)
             binaryExpected[i] = (cursor.NextInt32(), cursor.NextBytes(MaxBinaryLength), cursor.NextLabel());
 
-        var binaryOptions = new ParquetWriterOptions { RowApiInitialRowCapacity = count };
+        var binaryOptions = new ParquetWriterOptions { RowApiInitialRowCapacity = binaryCapacity };
         using var binaryStream = new MemoryStream();
         using (var parquetWriter = RowFuzzBinary.Schema.CreateWriter(binaryStream, binaryOptions))
         {

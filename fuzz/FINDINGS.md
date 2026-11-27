@@ -21,6 +21,7 @@ All found by the reader/writer fuzz targets or their oracles, all fixed.
 | Optional FIXED_LEN_BYTE_ARRAY values written from `ReadOnlyMemory<byte>?` get length prefixes: Plank can't read the file back, PyArrow reads shifted values | [#217](https://github.com/Kuinox/Plank/pull/217) | [`repros/optional-fixed-memory-plain/`](repros/optional-fixed-memory-plain/) |
 | Appending to the latest row group fails for a valid DECIMAL column | [#218](https://github.com/Kuinox/Plank/pull/218) | Not committed |
 | Snappy blocks whose literal overruns the declared length are accepted (bug in Snappier 1.3.1) | [#220](https://github.com/Kuinox/Plank/pull/220) | `SnappyCorruptionTests` in Plank |
+| Row-group row writer (`CreateRowWriter(RowGroupWriter)`) writes past its column buffers when `GetRow()` is called more than `RowApiInitialRowCapacity` times (heap corruption, then `No more row slots are available.`). Missed for weeks because the `RWG1` direct route always set the capacity to the row count; found once they were drawn independently (2026-11-27) | [#276](https://github.com/Kuinox/Plank/pull/276) (open) | [`corpus/rowapi-direct-rowgroup.bin`](corpus/rowapi-direct-rowgroup.bin) |
 
 An earlier campaign (Nov 2–5) found a series of page-header and metadata
 validation gaps: wrong Thrift wire types, missing required fields, quadratic
