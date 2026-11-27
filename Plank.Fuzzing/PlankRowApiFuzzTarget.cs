@@ -57,6 +57,13 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.StartsWith(EvolutionMagic))
+        {
+            var evolutionCursor = new Cursor(data[EvolutionMagic.Length..]);
+            RunEvolution(ref evolutionCursor);
+            return;
+        }
+
         if (data.StartsWith(RowSchemaMagic))
         {
             var schemaCursor = new Cursor(data[RowSchemaMagic.Length..]);
