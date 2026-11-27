@@ -57,6 +57,13 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.StartsWith(RowSchemaMagic))
+        {
+            var schemaCursor = new Cursor(data[RowSchemaMagic.Length..]);
+            RunRowSchema(ref schemaCursor);
+            return;
+        }
+
         if (data.Length >= 4 && data[..4].SequenceEqual("RDA1"u8))
         {
             var appendCursor = new Cursor(data[4..]);

@@ -161,3 +161,4 @@ writer_magic_row_group_write_coverage="RGW1"
 magic_EXEC="EXEC"
 rowapi_flat_dataset_append_magic="RDA1"
 
+rowapi_rowschema_magic="RSC1"
