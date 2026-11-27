@@ -68,6 +68,53 @@ internal sealed class FullValueOracleTests
         FullValueOracle.VerifyWritten(Write(ParquetPhysicalType.Float, values, bloom: true));
     }
 
+    [Test, Explicit]
+    public void Repro_NarrowUnsignedReadsWrapSilently()
+    {
+        var log = new System.Text.StringBuilder();
+        foreach (var optional in new[] { false, true })
+        {
+            var file = optional
+                ? Write(ParquetPhysicalType.Int32, new int?[] { -300, 300, 18000, 5, -1 }, optional: true)
+                : Write(ParquetPhysicalType.Int32, new[] { -300, 300, 18000, 5, -1 });
+            using var reader = new Plank.Reading.Logical.ParquetReader();
+            reader.Reset(new Plank.Reading.MemoryReadSource(file));
+            var g = reader.RowGroups[0];
+            var leaf = reader.Schema.LeafColumns[0];
+            log.AppendLine($"optional={optional}");
+            log.AppendLine("  byte   " + Try(() => Collect(g.Column<byte>(leaf))));
+            log.AppendLine("  byte?  " + Try(() => Collect(g.Column<byte?>(leaf))));
+            log.AppendLine("  sbyte? " + Try(() => Collect(g.Column<sbyte?>(leaf))));
+            log.AppendLine("  ushort?" + Try(() => Collect(g.Column<ushort?>(leaf))));
+            log.AppendLine("  uint?  " + Try(() => Collect(g.Column<uint?>(leaf))));
+            log.AppendLine("  ushort " + Try(() => Collect(g.Column<ushort>(leaf))));
+            log.AppendLine("  uint   " + Try(() => Collect(g.Column<uint>(leaf))));
+        }
+        var file64 = Write(ParquetPhysicalType.Int64, new long?[] { -1, 5 }, optional: true);
+        using (var reader = new Plank.Reading.Logical.ParquetReader())
+        {
+            reader.Reset(new Plank.Reading.MemoryReadSource(file64));
+            var g = reader.RowGroups[0];
+            log.AppendLine("int64 opt ulong? " + Try(() => Collect(g.Column<ulong?>(reader.Schema.LeafColumns[0]))));
+        }
+        throw new InvalidOperationException(log.ToString());
+
+        static List<string> Collect<T>(Plank.Reading.Logical.RowGroupColumn<T> column)
+        {
+            var values = new List<string>();
+            foreach (var buffer in column)
+                foreach (var value in buffer.Values)
+                    values.Add(value?.ToString() ?? "null");
+            return values;
+        }
+
+        static string Try(Func<List<string>> read)
+        {
+            try { return string.Join(",", read()); }
+            catch (Exception e) { return $"{e.GetType().Name}: {e.Message}"; }
+        }
+    }
+
     // Repros of open library findings (fuzz/FINDINGS.md). Explicit: they fail until Plank is fixed.
     [Test, Explicit]
     public void Repro_UIntInUnannotatedInt32_StatisticsFollowTheColumnOrder()

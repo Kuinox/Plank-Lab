@@ -112,6 +112,7 @@ static class Program
         Console.WriteLine($"full-value oracle: {FullValueOracle.CheckedFiles} accepted + {FullValueOracle.CheckedWrittenFiles} written files, "
             + $"{FullValueOracle.CheckedStatistics} chunk statistics vs Arrow, {FullValueOracle.CheckedPages} pages, "
             + $"{FullValueOracle.CheckedBloomValues} bloom values, {FullValueOracle.CheckedSortedRows} sorted-row pairs, {FullValueOracle.CheckedNestedLogicalValues} nested logical values");
+        Console.WriteLine($"read-API matrix: {ReadApiMatrix.Reads} column reads + {ReadApiMatrix.RowReads} row-reader passes, {ReadApiMatrix.Values} values, {ReadApiMatrix.Refusals} refusals, {ReadApiMatrix.Pages} pages, {ReadApiMatrix.KnownUnsignedWraps} known unsigned wraps, {ReadApiMatrix.ConverterReads} converter reads");
         return 0;
     }
 

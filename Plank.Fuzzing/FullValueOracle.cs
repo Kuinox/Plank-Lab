@@ -203,6 +203,8 @@ public static class FullValueOracle
             {
                 // Arrow could not parse a metadata structure Plank parsed: not a value verdict.
             }
+            if (CaptureLenient(arrow, plank.Schema.LeafColumns.Length) is { } captured)
+                ReadApiMatrix.Check(fileBytes, plank, captured, strict: false);
         }
         CheckNestedLogical(plank);
         CheckedFiles++;
@@ -471,9 +473,40 @@ public static class FullValueOracle
                 for (var c = 0; c < leaves.Length; c++)
                     if (values[g][c] is { } column)
                         CheckAgainstValues(plank, g, c, column);
+            ReadApiMatrix.Check(file, plank, values, strict: true);
             if (SortDeclarationsAreClaims)
                 for (var g = 0; g < groupCount; g++)
                     CheckDeclaredSortOrder(plank, g, values[g]);
+        }
+    }
+
+    /// <summary>Arrow's levels and values of every column; null when Arrow cannot decode the file.</summary>
+    static ArrowColumn?[][]? CaptureLenient(Ps.ParquetFileReader arrow, int leafCount)
+    {
+        try
+        {
+            if (arrow.FileMetaData.NumColumns != leafCount)
+                return null;
+            var groups = new ArrowColumn?[arrow.FileMetaData.NumRowGroups][];
+            for (var g = 0; g < groups.Length; g++)
+            {
+                groups[g] = new ArrowColumn?[leafCount];
+                using var group = arrow.RowGroup(g);
+                for (var c = 0; c < leafCount; c++)
+                {
+                    using var chunk = group.MetaData.GetColumnChunkMetaData(c);
+                    if (IsUndecodableByArrow(chunk, group, c))
+                        continue;
+                    using var reader = group.Column(c);
+                    groups[g][c] = ArrowColumn.Capture(reader);
+                }
+            }
+            return groups;
+        }
+        catch (Exception error) when (error is Ps.ParquetException or InvalidDataException or ArgumentOutOfRangeException)
+        {
+            // Arrow's verdict on the file is ReaderAcceptanceOracle's business.
+            return null;
         }
     }
 
@@ -1129,6 +1162,23 @@ public static class FullValueOracle
         public readonly List<int> RowStarts = [];
 
         public int EntryCount => _def.Count;
+
+        public static ArrowColumn? Concat(IEnumerable<ArrowColumn?> parts)
+        {
+            ArrowColumn? merged = null;
+            foreach (var part in parts)
+            {
+                if (part is null)
+                    return null;
+                merged ??= new ArrowColumn { MaxDef = part.MaxDef, MaxRep = part.MaxRep };
+                for (var e = 0; e < part.EntryCount; e++)
+                    merged.Add(part._def[e], part._rep[e], part.ValueAtEntry(e));
+            }
+            return merged;
+        }
+
+        public short DefinitionAt(int entry) => _def[entry];
+        public short RepetitionAt(int entry) => _rep[entry];
 
         public byte[]? ValueAtEntry(int entry) => _valueOfEntry[entry] is >= 0 and var v ? Values[v] : null;
 
