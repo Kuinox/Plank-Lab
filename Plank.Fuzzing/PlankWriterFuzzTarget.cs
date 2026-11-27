@@ -1718,11 +1718,11 @@ public static class PlankWriterFuzzTarget
                 var retained = new double[rowCount];
                 var incoming = new double[rowCount];
                 var scale = 1 + step / 4d;
+                // Fill retained completely first: incoming is derived from retained[^1].
                 for (var i = 0; i < rowCount; i++)
-                {
                     retained[i] = start / 8d + (descending ? -1 : 1) * i * scale;
+                for (var i = 0; i < rowCount; i++)
                     incoming[i] = retained[^1] + (descending ? -1 : 1) * (i + 1) * scale;
-                }
                 var ambiguous = (Control(controls, 1, 0) & 8) != 0;
                 if (ambiguous)
                 {
@@ -1753,11 +1753,11 @@ public static class PlankWriterFuzzTarget
                 var retained = new float[rowCount];
                 var incoming = new float[rowCount];
                 var scale = 1 + step / 4f;
+                // Fill retained completely first: incoming is derived from retained[^1].
                 for (var i = 0; i < rowCount; i++)
-                {
                     retained[i] = start / 8f + (descending ? -1 : 1) * i * scale;
+                for (var i = 0; i < rowCount; i++)
                     incoming[i] = retained[^1] + (descending ? -1 : 1) * (i + 1) * scale;
-                }
                 var ambiguous = (Control(controls, 1, 0) & 8) != 0;
                 if (ambiguous)
                 {

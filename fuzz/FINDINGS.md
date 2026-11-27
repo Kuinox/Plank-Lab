@@ -15,7 +15,6 @@ All found by the reader/writer fuzz targets or their oracles, all fixed.
 | Defect | Fixed in | Repro |
 |---|---|---|
 | Malformed DELTA_BINARY_PACKED batches escape as `ArgumentOutOfRangeException` from the INT32 and INT64 readers instead of `CorruptParquetException` | [#216](https://github.com/Kuinox/Plank/pull/216) | Saved queue inputs, not committed |
-| Appending to a sorted FLOAT/DOUBLE file drops its sorting metadata | [#219](https://github.com/Kuinox/Plank/pull/219) | [`writer-gap-findings/append-floating-sort-metadata/`](writer-gap-findings/append-floating-sort-metadata/) |
 | DECIMAL columns with Bloom filters enabled throw `NotSupportedException` when written | [#215](https://github.com/Kuinox/Plank/pull/215) | [`writer-gap-findings/decimal-bloom/`](writer-gap-findings/decimal-bloom/) |
 | A `DefaultParquetBufferPool` whose constructor throws crashes the process later, from its finalizer | [#214](https://github.com/Kuinox/Plank/pull/214) | [`repros/buffer-pool-partial-ctor/`](repros/buffer-pool-partial-ctor/) |
 | Optional FIXED_LEN_BYTE_ARRAY values written from `ReadOnlyMemory<byte>?` get length prefixes: Plank can't read the file back, PyArrow reads shifted values | [#217](https://github.com/Kuinox/Plank/pull/217) | [`repros/optional-fixed-memory-plain/`](repros/optional-fixed-memory-plain/) |
@@ -30,6 +29,11 @@ header probing. Their fixes landed as #169 and #171, and in reworked form as
 
 ## Open
 
+- **Not a library bug: "append drops FLOAT/DOUBLE sort metadata" (triaged 2026-11-27).** The two
+  writer-gap seeds were a harness error: cases 3/4 of the append-sorting route derived `incoming` from
+  `retained[^1]` in the same loop that filled `retained`, so the appended values were out of order and dropping
+  the metadata was correct. Harness fixed; repro and explanation in
+  [`repros/append-floating-sort-metadata/`](repros/append-floating-sort-metadata/). Plank #219 is unrelated.
 - **Reader disagreements are untriaged.** The `20261111ae` replay logged
   2,439–3,041 inputs per CPU tier where Plank and an independent reader
   (Arrow, Parquet.Net) disagree. Most are expected to be malformed-file
