@@ -57,6 +57,27 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.Length >= 4 && data[..4].SequenceEqual("RWD1"u8))
+        {
+            var deepCursor = new Cursor(data[4..]);
+            RowFuzzDeepRoutes.Run(ref deepCursor);
+            return;
+        }
+
+        if (data.Length >= 4 && data[..4].SequenceEqual("RDD1"u8))
+        {
+            var deepCursor = new Cursor(data[4..]);
+            RowFuzzDeepRoutes.RunDataset(ref deepCursor);
+            return;
+        }
+
+        if (data.Length >= 4 && data[..4].SequenceEqual("RMD1"u8))
+        {
+            var deepCursor = new Cursor(data[4..]);
+            RowFuzzDeepRoutes.RunMerge(ref deepCursor);
+            return;
+        }
+
         if (data.StartsWith(WideDatasetMagic))
         {
             var datasetCursor = new Cursor(data[WideDatasetMagic.Length..]);

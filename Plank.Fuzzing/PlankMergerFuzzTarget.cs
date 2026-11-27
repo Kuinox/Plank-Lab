@@ -40,7 +40,8 @@ public static class PlankMergerFuzzTarget
         // The corpus seeds carry the writer target's 0xFF row-API marker; accept them as they are.
         var rowApiData = data.Length > 4 && data[0] == 0xFF ? data[1..] : data;
         if (rowApiData.Length >= 4 && (rowApiData[..4].SequenceEqual("RMW1"u8) || rowApiData[..4].SequenceEqual("RMN1"u8)
-            || rowApiData[..4].SequenceEqual("RDW1"u8) || rowApiData[..4].SequenceEqual("RDN1"u8)))
+            || rowApiData[..4].SequenceEqual("RDW1"u8) || rowApiData[..4].SequenceEqual("RDN1"u8)
+            || rowApiData[..4].SequenceEqual("RMD1"u8) || rowApiData[..4].SequenceEqual("RDD1"u8)))
         {
             PlankRowApiFuzzTarget.Execute(rowApiData);
             return;

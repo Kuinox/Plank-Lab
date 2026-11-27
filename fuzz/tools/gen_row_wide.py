@@ -686,3 +686,5 @@ public sealed class RowFuzzIdConverter : ParquetValueConverter<RowFuzzId, int>
 for n, nl in (("RowFuzzWide", False), ("RowFuzzWideNullable", True)):
     print(emit_class(n, nl))
     print(ROUTES.replace("@S@", n))
+# RowFuzzDeep is hand-written (RowFuzzDeep.cs); only its routes are generated.
+print(ROUTES.replace("@S@", "RowFuzzDeep"))
