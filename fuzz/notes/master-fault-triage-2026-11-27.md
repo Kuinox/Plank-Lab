@@ -32,3 +32,16 @@ segfaults), reader 0 of 134, merger 0. The two append-sort repros (`fuzz/repros/
 both `append-no-sorting-empty-guard.bin` seeds pass.
 
 No new library bug among these faults: none of them is the canary.
+
+## nested-gap-map: library or harness? (follow-up)
+The reader agent's report (valid files, thrown by `NestedRowMaterializer`, suppressed in ec7e411 with a TODO(rowapi))
+was checked against independent readers. pyarrow reads all 8 seeds as `MAP<key, optional int32>` with rows
+`[(a,1),(b,None)], [], [..,(y,None)], [..]` (value leaf max def 3, max rep 1). `Plank.Lab.Tests`
+`NestedMapRowApiLevelsTests.RowApiNestedLevelsMatchArrowOnNullMapValues` concatenates what `RowReaderCore.GetCurrentNested`
+returns per row (repetition levels, definition levels, values) for both leaves and compares it with Arrow C++'s raw
+level/value streams (ParquetSharp `ColumnReader.ReadBatch`): identical on all 8 seeds, every row starts at rep 0, and
+row 0 of the value leaf is def [3,2] / rep [0,1] / values [1] as the spec requires. So the library is right; the harness
+guessed the entry level as max def (3), so the null value at def 2 looked like an empty-map marker. Fixed in c7c0011
+(levels from the schema tree), which also removed the TODO(rowapi) suppression clause.
+`ReaderTargetAcceptsNullMapValues` runs the seeds through `PlankReaderFuzzTarget`; it fails with exactly
+"Empty/null collection marker at position 1." when the old guessed levels are forced, and passes with the fix.
