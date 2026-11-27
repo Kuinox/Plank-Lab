@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using Plank.Reading;
 using Plank.Reading.Logical;
 using Plank.Schema;
 using Plank.Writing;
@@ -90,9 +91,10 @@ internal static class WriterNestedCases
         var encoding = useDouble
             ? c.Pick(EncodingKind.Plain, EncodingKind.ByteStreamSplit)
             : c.Pick(EncodingKind.Plain, EncodingKind.DeltaBinaryPacked, EncodingKind.RleDictionary);
+        var bloom = c.Int(0, 4) == 0;
         var leaf = ColumnDefinition.Leaf("v", useDouble ? ParquetPhysicalType.Double : ParquetPhysicalType.Int32,
             new ColumnOptions(leafOptional ? ParquetRepetition.Optional : ParquetRepetition.Required,
-                ImmutableArray.Create(encoding)));
+                ImmutableArray.Create(encoding), bloomFilter: bloom ? ParquetBloomFilterOptions.Default : null));
         var node = leaf;
         for (var k = depth - 1; k >= 0; k--)
             node = ColumnDefinition.List($"l{k}", node,
@@ -108,7 +110,11 @@ internal static class WriterNestedCases
                 $"Nested schema levels differ from the Dremel rules: rep {column.MaxRepetitionLevel}/{depth}, " +
                 $"def {column.MaxDefinitionLevel}/{expectedMaxDefinition}.");
 
-        var groups = c.Int(1, 4);
+        var baseGroups = c.Int(1, 4);
+        // After the base file is verified, more row groups are added: 1 appended, 2 appended into the latest row
+        // group (the writer rejects that for repeated columns), 3 merged from a second file. 0 = none.
+        var variant = c.Int(0, 5) is var v && v > 3 ? 0 : v;
+        var groups = baseGroups + (variant == 0 ? 0 : c.Int(1, 3));
         var rowsPerGroup = c.Pick(1, 2, 5, 17, 60, 300);
         var maxLength = c.Pick(0, 1, 2, 4, 9);
         var nullChance = c.Pick(2, 3, 5, 1000);
@@ -139,7 +145,7 @@ internal static class WriterNestedCases
         using var pool = WriterFuzzPool.Create((WriterPoolKind)c.Int(0, 7));
         typeof(WriterNestedCases).GetMethod(nameof(WriteAndCheck), BindingFlags.NonPublic | BindingFlags.Static)!
             .MakeGenericMethod(rowClr, leafType)
-            .Invoke(null, [schema, Options(c, pool), rowArrays, levels, $"nested depth={depth} optional=[{string.Join(',', optionalList)}] leafOpt={leafOptional} {leafType.Name} {encoding}"]);
+            .Invoke(null, [schema, Options(c, pool), rowArrays, levels, baseGroups, variant, bloom, $"nested depth={depth} optional=[{string.Join(',', optionalList)}] leafOpt={leafOptional} {leafType.Name} {encoding}"]);
     }
 
     static Type NodeType(int level, int depth, bool leafOptional, Type leafType)
@@ -199,29 +205,122 @@ internal static class WriterNestedCases
         return array;
     }
 
-    static void WriteAndCheck<TRow, TLeaf>(PlankSchema schema, ParquetWriterOptions options, List<Array> rowArrays,
-        List<Levels> levels, string what)
-        where TLeaf : struct
+    static byte[] WriteFile<TRow>(PlankSchema schema, ParquetWriterOptions options, IEnumerable<Array> groups)
     {
         using var stream = new MemoryStream();
         var writer = schema.CreateWriter(stream, options);
-        foreach (var rows in rowArrays)
-        {
-            var group = writer.StartRowGroup();
-            var column = group.CreateSerializedColumn<TRow>(schema.LeafColumns[0]);
-            column.Serialize((TRow[])rows);
-            group.Write(column);
-        }
-
+        foreach (var rows in groups)
+            WriteGroup<TRow>(writer, schema, rows);
         writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
-        if (reader.RowGroups.Count != rowArrays.Count)
-            throw new InvalidOperationException($"{what}: {reader.RowGroups.Count} row groups, expected {rowArrays.Count}.");
-        for (var g = 0; g < rowArrays.Count; g++)
-            CompareGroup<TLeaf>(what, g, reader.RowGroups[g], schema.LeafColumns[0], levels[g]);
+        return stream.ToArray();
     }
 
-    static void CompareGroup<TLeaf>(string what, int group, RowGroup rowGroup, LeafColumn column, Levels expected)
+    static void WriteGroup<TRow>(ParquetWriter writer, PlankSchema schema, Array rows)
+    {
+        var group = writer.StartRowGroup();
+        var column = group.CreateSerializedColumn<TRow>(schema.LeafColumns[0]);
+        column.Serialize((TRow[])rows);
+        group.Write(column);
+    }
+
+    static void VerifyFile<TLeaf>(PlankSchema schema, byte[] file, List<Levels> levels, bool bloom, string what)
+        where TLeaf : struct
+    {
+        using var reader = schema.CreateReader(new MemoryStream(file, writable: false));
+        if (reader.RowGroups.Count != levels.Count)
+            throw new InvalidOperationException($"{what}: {reader.RowGroups.Count} row groups, expected {levels.Count}.");
+        for (var g = 0; g < levels.Count; g++)
+            CompareGroup<TLeaf>(what, g, reader.RowGroups[g], schema.LeafColumns[0], levels[g], bloom);
+    }
+
+    static Levels Concat(Levels first, Levels second)
+    {
+        var merged = new Levels { Rows = first.Rows + second.Rows };
+        merged.Repetition.AddRange(first.Repetition);
+        merged.Repetition.AddRange(second.Repetition);
+        merged.Definition.AddRange(first.Definition);
+        merged.Definition.AddRange(second.Definition);
+        merged.Values.AddRange(first.Values);
+        merged.Values.AddRange(second.Values);
+        return merged;
+    }
+
+    static void WriteAndCheck<TRow, TLeaf>(PlankSchema schema, ParquetWriterOptions options, List<Array> rowArrays,
+        List<Levels> levels, int baseGroups, int variant, bool bloom, string what)
+        where TLeaf : struct
+    {
+        var file = WriteFile<TRow>(schema, options, rowArrays.Take(baseGroups));
+        VerifyFile<TLeaf>(schema, file, levels.Take(baseGroups).ToList(), bloom, what);
+        if (variant == 0)
+            return;
+
+        var extra = rowArrays.Skip(baseGroups).ToList();
+        var extraLevels = levels.Skip(baseGroups).ToList();
+        what += $" +variant{variant}";
+        switch (variant)
+        {
+            case 1:
+            {
+                using var stream = new MemoryStream();
+                stream.Write(file);
+                stream.Position = 0;
+                using (var writer = schema.CreateAppender(stream, new ParquetAppendOptions { WriterOptions = options }))
+                {
+                    foreach (var rows in extra)
+                        WriteGroup<TRow>(writer, schema, rows);
+                    writer.CloseFile();
+                }
+
+                VerifyFile<TLeaf>(schema, stream.ToArray(), levels, bloom, what);
+                break;
+            }
+            case 2:
+            {
+                using var stream = new MemoryStream();
+                stream.Write(file);
+                stream.Position = 0;
+                ParquetWriter? writer = null;
+                try
+                {
+                    writer = schema.CreateAppender(stream, new ParquetAppendOptions
+                    {
+                        AppendToLatestRowGroup = true,
+                        WriterOptions = options
+                    });
+                }
+                catch (NotSupportedException error) when (error.Message.Contains(
+                    "Appending to the latest row group is not supported for repeated column", StringComparison.Ordinal))
+                {
+                    return; // documented limitation, asserted by its exact message.
+                }
+
+                // If the library ever supports it, the first extra group must be merged into the latest group.
+                using (writer)
+                {
+                    WriteGroup<TRow>(writer, schema, extra[0]);
+                    writer.CloseFile();
+                }
+
+                var expected = levels.Take(baseGroups - 1).Append(Concat(levels[baseGroups - 1], extraLevels[0])).ToList();
+                VerifyFile<TLeaf>(schema, stream.ToArray(), expected, bloom, what);
+                break;
+            }
+            default:
+            {
+                var second = WriteFile<TRow>(schema, options, extra);
+                var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
+                var merger = schema.CreateMerger(new MemoryReadSource(file), destination,
+                    new ParquetMergeOptions { WriterOptions = options });
+                merger.AppendFile(new MemoryReadSource(second));
+                merger.CloseFile();
+                VerifyFile<TLeaf>(schema, destination.ToArray(), levels, bloom, what);
+                break;
+            }
+        }
+    }
+
+    static void CompareGroup<TLeaf>(string what, int group, RowGroup rowGroup, LeafColumn column, Levels expected,
+        bool bloom)
         where TLeaf : struct
     {
         var values = new List<TLeaf>();
@@ -239,6 +338,8 @@ internal static class WriterNestedCases
             }
         }
 
+        WriterStatisticsOracle.CheckNestedChunk(what, group, column, rowGroup.GetColumnMetadata(column),
+            expected.Values, bloom);
         if (rows != expected.Rows)
             throw new InvalidOperationException($"{what}: group {group} rows {rows} != {expected.Rows}.");
         if (!repetition.SequenceEqual(expected.Repetition))
@@ -357,8 +458,8 @@ internal static class WriterNestedCases
         const string what = "nested map";
         for (var g = 0; g < groups; g++)
         {
-            CompareGroup<int>(what + " keys", g, reader.RowGroups[g], keyColumn, keyLevels[g]);
-            CompareGroup<long>(what + " values", g, reader.RowGroups[g], valueColumn, valueLevels[g]);
+            CompareGroup<int>(what + " keys", g, reader.RowGroups[g], keyColumn, keyLevels[g], false);
+            CompareGroup<long>(what + " values", g, reader.RowGroups[g], valueColumn, valueLevels[g], false);
         }
     }
 }

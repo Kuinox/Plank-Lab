@@ -128,6 +128,14 @@ unsorted rows is not a defect; the oracle checks declared orders only on the app
   flagged by the full-value oracle's metadata comparison). Low severity (leniency, no memory unsafety).
 - Also surfaced by the full-value oracle on an existing seed: `fuzz/reader-corpus/file-schema-nested-maps-dictionary-snappy.bin` — "statistics: Plank lost a min/max Arrow reads" for the nested map key column
   (`a.key_value.value.key_value.key`, Int32); owner: oracle agent.
+## Open library defect found by the writer statistics oracle (writer agent, 2026-11-27)
+
+- **`ulong` written to an unannotated (signed) INT64 column gets statistics in unsigned order** (64-bit sibling of the
+  `uint` / INT32 finding above): min/max follow the CLR type, so min > max in the column's order for values above
+  `long.MaxValue`. All encodings. Repro: [`repros/statistics-ulong-in-signed-int64-order/`](repros/statistics-ulong-in-signed-int64-order/).
+  The earlier oracle keyed min/max by CLR type, which is why it could not see either bug; it now keys by the column's
+  physical + logical type.
+
 ## Writer-route observations (writer agent, 2026-11-27) - limitations, not defects
 
 Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that found it, so a change in behaviour

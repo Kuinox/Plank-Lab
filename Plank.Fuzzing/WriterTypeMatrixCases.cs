@@ -430,7 +430,12 @@ internal static class WriterTypeMatrixCases
         for (var i = 0; i < pool.Length; i++)
         {
             var unscaled = (c.Long() % (limit + 1)) * (c.Int(0, 2) == 0 ? 1 : -1);
-            pool[i] = (decimal)unscaled / (decimal)Math.Pow(10, scale);
+            // Sometimes fewer fractional digits than the column scale: the same number of integer digits must stay.
+            var shown = scale == 0 || c.Int(0, 3) != 0 ? scale : c.Int(0, scale);
+            if (digits - (scale - shown) < 1)
+                shown = scale; // not enough integer digits left for fewer fractional ones
+            var shownLimit = (long)Math.Pow(10, Math.Max(1, digits - (scale - shown)));
+            pool[i] = (decimal)(unscaled % shownLimit) / (decimal)Math.Pow(10, shown);
         }
 
         var definition = ColumnDefinition.Leaf("dec", physical,
@@ -468,7 +473,7 @@ internal static class WriterTypeMatrixCases
         var rows = c.Pick(1, 5, 33, 255, 256, 257, 258, 1000, 5000);
         var repetition = optional ? ParquetRepetition.Optional : ParquetRepetition.Required;
         var definition = ColumnDefinition.Leaf("narrow", ParquetPhysicalType.Int32,
-            Opts(repetition, encoding), new LogicalType.Int((byte)(wide ? 16 : 8), false), Strategy(c));
+            Opts(repetition, encoding), c.Int(0, 3) == 0 ? null : new LogicalType.Int((byte)(wide ? 16 : 8), false), Strategy(c));
         var schema = new PlankSchema([definition]);
         var what = $"narrow {(wide ? "u16" : "u8")} {encoding} optional={optional} rows={rows}";
         var mode = c.Int(0, 3); // random / ascending / few distinct
@@ -830,6 +835,10 @@ internal static class WriterTypeMatrixCases
     {
         var is64 = c.Int(0, 2) == 0;
         var optional = c.Int(0, 2) == 0;
+        // The CLR type and the column's sign annotation vary independently: uint / ulong into an unannotated
+        // (signed) column, int / long into an unsigned one. Statistics must follow the COLUMN's order.
+        var annotated = c.Int(0, 3) != 0;
+        var clrUnsigned = c.Int(0, 2) == 0;
         var encoding = c.Pick(EncodingKind.Plain, EncodingKind.DeltaBinaryPacked, EncodingKind.PlainDictionary,
             EncodingKind.RleDictionary, EncodingKind.ByteStreamSplit);
         var rows = c.Pick(1, 4, 60, 700, 5000);
@@ -837,51 +846,34 @@ internal static class WriterTypeMatrixCases
         var definition = ColumnDefinition.Leaf("u", is64 ? ParquetPhysicalType.Int64 : ParquetPhysicalType.Int32,
             Opts(optional ? ParquetRepetition.Optional : ParquetRepetition.Required, encoding, 0,
                 bloomOn ? ParquetBloomFilterOptions.Default : null),
-            new LogicalType.Int((byte)(is64 ? 64 : 32), false), Strategy(c));
+            annotated ? new LogicalType.Int((byte)(is64 ? 64 : 32), false) : null, Strategy(c));
         var schema = new PlankSchema([definition]);
-        var what = $"unsigned {(is64 ? "u64" : "u32")} {encoding} optional={optional} rows={rows}";
+        var what = $"int {(is64 ? "64" : "32")} annotatedUnsigned={annotated} clr={(clrUnsigned ? "unsigned" : "signed")} " +
+                   $"{encoding} optional={optional} rows={rows}";
         var pool = new ulong[c.Pick(1, 3, 40, rows)];
         for (var i = 0; i < pool.Length; i++)
         {
             var raw = ((ulong)(uint)c.Int(0, int.MaxValue) << 32) | (uint)c.Int(0, int.MaxValue);
             pool[i] = c.Int(0, 3) == 0 ? (is64 ? ulong.MaxValue - raw % 5 : uint.MaxValue - raw % 5)
-                : is64 ? raw << c.Int(0, 2) : raw >> 32 << (c.Int(0, 2));
-            if (!is64) pool[i] &= uint.MaxValue;
+                : is64 ? raw << c.Int(0, 2) : (raw >> 32 << c.Int(0, 2)) & uint.MaxValue;
         }
 
+        void Go<T>(T[] values)
+            => RoundTrip(what, schema, p, values, g => Target.ReadAllBuffers(g.Column<T>(schema.LeafColumns[0])),
+                static (a, b) => EqualityComparer<T>.Default.Equals(a, b), c, bloomOn);
+
+        ulong Draw() => pool[c.Int(0, pool.Length)];
+        bool Null() => c.Int(0, 5) == 0;
         try
         {
-            if (is64)
-            {
-                if (optional)
-                {
-                    var v = new ulong?[rows];
-                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : pool[c.Int(0, pool.Length)];
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<ulong?>(schema.LeafColumns[0])),
-                        static (a, b) => a == b, c, bloomOn);
-                }
-                else
-                {
-                    var v = new ulong[rows];
-                    for (var i = 0; i < rows; i++) v[i] = pool[c.Int(0, pool.Length)];
-                    RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<ulong>(schema.LeafColumns[0])),
-                        static (a, b) => a == b, c, bloomOn);
-                }
-            }
-            else if (optional)
-            {
-                var v = new uint?[rows];
-                for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : (uint)pool[c.Int(0, pool.Length)];
-                RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<uint?>(schema.LeafColumns[0])),
-                    static (a, b) => a == b, c, bloomOn);
-            }
-            else
-            {
-                var v = new uint[rows];
-                for (var i = 0; i < rows; i++) v[i] = (uint)pool[c.Int(0, pool.Length)];
-                RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<uint>(schema.LeafColumns[0])),
-                    static (a, b) => a == b, c, bloomOn);
-            }
+            if (is64 && clrUnsigned && optional) Go(Enumerable.Range(0, rows).Select(_ => Null() ? (ulong?)null : Draw()).ToArray());
+            else if (is64 && clrUnsigned) Go(Enumerable.Range(0, rows).Select(_ => Draw()).ToArray());
+            else if (is64 && optional) Go(Enumerable.Range(0, rows).Select(_ => Null() ? (long?)null : unchecked((long)Draw())).ToArray());
+            else if (is64) Go(Enumerable.Range(0, rows).Select(_ => unchecked((long)Draw())).ToArray());
+            else if (clrUnsigned && optional) Go(Enumerable.Range(0, rows).Select(_ => Null() ? (uint?)null : (uint)Draw()).ToArray());
+            else if (clrUnsigned) Go(Enumerable.Range(0, rows).Select(_ => (uint)Draw()).ToArray());
+            else if (optional) Go(Enumerable.Range(0, rows).Select(_ => Null() ? (int?)null : unchecked((int)(uint)Draw())).ToArray());
+            else Go(Enumerable.Range(0, rows).Select(_ => unchecked((int)(uint)Draw())).ToArray());
         }
         catch (NotSupportedException error) when (encoding == EncodingKind.ByteStreamSplit
             && error.Message.Contains("ByteStreamSplit", StringComparison.OrdinalIgnoreCase))
@@ -959,20 +951,21 @@ internal static class WriterTypeMatrixCases
             case 2:
             {
                 var tsUnit = unit == TimeUnit.Nanos ? TimeUnit.Micros : unit;
-                var def = ColumnDefinition.Leaf("ts", ParquetPhysicalType.Int64, Opts(repetition, encoding), new LogicalType.Timestamp(tsUnit, false), strategy);
+                var adjusted = c.Int(0, 2) == 0; // DateTime kind must follow: Utc <-> adjusted, Unspecified <-> local
+                var def = ColumnDefinition.Leaf("ts", ParquetPhysicalType.Int64, Opts(repetition, encoding), new LogicalType.Timestamp(tsUnit, adjusted), strategy);
                 var schema = new PlankSchema([def]);
-                var what = $"timestamp {tsUnit} {encoding} optional={optional} rows={rows}";
+                var what = $"timestamp adjusted={adjusted} {tsUnit} {encoding} optional={optional} rows={rows}";
                 unit = tsUnit;
                 if (optional)
                 {
                     var v = new DateTime?[rows];
-                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : Instant();
+                    for (var i = 0; i < rows; i++) v[i] = c.Int(0, 5) == 0 ? null : DateTime.SpecifyKind(Instant(), adjusted ? DateTimeKind.Utc : DateTimeKind.Unspecified);
                     RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateTime?>(schema.LeafColumns[0])), static (a, b) => a == b, c);
                 }
                 else
                 {
                     var v = new DateTime[rows];
-                    for (var i = 0; i < rows; i++) v[i] = Instant();
+                    for (var i = 0; i < rows; i++) v[i] = DateTime.SpecifyKind(Instant(), adjusted ? DateTimeKind.Utc : DateTimeKind.Unspecified);
                     RoundTrip(what, schema, p, v, g => Target.ReadAllBuffers(g.Column<DateTime>(schema.LeafColumns[0])), static (a, b) => a == b, c);
                 }
 

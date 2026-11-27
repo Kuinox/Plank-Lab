@@ -56,7 +56,7 @@ internal static class WriterGroupCases
     abstract record Node(string Name, bool Optional);
 
     sealed record LeafNode(string Name, bool Optional, Kind Kind, int Precision, int Scale, ParquetPhysicalType Physical,
-        int Width, EncodingKind Encoding) : Node(Name, Optional);
+        int Width, EncodingKind Encoding, bool Bloom = false) : Node(Name, Optional);
 
     sealed record GroupNode(string Name, bool Optional, Node[] Children) : Node(Name, Optional);
 
@@ -261,7 +261,8 @@ internal static class WriterGroupCases
                 }
             }
 
-            return new LeafNode($"{name}{id++}", optional, kind, precision, scale, physical, width, encoding);
+            return new LeafNode($"{name}{id++}", optional, kind, precision, scale, physical, width, encoding,
+                Bloom: kind != Kind.Decimal && c.Chance(4));
         }
 
         GroupNode Group(string name, bool budget, Func<bool, Node[]> children)
@@ -357,7 +358,8 @@ internal static class WriterGroupCases
                 };
                 return ColumnDefinition.Leaf(leaf.Name, leaf.Physical,
                     new ColumnOptions(repetition, ImmutableArray.Create(leaf.Encoding),
-                        leaf.Physical == ParquetPhysicalType.FixedLenByteArray ? (uint)leaf.Width : 0), logical);
+                        leaf.Physical == ParquetPhysicalType.FixedLenByteArray ? (uint)leaf.Width : 0,
+                        bloomFilter: leaf.Bloom ? ParquetBloomFilterOptions.Default : null), logical);
             case GroupNode group:
                 var children = group.Children.Select(ToDefinition).ToArray();
                 return node.Optional
@@ -641,9 +643,12 @@ internal static class WriterGroupCases
         if (leaf.Kind == Kind.Decimal)
             expected = new Emitted { Rows = expected.Rows }.With(expected, leaf);
         _leavesCompared++;
+        WriterStatisticsOracle.CheckNestedChunk(label0(), group, column, rowGroup.GetColumnMetadata(column),
+            expected.Values, leaf.Bloom);
         _entriesCompared += rep.Count;
         if (Environment.GetEnvironmentVariable("PLANK_ORACLE_SELFTEST") == "1" && def.Count > 0)
             def[0] ^= 1; // negative test of this oracle: a corrupted level must be reported
+        string label0() => $"{what} leaf '{leaf.Name}' ({leaf.Kind}/{leaf.Physical}/{leaf.Encoding})";
         var label = $"{what} group {group} leaf '{leaf.Name}' ({leaf.Kind}/{leaf.Physical}/{leaf.Encoding})";
         if (rows != expected.Rows)
             throw new InvalidOperationException($"{label}: rows {rows} != {expected.Rows}.");

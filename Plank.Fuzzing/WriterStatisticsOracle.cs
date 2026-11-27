@@ -99,6 +99,84 @@ internal static class WriterStatisticsOracle
         }
     }
 
+    /// <summary>
+    /// Chunk and page statistics plus Bloom membership of one NESTED leaf column. `values` are the non-null leaf
+    /// values of the chunk (boxed model values). null_count is not compared: for nested columns it also counts
+    /// empty and null ancestors, which is a convention rather than a value fact.
+    /// </summary>
+    internal static void CheckNestedChunk(string what, int group, LeafColumn column,
+        ParquetColumnChunkMetadata chunk, IReadOnlyList<object> values, bool bloomExpected)
+    {
+        var decode = DecoderFor(column);
+        if (decode is null)
+            return;
+        var keys = values.Select(v => KeyOfModelValue(column, v)).ToArray();
+        _chunks++;
+        var statistics = chunk.Statistics;
+        CheckBounds(what, group, "nested chunk", statistics.HasMinimum, statistics.HasMaximum,
+            statistics.Minimum, statistics.Maximum, statistics.IsMinimumExact, statistics.IsMaximumExact, keys, decode);
+
+        if (chunk.HasOffsetIndex || chunk.HasColumnIndex)
+        {
+            using var pages = chunk.OpenPages();
+            IComparable? lowest = null, highest = null;
+            var allExact = true;
+            for (var i = 0; i < pages.Count; i++)
+            {
+                var page = pages[i];
+                _pages++;
+                var stats = page.Statistics;
+                if (stats is { HasMinimum: true, HasMaximum: true })
+                {
+                    var min = decode(stats.Minimum.ToArray());
+                    var max = decode(stats.Maximum.ToArray());
+                    if (min is null || max is null)
+                        continue;
+                    _pageMinMax++;
+                    if (min.CompareTo(max) > 0)
+                        throw Fail(what, group, $"nested page {i} min {min} is greater than max {max}");
+                    allExact &= stats.IsMinimumExact && stats.IsMaximumExact;
+                    lowest = lowest is null || min.CompareTo(lowest) < 0 ? min : lowest;
+                    highest = highest is null || max.CompareTo(highest) > 0 ? max : highest;
+                }
+            }
+
+            var present = keys.Where(static k => k is not null).Select(static k => k!).ToArray();
+            if (present.Length > 0 && lowest is not null && highest is not null && allExact
+                && pages.Count > 0 && (lowest.CompareTo(present.Min()!) != 0 || highest.CompareTo(present.Max()!) != 0)
+                && present.Length == values.Count)
+            {
+                // Pages with only NaN or no bounds are skipped above; with every page bounded the union must be exact.
+                if (Enumerable.Range(0, pages.Count).All(i => pages[i].Statistics.HasMinimum))
+                    throw Fail(what, group, $"nested pages cover [{lowest}, {highest}], values span [{present.Min()}, {present.Max()}]");
+            }
+        }
+
+        if (bloomExpected && values.Count > 0)
+        {
+            if (!chunk.HasBloomFilter)
+                throw Fail(what, group, "a bloom filter was requested but the nested chunk has none");
+            using var filter = chunk.OpenBloomFilter();
+            foreach (var value in values)
+            {
+                var present = value switch
+                {
+                    int v when column.PhysicalType == ParquetPhysicalType.Int32 => filter.MightContain(v),
+                    BigInteger v when column.PhysicalType == ParquetPhysicalType.Int32 => filter.MightContain((int)v),
+                    BigInteger v when column.PhysicalType == ParquetPhysicalType.Int64 => filter.MightContain((long)v),
+                    double v => filter.MightContain(v),
+                    byte[] v when column.LogicalType is not LogicalType.Decimal => filter.MightContain(v),
+                    _ => (bool?)null
+                };
+                if (present is null)
+                    continue;
+                _bloomProbes++;
+                if (!present.Value)
+                    throw Fail(what, group, $"nested bloom filter does not contain written value '{value}'");
+            }
+        }
+    }
+
     static void CheckBounds(string what, int group, string level, bool hasMin, bool hasMax,
         ReadOnlySpan<byte> minBytes, ReadOnlySpan<byte> maxBytes, bool minExact, bool maxExact,
         IComparable?[] keys, Func<byte[], IComparable?> decode)
@@ -244,20 +322,24 @@ internal static class WriterStatisticsOracle
         var logical = column.LogicalType;
         var unsigned = logical is LogicalType.Int { IsSigned: false };
         object Box(T value) => value!;
+        // Integers: the writer stores the value's bit pattern in the column's physical type, and the column's own
+        // sort order (signed unless the logical type is an unsigned INT) decides min/max. The CLR type must not
+        // pick the order: `uint` into an unannotated INT32 column is ordered as signed, `int` into an unsigned
+        // column as unsigned. (An earlier version keyed by CLR type and missed exactly that.)
         if (type == typeof(bool))
             return v => (bool)Box(v) ? 1L : 0L;
         if (type == typeof(byte))
-            return unsigned ? v => (ulong)(byte)Box(v) : v => (long)(byte)Box(v);
+            return v => OrderByColumn(column, (byte)Box(v));
         if (type == typeof(ushort))
-            return unsigned ? v => (ulong)(ushort)Box(v) : v => (long)(ushort)Box(v);
+            return v => OrderByColumn(column, (ushort)Box(v));
         if (type == typeof(int))
-            return v => (long)(int)Box(v);
+            return v => OrderByColumn(column, (int)Box(v));
         if (type == typeof(uint))
-            return v => (ulong)(uint)Box(v);
+            return v => OrderByColumn(column, unchecked((int)(uint)Box(v)));
         if (type == typeof(long))
-            return unsigned ? v => unchecked((ulong)(long)Box(v)) : v => (long)Box(v);
+            return v => OrderByColumn(column, (long)Box(v));
         if (type == typeof(ulong))
-            return v => (ulong)Box(v);
+            return v => OrderByColumn(column, unchecked((long)(ulong)Box(v)));
         if (type == typeof(float))
             return v => float.IsNaN((float)Box(v)) ? null : (double)(float)Box(v);
         if (type == typeof(double))
@@ -279,6 +361,32 @@ internal static class WriterStatisticsOracle
         return null;
     }
 
+    // `raw` is the sign-extended bit pattern that lands in the physical column.
+    internal static IComparable OrderByColumn(LeafColumn column, long raw)
+    {
+        var unsigned = column.LogicalType is LogicalType.Int { IsSigned: false };
+        return column.PhysicalType switch
+        {
+            ParquetPhysicalType.Int32 => unsigned ? (ulong)(uint)raw : (long)(int)raw,
+            ParquetPhysicalType.Int64 => unsigned ? unchecked((ulong)raw) : raw,
+            _ => raw
+        };
+    }
+
+    // Key of a value read from the nested / group routes (their expected values are boxed model values).
+    internal static IComparable? KeyOfModelValue(LeafColumn column, object value)
+        => value switch
+        {
+            int v => OrderByColumn(column, v),
+            long v => OrderByColumn(column, v),
+            BigInteger v => v,
+            decimal v when column.LogicalType is LogicalType.Decimal d => new BigInteger(Math.Truncate(v * Pow10(d.Scale))),
+            double v => double.IsNaN(v) ? null : v,
+            float v => float.IsNaN(v) ? null : (double)v,
+            byte[] v => new ByteKey(v),
+            _ => null
+        };
+
     static IComparable Ticks(long ticks, TimeUnit unit)
         => unit switch
         {
@@ -297,7 +405,7 @@ internal static class WriterStatisticsOracle
 
     // Statistics hold the PLAIN encoding of the bound: little-endian for numbers, raw bytes for binary,
     // big-endian two's complement for decimal byte arrays.
-    static Func<byte[], IComparable?>? DecoderFor(LeafColumn column)
+    internal static Func<byte[], IComparable?>? DecoderFor(LeafColumn column)
     {
         var logical = column.LogicalType;
         var unsigned = logical is LogicalType.Int { IsSigned: false };
