@@ -148,7 +148,7 @@ public static class PlankReaderFuzzTarget
         uint hash = 2166136261;
         foreach (var b in data)
             hash = (hash ^ b) * 16777619;
-        return (int)((hash >> 20) & 3);
+        return (int)((hash >> 20) & 7);
     }
 
     static void Execute(ReadOnlySpan<byte> data, IParquetBufferPool bufferPool)
@@ -1484,7 +1484,13 @@ public static class PlankReaderFuzzTarget
     // Environment.ProcessorCount, which differs between the pinned fuzz worker
     // and a coverage run, and threads scramble SharpFuzz's edge map.
     static RowReaderOptions SingleWorker(IParquetBufferPool bufferPool)
-        => new() { BufferPool = bufferPool, Execution = new ParquetExecutionOptions { WorkerCount = 1 } };
+        => new()
+        {
+            BufferPool = bufferPool,
+            Execution = new ParquetExecutionOptions { WorkerCount = 1 },
+            // 0 disables read-ahead (the synchronous path); 1 is the only other legal value.
+            MaxReadAheadRowGroups = (borrowBits & 4) != 0 ? 0 : 1
+        };
 
     static readonly ParquetSchemaEvolutionOptions PermissiveEvolution = new()
     {

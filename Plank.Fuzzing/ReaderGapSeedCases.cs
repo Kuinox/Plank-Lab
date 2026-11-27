@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Plank.Schema;
 using Plank.Writing;
+using Plank.Writing.PageStrategy;
 
 namespace Plank.Fuzzing;
 
@@ -284,6 +285,31 @@ public static partial class CorpusGenerator
                          EncodingKind.RleDictionary, true, new LogicalType.Date()),
                          (w, g, col) => Write<DateOnly?>(w, g, col, NullEveryOther(dates, 0))))
                 yield return c;
+            // Optional columns with every value present take the all-present batch decoders
+            // (the 8/9-bit AVX2 byte unpackers and the 11-bit Int64 gather only run here).
+            foreach (var c in GapVariants($"i32-dictopt-full-{distinct}", GapColumn(ParquetPhysicalType.Int32,
+                         EncodingKind.RleDictionary, true),
+                         (w, g, col) => Write<int?>(w, g, col, Array.ConvertAll(ints, static v => (int?)v)),
+                         allVariants: distinct <= 600))
+                yield return c;
+            foreach (var c in GapVariants($"i64-dictopt-full-{distinct}", GapColumn(ParquetPhysicalType.Int64,
+                         EncodingKind.RleDictionary, true),
+                         (w, g, col) => Write<long?>(w, g, col, Array.ConvertAll(longs, static v => (long?)v)),
+                         allVariants: distinct <= 600))
+                yield return c;
+            foreach (var c in GapVariants($"ts-dictopt-full-{distinct}", GapColumn(ParquetPhysicalType.Int64,
+                         EncodingKind.RleDictionary, true, ts),
+                         (w, g, col) => Write<DateTime?>(w, g, col, Array.ConvertAll(times, static v => (DateTime?)v)),
+                         allVariants: distinct <= 600))
+                yield return c;
+            foreach (var c in GapVariants($"i32-dict-{distinct}", GapColumn(ParquetPhysicalType.Int32,
+                         EncodingKind.RleDictionary, false), (w, g, col) => Write<int>(w, g, col, ints),
+                         allVariants: distinct <= 600))
+                yield return c;
+            foreach (var c in GapVariants($"i64-dict-{distinct}", GapColumn(ParquetPhysicalType.Int64,
+                         EncodingKind.RleDictionary, false), (w, g, col) => Write<long>(w, g, col, longs),
+                         allVariants: distinct <= 600))
+                yield return c;
             // Required twins of the same widths (the batched required decoders).
             foreach (var c in GapVariants($"ts-dict-{distinct}", GapColumn(ParquetPhysicalType.Int64,
                          EncodingKind.RleDictionary, false, ts), (w, g, col) => Write<DateTime>(w, g, col, times)))
@@ -296,6 +322,23 @@ public static partial class CorpusGenerator
         var wide = new long[70_000 + 100];
         for (var i = 0; i < wide.Length; i++)
             wide[i] = i % 70_000;
+        // 19- and 20-bit indexes (262k..1M distinct) take the wide AVX2 gather. Forced dictionary:
+        // the writer's default strategy abandons a dictionary this large. ~2 MB per file.
+        foreach (var distinct in (int[])[300_000, 600_000])
+        {
+            var huge = new long[distinct + 64];
+            for (var i = 0; i < huge.Length; i++)
+                huge[i] = i % distinct;
+            var forced = new ColumnOptions(ParquetRepetition.Optional,
+                encodings: ImmutableArray.Create(EncodingKind.RleDictionary));
+            foreach (var c in GapVariants($"i64-dictopt-full-{distinct}",
+                         ColumnDefinition.OptionalLeaf("c", ParquetPhysicalType.Int64, forced,
+                             pageStrategy: ForceDictionaryPageStrategy.Shared),
+                         (w, g, col) => Write<long?>(w, g, col, Array.ConvertAll(huge, static v => (long?)v)),
+                         new ParquetWriterOptions { TargetDataPageSizeBytes = 64 * 1024 * 1024 }, allVariants: false))
+                yield return c;
+        }
+
         foreach (var c in GapVariants("i64-dict-17bit-opt", GapColumn(ParquetPhysicalType.Int64,
                      EncodingKind.RleDictionary, true), (w, g, col) => Write<long?>(w, g, col, NullEveryOther(wide, 0)),
                      new ParquetWriterOptions { TargetDataPageSizeBytes = 8 * 1024 * 1024 }))
