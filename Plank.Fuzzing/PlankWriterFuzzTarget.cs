@@ -163,6 +163,9 @@ public static class PlankWriterFuzzTarget
     const byte BloomOptionsValidationMarker = 0xE0;
     static ReadOnlySpan<byte> BloomOptionsValidationMagic => "BOV1"u8;
     const byte BufferApiValidationMarker = 0xDF;
+    // 0xDD + "EXEC": buffer-pool and execution-layer target (PlankExecutionFuzzTarget).
+    const byte ExecutionMarker = 0xDD;
+    static ReadOnlySpan<byte> ExecutionMagic => "EXEC"u8;
     static ReadOnlySpan<byte> BufferApiValidationMagic => "PBAP"u8;
     const byte SchemaApiValidationMarker = 0xDE;
     static ReadOnlySpan<byte> SchemaApiValidationMagic => "SAPI"u8;
@@ -187,6 +190,14 @@ public static class PlankWriterFuzzTarget
 
     public static void Execute(ReadOnlySpan<byte> data)
     {
+        if (data.Length >= 1 + ExecutionMagic.Length
+            && data[0] == ExecutionMarker
+            && data.Slice(1, ExecutionMagic.Length).SequenceEqual(ExecutionMagic))
+        {
+            PlankExecutionFuzzTarget.Execute(data[(1 + ExecutionMagic.Length)..]);
+            return;
+        }
+
         if (data.Length >= 1 + RowGroupWriteCoverageMagic.Length
             && data[0] == RowGroupWriteCoverageMarker
             && data.Slice(1, RowGroupWriteCoverageMagic.Length).SequenceEqual(RowGroupWriteCoverageMagic))
