@@ -25,7 +25,7 @@ namespace Plank.Fuzzing;
 /// independently and compared with Plank's decompressor, header sizes and CRC are checked, and ParquetSharp (Arrow's
 /// codecs) must read the same values back.
 /// </remarks>
-internal static class WriterCodecCases
+internal static partial class WriterCodecCases
 {
     sealed class Cur(ReadOnlySpan<byte> data)
     {
@@ -49,6 +49,22 @@ internal static class WriterCodecCases
     internal static void Execute(ReadOnlySpan<byte> input)
     {
         var c = new Cur(input);
+        // The first four bytes pin what the input does, so a seed can ask for an LZ4 sweep or a frame directly:
+        // 0-2 general rounds, 3 every LZ4 level on one boundary-size buffer, 4 LZ4 levels 10-12 on a large repetitive
+        // buffer, 5 LZ4 frame / Hadoop / raw inputs for the decoder.
+        switch (c.Int(0, 6))
+        {
+            case 3:
+                Lz4LevelSweep(c);
+                return;
+            case 4:
+                Lz4LargeRepetitive(c);
+                return;
+            case 5:
+                Lz4DecoderInputs(c);
+                return;
+        }
+
         var rounds = c.Int(1, 4);
         for (var i = 0; i < rounds; i++)
         {
@@ -88,11 +104,11 @@ internal static class WriterCodecCases
         1_048_576, 1_048_577, 4_194_303, 4_194_304
     ];
 
-    static byte[] DrawData(Cur c, out string label, int maxSize)
+    static byte[] DrawData(Cur c, out string label, int maxSize, int? forcedSize = null, int? forcedPattern = null)
     {
-        var size = c.Int(0, 3) == 0 ? c.Int(0, 70_000) : c.Pick(BoundarySizes);
+        var size = forcedSize ?? (c.Int(0, 3) == 0 ? c.Int(0, 70_000) : c.Pick(BoundarySizes));
         size = Math.Min(size, maxSize);
-        var pattern = c.Int(0, 10);
+        var pattern = forcedPattern ?? c.Int(0, 10);
         var seed = (uint)c.Int(1, int.MaxValue);
         var data = new byte[size];
         var state = seed | 1;
@@ -506,12 +522,15 @@ internal static class WriterCodecCases
         return output;
     }
 
-    // Reference LZ4 block decoder (LZ4_RAW is a bare block).
-    static byte[] RefLz4Block(byte[] source, int expectedLength)
+    // Reference LZ4 block decoder (LZ4_RAW is a bare block). `history` is the dictionary a dependent block reaches into.
+    static byte[] RefLz4Block(byte[] source, int expectedLength, byte[]? history = null)
     {
-        var output = new byte[expectedLength];
+        history ??= [];
+        var output = new byte[history.Length + expectedLength];
+        history.CopyTo(output, 0);
         var position = 0;
-        var written = 0;
+        var written = history.Length;
+        expectedLength += history.Length;
         while (position < source.Length)
         {
             var token = source[position++];
@@ -553,8 +572,8 @@ internal static class WriterCodecCases
         }
 
         if (written != expectedLength)
-            throw new InvalidOperationException($"lz4 produced {written} of {expectedLength} bytes.");
-        return output;
+            throw new InvalidOperationException($"lz4 produced {written - history.Length} of {expectedLength - history.Length} bytes.");
+        return output[history.Length..];
     }
 
     static uint Crc32(ReadOnlySpan<byte> bytes)

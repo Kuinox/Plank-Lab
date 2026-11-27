@@ -204,3 +204,5 @@ writer_magic_codec="WCD1"
 # Truncation probe (selector 0x7e + marker)
 magic_TRNC="TRNC"
 selector_truncation_probe="\x7e"
+writer_lz4_frame_magic="\x04\x22\x4D\x18"
+writer_lz4_skippable_magic="\x50\x2A\x4D\x18"
