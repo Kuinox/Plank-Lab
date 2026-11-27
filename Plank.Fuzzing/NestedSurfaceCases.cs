@@ -62,12 +62,103 @@ internal static class NestedSurfaceCases
     {
         _runs++;
         var c = new Cur(data);
-        switch (c.Int(0, 3))
+        switch (c.Int(0, 4))
         {
+            case 3: Accessors(c); break;
             case 0: Geo(c); break;
             case 1: ListSlices(c); break;
             default: NestedReaderOptions(c); break;
         }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // accessors the coverage join showed unreached: offsets, page-cursor enumerator, handles back to their definitions,
+    // field-id overloads, page strategy and RowApiMaxParallelism
+    // ---------------------------------------------------------------------------------------------------------------
+
+    static void Accessors(Cur c)
+    {
+        var strategy = c.Bool();
+        var fieldId = c.Pick(0, 1, 7, int.MaxValue);
+        var elementId = c.Pick(2, 9);
+        var element = ColumnDefinition.RequiredLeaf("e", ParquetPhysicalType.Int32, elementId);
+        var schema = new PlankSchema([
+            ColumnDefinition.Leaf("a", ParquetPhysicalType.Int32, new ColumnOptions(ParquetRepetition.Required, ImmutableArray.Create(EncodingKind.RleDictionary)),
+                pageStrategy: strategy ? Plank.Writing.PageStrategy.ForceDictionaryPageStrategy.Shared : null),
+            ColumnDefinition.List("l", element, fieldId, c.Bool() ? ParquetRepetition.Optional : ParquetRepetition.Required)
+        ]);
+        if (!ReferenceEquals(schema.LeafColumns[0].PageStrategy, strategy ? Plank.Writing.PageStrategy.ForceDictionaryPageStrategy.Shared : schema.LeafColumns[0].PageStrategy))
+            Fail("LeafColumn.PageStrategy lost the configured strategy.");
+        foreach (var args in new[] { (0u, 0u, 0u), (1u, 1u, 1u), (uint.MaxValue, 0u, uint.MaxValue), (5u, 100u, 7u) })
+            if (Plank.Writing.PageStrategy.ForceDictionaryPageStrategy.Shared.ShouldDropDictionary(args.Item1, args.Item2, args.Item3))
+                Fail("ForceDictionaryPageStrategy dropped the dictionary.");
+        if (schema.LeafColumns[1].FieldId != elementId)
+            Fail($"leaf field id {schema.LeafColumns[1].FieldId} != {elementId}.");
+
+        var parallelism = c.Pick(0u, 1u, 2u, 64u);
+        var workers = c.Pick(1, 2, 8);
+        var options = new ParquetWriterOptions { RowApiMaxParallelism = parallelism, Execution = new ParquetExecutionOptions { WorkerCount = workers }, WritePageIndexes = c.Bool() };
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, options);
+        var wantParallelism = parallelism == 0 ? (uint)workers : parallelism;
+        if (writer.RowApiMaxParallelism != wantParallelism)
+            Fail($"ParquetWriter.RowApiMaxParallelism {writer.RowApiMaxParallelism} != {wantParallelism}.");
+        var rows = c.Pick(1, 3, 50);
+        var groupTotal = c.Pick(1, 2);
+        for (var g = 0; g < groupTotal; g++)
+        {
+            var group = writer.StartRowGroup();
+            var a = group.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+            a.Serialize(Enumerable.Range(0, rows).Select(static i => i % 5).ToArray());
+            group.Write(a);
+            var l = group.CreateSerializedColumn<int[]>(schema.LeafColumns[1]);
+            l.Serialize(Enumerable.Range(0, rows).Select(static i => new int[i % 3]).ToArray());
+            group.Write(l);
+        }
+
+        writer.CloseFile();
+        var bytes = stream.ToArray();
+
+        using var reader = schema.CreateReader(new MemoryStream(bytes, writable: false));
+        using var physical = new ParquetFileReader();
+        physical.Reset(new MemoryStream(bytes, writable: false));
+        for (var g = 0; g < reader.RowGroups.Count; g++)
+        {
+            var group = reader.RowGroups[g];
+            var info = physical.Metadata.RowGroup(g);
+            if (group.MetadataOffset != info.MetadataOffset || group.ColumnChunkOffset != info.ColumnChunkOffset)
+                Fail($"RowGroup {g} offsets {group.MetadataOffset}/{group.ColumnChunkOffset} differ from the physical {info.MetadataOffset}/{info.ColumnChunkOffset}.");
+            if (group.ColumnChunkOffset > (ulong)bytes.Length || group.ColumnChunkOffset < 4)
+                Fail($"RowGroup {g} ColumnChunkOffset {group.ColumnChunkOffset} is outside the file.");
+            if (group.ColumnChunkOffset != physical.Metadata.ColumnChunk(g, 0).ChunkOffset)
+                Fail($"RowGroup {g} ColumnChunkOffset is not the first chunk's offset.");
+            var metadata = group.GetColumnMetadata(0);
+            if (metadata.ReadGeospatialStatistics() is not null)
+                Fail("ReadGeospatialStatistics() on an int column is not null.");
+            if (!ReferenceEquals(metadata.Statistics.Definition, schema.LeafColumns[0]) && metadata.Statistics.Definition.Ordinal != 0)
+                Fail("ParquetStatistics.Definition is not the column's definition.");
+            var flat = group.Column<int>(schema.LeafColumns[0]);
+            if (flat.Definition.Ordinal != 0 || flat.Metadata.Definition.Ordinal != 0)
+                Fail("RowGroupColumn.Definition/Metadata point at the wrong column.");
+            var nested = group.NestedColumn<int>(schema.LeafColumns[1]);
+            if (nested.Definition.Ordinal != 1 || nested.Metadata.Definition.Ordinal != 1)
+                Fail("NestedRowGroupColumn.Definition/Metadata point at the wrong column.");
+            var pages = metadata.OpenPages();
+            if (!Enum.IsDefined(pages.BoundaryOrder))
+                Fail("BoundaryOrder is outside the enum.");
+            pages.Dispose();
+        }
+
+        // ParquetPageCursor.GetEnumerator: foreach must visit the same pages as MoveNext.
+        var viaMoveNext = 0;
+        var cursor = physical.OpenPages(0, 0);
+        while (cursor.MoveNext()) viaMoveNext++;
+        cursor.Dispose();
+        var viaForeach = 0;
+        foreach (var _ in physical.OpenPages(0, 0))
+            viaForeach++;
+        if (viaMoveNext != viaForeach || viaForeach == 0)
+            Fail($"foreach over the page cursor saw {viaForeach} pages, MoveNext saw {viaMoveNext}.");
     }
 
     // ---------------------------------------------------------------------------------------------------------------

@@ -10,10 +10,10 @@ Status: **unreached** = no covered line in any target/ISA tier (W=writer, R=read
 |---|---|
 | no-code-map | 234 |
 | prop-no-code-map | 13 |
-| prop-reached | 269 |
-| prop-unreached | 31 |
-| reached | 429 |
-| unreached | 42 |
+| prop-reached | 278 |
+| prop-unreached | 22 |
+| reached | 439 |
+| unreached | 32 |
 
 (`no-code-map` = no cobertura entry: abstract/interface/delegate members, trivial inlined or compiler-generated.)
 
@@ -148,643 +148,643 @@ Status: **unreached** = no covered line in any target/ISA tier (W=writer, R=read
 | type | kind | member | signature | status | W/R/M | refs |
 |---|---|---|---|---|---|---|
 | CorruptParquetException | ctor | `.ctor` | `(String message)` | reached | RW | 0 |
-| CorruptParquetException | ctor | `.ctor` | `(String message, Exception innerException)` | unreached |  | 0 |
+| CorruptParquetException | ctor | `.ctor` | `(String message, Exception innerException)` | reached | W | 0 |
 | DatasetFilePath | ctor | `.ctor` | `(Object object, IntPtr method)` | no-code-map |  | 0 |
-| DatasetFilePath | method | `Invoke` | `(ReadOnlySpan<Byte> partitionKey, UInt64 fileIndex, IParquetBufferPool bufferPool, ref Nullable<ParquetBuffer>` | no-code-map |  | 2 |
+| DatasetFilePath | method | `Invoke` | `(ReadOnlySpan<Byte> partitionKey, UInt64 fileIndex, IParquetBufferPool bufferPool, ref Nullable<ParquetBuffer>` | no-code-map |  | 8 |
 | DatasetFilePath | method | `BeginInvoke` | `(ReadOnlySpan<Byte> partitionKey, UInt64 fileIndex, IParquetBufferPool bufferPool, ref Nullable<ParquetBuffer>` | no-code-map |  | 0 |
 | DatasetFilePath | method | `EndInvoke` | `(ref Nullable<ParquetBuffer> allocation, IAsyncResult result):ReadOnlySpan<Byte>` | no-code-map |  | 0 |
 | DatasetWriterOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| DatasetWriterOptions | prop | `AppendOptions` | `Writing.ParquetAppendOptions get set` | reached | MW | 8 |
-| DatasetWriterOptions | prop | `WriterOptions` | `Writing.ParquetWriterOptions get set` | reached | MW | 80 |
-| DatasetWriterOptions | prop | `PendingRowCapacity` | `UInt32 get set` | reached | MW | 16 |
-| DatasetWriterOptions | field | `Default` | `Dataset.DatasetWriterOptions` | no-code-map |  | 18 |
+| DatasetWriterOptions | prop | `AppendOptions` | `Writing.ParquetAppendOptions get set` | reached | MW | 9 |
+| DatasetWriterOptions | prop | `WriterOptions` | `Writing.ParquetWriterOptions get set` | reached | MW | 96 |
+| DatasetWriterOptions | prop | `PendingRowCapacity` | `UInt32 get set` | reached | MW | 20 |
+| DatasetWriterOptions | field | `Default` | `Dataset.DatasetWriterOptions` | no-code-map |  | 31 |
 | DefaultParquetBufferPool | ctor | `.ctor` | `()` | reached | MRW | 0 |
 | DefaultParquetBufferPool | ctor | `.ctor` | `(ParquetBufferRetentionPolicy retentionPolicy)` | reached | MRW | 0 |
 | DefaultParquetBufferPool | ctor | `.ctor` | `(ParquetBufferRetentionPolicy retentionPolicy, Int64 maximumRetainedBytes)` | reached | MRW | 0 |
 | DefaultParquetBufferPool | method | `Rent` | `(UInt32 minimumByteLength):ParquetBuffer` | reached | MRW | 32 |
 | DefaultParquetBufferPool | method | `Trim` | `():Void` | reached | RW | 7 |
-| DefaultParquetBufferPool | method | `Dispose` | `():Void` | reached | RW | 93 |
+| DefaultParquetBufferPool | method | `Dispose` | `():Void` | reached | RW | 109 |
 | DefaultParquetBufferPool | prop | `RetentionPolicy` | `ParquetBufferRetentionPolicy get` | reached | MRW | 0 |
 | DefaultParquetBufferPool | prop | `MaximumRetainedBytes` | `Int64 get` | reached | MRW | 2 |
 | DefaultParquetBufferPool | prop | `RetainedBytes` | `Int64 get` | reached | MRW | 7 |
 | DefaultParquetBufferPool | field | `Shared` | `DefaultParquetBufferPool` | no-code-map |  | 39 |
 | IParquetBufferPool | method | `Rent` | `(UInt32 minimumByteLength):ParquetBuffer` | no-code-map |  | 32 |
-| ParquetBuffer | static | `Create` | `(IntPtr allocation, Int32 allocationByteLength, Int32 payloadOffset, Int32 payloadByteLength, Action<IntPtr> r` | reached | RW | 154 |
-| ParquetBuffer | method | `AsSpan` | `():Span<T>` | reached | MRW | 164 |
-| ParquetBuffer | method | `Retain` | `():ParquetBuffer` | reached | W | 10 |
+| ParquetBuffer | static | `Create` | `(IntPtr allocation, Int32 allocationByteLength, Int32 payloadOffset, Int32 payloadByteLength, Action<IntPtr> r` | reached | RW | 171 |
+| ParquetBuffer | method | `AsSpan` | `():Span<T>` | reached | MRW | 203 |
+| ParquetBuffer | method | `Retain` | `():ParquetBuffer` | reached | W | 12 |
 | ParquetBuffer | method | `RetainSlice` | `(Int32 offset, Int32 length):ParquetBuffer` | reached | MRW | 10 |
 | ParquetBuffer | method | `DangerousGetAddress` | `():IntPtr` | reached | MRW | 1 |
-| ParquetBuffer | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| ParquetBuffer | prop | `Length` | `Int32 get` | reached | MRW | 1119 |
-| ParquetBuffer | prop | `Span` | `Span<Byte> get` | reached | MRW | 51 |
+| ParquetBuffer | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| ParquetBuffer | prop | `Length` | `Int32 get` | reached | MRW | 1393 |
+| ParquetBuffer | prop | `Span` | `Span<Byte> get` | reached | MRW | 58 |
 | ParquetBuffer | prop | `IsEmpty` | `Boolean get` | reached | MRW | 62 |
 | ParquetBufferPoolExtensions | ext | `Rent` | `(IParquetBufferPool bufferPool, UInt32 minimumLength):ParquetBuffer` | reached | W | 32 |
 | ParquetExecutionOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetExecutionOptions | prop | `WorkerCount` | `Int32 get set` | reached | MRW | 23 |
+| ParquetExecutionOptions | prop | `WorkerCount` | `Int32 get set` | reached | MRW | 33 |
 | ParquetExecutionOptions | prop | `OnWorkerStarted` | `Action<ParquetWorkerContext> get set` | reached | MRW | 3 |
 | ParquetWorkerContext | ctor | `.ctor` | `(Int32 WorkerIndex, Int32 WorkerCount, String Name)` | no-code-map |  | 0 |
-| ParquetWorkerContext | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ParquetWorkerContext | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| ParquetWorkerContext | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| ParquetWorkerContext | method | `Equals` | `(ParquetWorkerContext other):Boolean` | no-code-map |  | 31 |
+| ParquetWorkerContext | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ParquetWorkerContext | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| ParquetWorkerContext | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| ParquetWorkerContext | method | `Equals` | `(ParquetWorkerContext other):Boolean` | no-code-map |  | 57 |
 | ParquetWorkerContext | method | `Deconstruct` | `(ref Int32 WorkerIndex, ref Int32 WorkerCount, ref String Name):Void` | no-code-map |  | 0 |
 | ParquetWorkerContext | prop | `WorkerIndex` | `Int32 get set` | reached | W | 2 |
-| ParquetWorkerContext | prop | `WorkerCount` | `Int32 get set` | no-code-map |  | 23 |
-| ParquetWorkerContext | prop | `Name` | `String get set` | no-code-map |  | 101 |
-| FileReadSource | ctor | `.ctor` | `(String path)` | reached | R | 0 |
-| FileReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | reached | R | 16 |
-| FileReadSource | method | `Dispose` | `():Void` | reached | R | 93 |
-| FileReadSource | prop | `Length` | `UInt64 get` | reached | R | 1119 |
-| IParquetReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | no-code-map |  | 16 |
-| IParquetReadSource | prop | `Length` | `UInt64 get` | no-code-map |  | 1119 |
-| ColumnBuffer`1 | method | `IsNull` | `(Int32 index):Boolean` | reached | MRW | 35 |
-| ColumnBuffer`1 | method | `GetValue` | `(Int32 index):ReadOnlySpan<T>` | reached | MRW | 31 |
-| ColumnBuffer`1 | method | `Retain` | `():ParquetBuffer` | reached | R | 10 |
-| ColumnBuffer`1 | prop | `Values` | `ReadOnlySpan<T> get` | reached | MRW | 138 |
-| ColumnBuffer`1 | prop | `Count` | `Int32 get` | reached | MRW | 379 |
+| ParquetWorkerContext | prop | `WorkerCount` | `Int32 get set` | no-code-map |  | 33 |
+| ParquetWorkerContext | prop | `Name` | `String get set` | no-code-map |  | 179 |
+| FileReadSource | ctor | `.ctor` | `(String path)` | reached | RW | 0 |
+| FileReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | reached | RW | 21 |
+| FileReadSource | method | `Dispose` | `():Void` | reached | RW | 109 |
+| FileReadSource | prop | `Length` | `UInt64 get` | reached | RW | 1393 |
+| IParquetReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | no-code-map |  | 21 |
+| IParquetReadSource | prop | `Length` | `UInt64 get` | no-code-map |  | 1393 |
+| ColumnBuffer`1 | method | `IsNull` | `(Int32 index):Boolean` | reached | MRW | 52 |
+| ColumnBuffer`1 | method | `GetValue` | `(Int32 index):ReadOnlySpan<T>` | reached | MRW | 54 |
+| ColumnBuffer`1 | method | `Retain` | `():ParquetBuffer` | reached | RW | 12 |
+| ColumnBuffer`1 | prop | `Values` | `ReadOnlySpan<T> get` | reached | MRW | 241 |
+| ColumnBuffer`1 | prop | `Count` | `Int32 get` | reached | MRW | 584 |
 | NestedColumnBuffer`1 | method | `RetainLevels` | `():ParquetBuffer` | reached | R | 1 |
-| NestedColumnBuffer`1 | prop | `Values` | `Reading.Logical.ColumnBuffer<T> get` | reached | MRW | 138 |
-| NestedColumnBuffer`1 | prop | `RepetitionLevels` | `ReadOnlySpan<Int32> get` | reached | MRW | 8 |
-| NestedColumnBuffer`1 | prop | `DefinitionLevels` | `ReadOnlySpan<Int32> get` | reached | MRW | 9 |
-| NestedColumnBuffer`1 | prop | `Count` | `Int32 get` | reached | MRW | 379 |
-| NestedColumnBuffer`1 | prop | `RowCount` | `Int32 get` | reached | MRW | 124 |
+| NestedColumnBuffer`1 | prop | `Values` | `Reading.Logical.ColumnBuffer<T> get` | reached | MRW | 241 |
+| NestedColumnBuffer`1 | prop | `RepetitionLevels` | `ReadOnlySpan<Int32> get` | reached | MRW | 13 |
+| NestedColumnBuffer`1 | prop | `DefinitionLevels` | `ReadOnlySpan<Int32> get` | reached | MRW | 15 |
+| NestedColumnBuffer`1 | prop | `Count` | `Int32 get` | reached | MRW | 584 |
+| NestedColumnBuffer`1 | prop | `RowCount` | `Int32 get` | reached | MRW | 150 |
 | NestedColumnBuffer`1 | prop | `StartsWithContinuation` | `Boolean get` | reached | MRW | 1 |
-| NestedColumnBuffer`1 | prop | `MaxRepetitionLevel` | `Int32 get` | reached | MRW | 26 |
-| NestedColumnBuffer`1 | prop | `MaxDefinitionLevel` | `Int32 get` | reached | MRW | 37 |
+| NestedColumnBuffer`1 | prop | `MaxRepetitionLevel` | `Int32 get` | reached | MRW | 41 |
+| NestedColumnBuffer`1 | prop | `MaxDefinitionLevel` | `Int32 get` | reached | MRW | 51 |
 | NestedRowGroupColumn`1 | method | `GetEnumerator` | `():Reading.Logical.Enumerator<T>` | reached | MRW | 5 |
-| NestedRowGroupColumn`1 | prop | `Definition` | `Schema.LeafColumn get` | reached | MRW | 1 |
-| NestedRowGroupColumn`1 | prop | `Metadata` | `Reading.Logical.ParquetColumnChunkMetadata get` | unreached |  | 32 |
-| NestedRowGroupColumn`1+Enumerator | method | `MoveNext` | `():Boolean` | reached | MRW | 64 |
-| NestedRowGroupColumn`1+Enumerator | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| NestedRowGroupColumn`1+Enumerator | prop | `Current` | `Reading.Logical.NestedColumnBuffer<T> get` | reached | MRW | 74 |
-| ParquetColumnChunkMetadata | method | `OpenBloomFilter` | `():Reading.Physical.ParquetBloomFilter` | reached | RW | 23 |
-| ParquetColumnChunkMetadata | method | `ReadGeospatialStatistics` | `():Reading.Physical.ParquetGeospatialStatistics` | unreached |  | 1 |
-| ParquetColumnChunkMetadata | method | `OpenPages` | `():Reading.Logical.ParquetDataPageMetadataCollection` | reached | RW | 8 |
-| ParquetColumnChunkMetadata | prop | `Definition` | `Schema.LeafColumn get` | reached | RW | 1 |
-| ParquetColumnChunkMetadata | prop | `ValueCount` | `UInt64 get` | reached | RW | 6 |
-| ParquetColumnChunkMetadata | prop | `Compression` | `Schema.CompressionKind get` | reached | R | 188 |
-| ParquetColumnChunkMetadata | prop | `Encodings` | `ReadOnlySpan<Schema.EncodingKind> get` | reached | R | 38 |
-| ParquetColumnChunkMetadata | prop | `HasColumnIndex` | `Boolean get` | reached | W | 2 |
-| ParquetColumnChunkMetadata | prop | `HasOffsetIndex` | `Boolean get` | reached | W | 2 |
-| ParquetColumnChunkMetadata | prop | `HasBloomFilter` | `Boolean get` | reached | RW | 11 |
-| ParquetColumnChunkMetadata | prop | `Statistics` | `Reading.Logical.ParquetStatistics get` | reached | RW | 36 |
-| ParquetDataPageMetadata | prop | `RowGroupIndex` | `Int32 get` | unreached |  | 0 |
-| ParquetDataPageMetadata | prop | `PageOrdinal` | `Int32 get` | reached | R | 3 |
-| ParquetDataPageMetadata | prop | `Offset` | `UInt64 get` | reached | R | 16 |
-| ParquetDataPageMetadata | prop | `CompressedSize` | `UInt32 get` | reached | R | 6 |
-| ParquetDataPageMetadata | prop | `FirstRowIndex` | `Nullable<UInt64> get` | reached | R | 1 |
-| ParquetDataPageMetadata | prop | `RowCount` | `Nullable<UInt64> get` | reached | R | 124 |
-| ParquetDataPageMetadata | prop | `IsNullPage` | `Nullable<Boolean> get` | reached | R | 1 |
-| ParquetDataPageMetadata | prop | `Statistics` | `Reading.Logical.ParquetStatistics get` | reached | R | 36 |
-| ParquetDataPageMetadataCollection | method | `GetEnumerator` | `():Reading.Logical.ParquetDataPageMetadataCollection+Enumerator` | reached | R | 5 |
-| ParquetDataPageMetadataCollection | method | `Dispose` | `():Void` | reached | RW | 93 |
-| ParquetDataPageMetadataCollection | prop | `Count` | `Int32 get` | reached | RW | 379 |
-| ParquetDataPageMetadataCollection | prop | `BoundaryOrder` | `Reading.Logical.ParquetBoundaryOrder get` | unreached |  | 0 |
-| ParquetDataPageMetadataCollection | prop | `Item` | `Reading.Logical.ParquetDataPageMetadata get` | reached | R | 0 |
-| ParquetDataPageMetadataCollection+Enumerator | method | `MoveNext` | `():Boolean` | reached | R | 64 |
-| ParquetDataPageMetadataCollection+Enumerator | prop | `Current` | `Reading.Logical.ParquetDataPageMetadata get` | reached | R | 74 |
-| ParquetFileMetadata | ctor | `.ctor` | `(Schema.ParquetSchema schema)` | unreached |  | 0 |
-| ParquetFileMetadata | prop | `Schema` | `Schema.ParquetSchema get` | reached | MRW | 228 |
-| ParquetFileMetadata | prop | `FooterOffset` | `UInt64 get` | unreached |  | 2 |
-| ParquetFileMetadata | prop | `FooterLength` | `UInt32 get` | unreached |  | 2 |
-| ParquetFileMetadata | prop | `Version` | `Int32 get` | unreached |  | 18 |
+| NestedRowGroupColumn`1 | prop | `Definition` | `Schema.LeafColumn get` | reached | MRW | 9 |
+| NestedRowGroupColumn`1 | prop | `Metadata` | `Reading.Logical.ParquetColumnChunkMetadata get` | unreached |  | 43 |
+| NestedRowGroupColumn`1+Enumerator | method | `MoveNext` | `():Boolean` | reached | MRW | 71 |
+| NestedRowGroupColumn`1+Enumerator | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| NestedRowGroupColumn`1+Enumerator | prop | `Current` | `Reading.Logical.NestedColumnBuffer<T> get` | reached | MRW | 84 |
+| ParquetColumnChunkMetadata | method | `OpenBloomFilter` | `():Reading.Physical.ParquetBloomFilter` | reached | MRW | 30 |
+| ParquetColumnChunkMetadata | method | `ReadGeospatialStatistics` | `():Reading.Physical.ParquetGeospatialStatistics` | unreached |  | 5 |
+| ParquetColumnChunkMetadata | method | `OpenPages` | `():Reading.Logical.ParquetDataPageMetadataCollection` | reached | MRW | 23 |
+| ParquetColumnChunkMetadata | prop | `Definition` | `Schema.LeafColumn get` | reached | MRW | 9 |
+| ParquetColumnChunkMetadata | prop | `ValueCount` | `UInt64 get` | reached | MRW | 14 |
+| ParquetColumnChunkMetadata | prop | `Compression` | `Schema.CompressionKind get` | reached | R | 196 |
+| ParquetColumnChunkMetadata | prop | `Encodings` | `ReadOnlySpan<Schema.EncodingKind> get` | reached | R | 41 |
+| ParquetColumnChunkMetadata | prop | `HasColumnIndex` | `Boolean get` | reached | MW | 5 |
+| ParquetColumnChunkMetadata | prop | `HasOffsetIndex` | `Boolean get` | reached | MW | 7 |
+| ParquetColumnChunkMetadata | prop | `HasBloomFilter` | `Boolean get` | reached | MRW | 19 |
+| ParquetColumnChunkMetadata | prop | `Statistics` | `Reading.Logical.ParquetStatistics get` | reached | MRW | 60 |
+| ParquetDataPageMetadata | prop | `RowGroupIndex` | `Int32 get` | reached | W | 2 |
+| ParquetDataPageMetadata | prop | `PageOrdinal` | `Int32 get` | reached | RW | 4 |
+| ParquetDataPageMetadata | prop | `Offset` | `UInt64 get` | reached | RW | 21 |
+| ParquetDataPageMetadata | prop | `CompressedSize` | `UInt32 get` | reached | RW | 7 |
+| ParquetDataPageMetadata | prop | `FirstRowIndex` | `Nullable<UInt64> get` | reached | MRW | 4 |
+| ParquetDataPageMetadata | prop | `RowCount` | `Nullable<UInt64> get` | reached | MRW | 150 |
+| ParquetDataPageMetadata | prop | `IsNullPage` | `Nullable<Boolean> get` | reached | MRW | 8 |
+| ParquetDataPageMetadata | prop | `Statistics` | `Reading.Logical.ParquetStatistics get` | reached | MRW | 60 |
+| ParquetDataPageMetadataCollection | method | `GetEnumerator` | `():Reading.Logical.ParquetDataPageMetadataCollection+Enumerator` | reached | RW | 5 |
+| ParquetDataPageMetadataCollection | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| ParquetDataPageMetadataCollection | prop | `Count` | `Int32 get` | reached | MRW | 584 |
+| ParquetDataPageMetadataCollection | prop | `BoundaryOrder` | `Reading.Logical.ParquetBoundaryOrder get` | reached | MW | 3 |
+| ParquetDataPageMetadataCollection | prop | `Item` | `Reading.Logical.ParquetDataPageMetadata get` | reached | MRW | 0 |
+| ParquetDataPageMetadataCollection+Enumerator | method | `MoveNext` | `():Boolean` | reached | RW | 71 |
+| ParquetDataPageMetadataCollection+Enumerator | prop | `Current` | `Reading.Logical.ParquetDataPageMetadata get` | reached | RW | 84 |
+| ParquetFileMetadata | ctor | `.ctor` | `(Schema.ParquetSchema schema)` | reached | W | 0 |
+| ParquetFileMetadata | prop | `Schema` | `Schema.ParquetSchema get` | reached | MRW | 266 |
+| ParquetFileMetadata | prop | `FooterOffset` | `UInt64 get` | reached | W | 6 |
+| ParquetFileMetadata | prop | `FooterLength` | `UInt32 get` | reached | W | 5 |
+| ParquetFileMetadata | prop | `Version` | `Int32 get` | reached | W | 18 |
 | ParquetPagePruner | ctor | `.ctor` | `(Object object, IntPtr method)` | no-code-map |  | 0 |
-| ParquetPagePruner | method | `Invoke` | `(ref Reading.Logical.ParquetDataPageMetadata page):Boolean` | no-code-map |  | 2 |
+| ParquetPagePruner | method | `Invoke` | `(ref Reading.Logical.ParquetDataPageMetadata page):Boolean` | no-code-map |  | 8 |
 | ParquetPagePruner | method | `BeginInvoke` | `(ref Reading.Logical.ParquetDataPageMetadata page, AsyncCallback callback, Object object):IAsyncResult` | no-code-map |  | 0 |
 | ParquetPagePruner | method | `EndInvoke` | `(ref Reading.Logical.ParquetDataPageMetadata page, IAsyncResult result):Boolean` | no-code-map |  | 0 |
 | ParquetReader | ctor | `.ctor` | `(Reading.Logical.ParquetReaderOptions options=)` | reached | MRW | 0 |
-| ParquetReader | method | `Reset` | `(IO.Stream stream, Reading.Logical.ParquetPagePruner pagePruner=):Void` | reached | MRW | 97 |
-| ParquetReader | method | `Reset` | `(Reading.IParquetReadSource source, Reading.Logical.ParquetPagePruner pagePruner=):Void` | reached | MRW | 97 |
-| ParquetReader | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| ParquetReader | prop | `Schema` | `Schema.ParquetSchema get` | reached | MRW | 228 |
-| ParquetReader | prop | `Metadata` | `Reading.Logical.ParquetFileMetadata get` | reached | MRW | 32 |
-| ParquetReader | prop | `RowGroups` | `Reading.Logical.RowGroupCollection get` | reached | MRW | 406 |
+| ParquetReader | method | `Reset` | `(IO.Stream stream, Reading.Logical.ParquetPagePruner pagePruner=):Void` | reached | MRW | 124 |
+| ParquetReader | method | `Reset` | `(Reading.IParquetReadSource source, Reading.Logical.ParquetPagePruner pagePruner=):Void` | reached | MRW | 124 |
+| ParquetReader | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| ParquetReader | prop | `Schema` | `Schema.ParquetSchema get` | reached | MRW | 266 |
+| ParquetReader | prop | `Metadata` | `Reading.Logical.ParquetFileMetadata get` | reached | MRW | 43 |
+| ParquetReader | prop | `RowGroups` | `Reading.Logical.RowGroupCollection get` | reached | MRW | 474 |
 | ParquetReaderOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetReaderOptions | prop | `Default` | `Reading.Logical.ParquetReaderOptions get` | reached | MW | 18 |
-| ParquetReaderOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MRW | 32 |
-| ParquetReaderOptions | prop | `Strict` | `Boolean get set` | reached | MRW | 21 |
-| ParquetReaderOptions | prop | `VerifyPageCrc` | `Boolean get set` | reached | MRW | 12 |
-| ParquetStatistics | prop | `Definition` | `Schema.LeafColumn get` | unreached |  | 1 |
-| ParquetStatistics | prop | `HasMinimum` | `Boolean get` | reached | RW | 16 |
-| ParquetStatistics | prop | `HasMaximum` | `Boolean get` | reached | RW | 16 |
-| ParquetStatistics | prop | `Minimum` | `ReadOnlySpan<Byte> get` | reached | RW | 15 |
-| ParquetStatistics | prop | `Maximum` | `ReadOnlySpan<Byte> get` | reached | RW | 15 |
-| ParquetStatistics | prop | `NullCount` | `Nullable<Int64> get` | reached | RW | 12 |
-| ParquetStatistics | prop | `DistinctCount` | `Nullable<Int64> get` | reached | W | 2 |
-| ParquetStatistics | prop | `IsMinimumExact` | `Boolean get` | reached | W | 6 |
-| ParquetStatistics | prop | `IsMaximumExact` | `Boolean get` | reached | W | 6 |
-| RowGroup | method | `Column` | `(Schema.LeafColumn column):Reading.Logical.RowGroupColumn<T>` | reached | MRW | 392 |
-| RowGroup | method | `NestedColumn` | `(Schema.LeafColumn column):Reading.Logical.NestedRowGroupColumn<T>` | reached | MRW | 23 |
-| RowGroup | method | `Column` | `(Int32 columnOrdinal):Reading.Logical.RowGroupColumn<T>` | reached | MRW | 392 |
-| RowGroup | method | `NestedColumn` | `(Int32 columnOrdinal):Reading.Logical.NestedRowGroupColumn<T>` | reached | MRW | 23 |
-| RowGroup | method | `GetColumnMetadata` | `(Schema.LeafColumn column):Reading.Logical.ParquetColumnChunkMetadata` | reached | RW | 47 |
-| RowGroup | method | `GetColumnMetadata` | `(Int32 columnOrdinal):Reading.Logical.ParquetColumnChunkMetadata` | reached | RW | 47 |
+| ParquetReaderOptions | prop | `Default` | `Reading.Logical.ParquetReaderOptions get` | reached | MW | 31 |
+| ParquetReaderOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MRW | 42 |
+| ParquetReaderOptions | prop | `Strict` | `Boolean get set` | reached | MRW | 22 |
+| ParquetReaderOptions | prop | `VerifyPageCrc` | `Boolean get set` | reached | MRW | 16 |
+| ParquetStatistics | prop | `Definition` | `Schema.LeafColumn get` | unreached |  | 9 |
+| ParquetStatistics | prop | `HasMinimum` | `Boolean get` | reached | MRW | 30 |
+| ParquetStatistics | prop | `HasMaximum` | `Boolean get` | reached | MRW | 29 |
+| ParquetStatistics | prop | `Minimum` | `ReadOnlySpan<Byte> get` | reached | MRW | 27 |
+| ParquetStatistics | prop | `Maximum` | `ReadOnlySpan<Byte> get` | reached | MRW | 27 |
+| ParquetStatistics | prop | `NullCount` | `Nullable<Int64> get` | reached | MRW | 23 |
+| ParquetStatistics | prop | `DistinctCount` | `Nullable<Int64> get` | reached | MRW | 7 |
+| ParquetStatistics | prop | `IsMinimumExact` | `Boolean get` | reached | MRW | 14 |
+| ParquetStatistics | prop | `IsMaximumExact` | `Boolean get` | reached | MRW | 14 |
+| RowGroup | method | `Column` | `(Schema.LeafColumn column):Reading.Logical.RowGroupColumn<T>` | reached | MRW | 442 |
+| RowGroup | method | `NestedColumn` | `(Schema.LeafColumn column):Reading.Logical.NestedRowGroupColumn<T>` | reached | MRW | 31 |
+| RowGroup | method | `Column` | `(Int32 columnOrdinal):Reading.Logical.RowGroupColumn<T>` | reached | MRW | 442 |
+| RowGroup | method | `NestedColumn` | `(Int32 columnOrdinal):Reading.Logical.NestedRowGroupColumn<T>` | reached | MRW | 31 |
+| RowGroup | method | `GetColumnMetadata` | `(Schema.LeafColumn column):Reading.Logical.ParquetColumnChunkMetadata` | reached | MRW | 57 |
+| RowGroup | method | `GetColumnMetadata` | `(Int32 columnOrdinal):Reading.Logical.ParquetColumnChunkMetadata` | reached | MRW | 57 |
 | RowGroup | prop | `Index` | `Int32 get` | reached | MRW | 6 |
 | RowGroup | prop | `MetadataOffset` | `UInt64 get` | unreached |  | 0 |
 | RowGroup | prop | `ColumnChunkOffset` | `UInt64 get` | unreached |  | 0 |
-| RowGroup | prop | `RowCount` | `UInt64 get` | reached | MRW | 124 |
+| RowGroup | prop | `RowCount` | `UInt64 get` | reached | MRW | 150 |
 | RowGroupCollection | method | `GetEnumerator` | `():Reading.Logical.RowGroupCollection+Enumerator` | reached | MRW | 5 |
-| RowGroupCollection | prop | `Count` | `Int32 get` | reached | MRW | 379 |
+| RowGroupCollection | prop | `Count` | `Int32 get` | reached | MRW | 584 |
 | RowGroupCollection | prop | `Item` | `Reading.Logical.RowGroup get` | reached | MRW | 0 |
-| RowGroupCollection+Enumerator | method | `MoveNext` | `():Boolean` | reached | MRW | 64 |
-| RowGroupCollection+Enumerator | prop | `Current` | `Reading.Logical.RowGroup get` | reached | MRW | 74 |
+| RowGroupCollection+Enumerator | method | `MoveNext` | `():Boolean` | reached | MRW | 71 |
+| RowGroupCollection+Enumerator | prop | `Current` | `Reading.Logical.RowGroup get` | reached | MRW | 84 |
 | RowGroupColumn`1 | method | `GetEnumerator` | `():Reading.Logical.Enumerator<T>` | reached | MRW | 5 |
-| RowGroupColumn`1 | prop | `Definition` | `Schema.LeafColumn get` | reached | MRW | 1 |
-| RowGroupColumn`1 | prop | `Metadata` | `Reading.Logical.ParquetColumnChunkMetadata get` | reached | W | 32 |
-| RowGroupColumn`1+Enumerator | method | `MoveNext` | `():Boolean` | reached | MRW | 64 |
-| RowGroupColumn`1+Enumerator | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| RowGroupColumn`1+Enumerator | prop | `Current` | `Reading.Logical.ColumnBuffer<T> get` | reached | MRW | 74 |
+| RowGroupColumn`1 | prop | `Definition` | `Schema.LeafColumn get` | reached | MRW | 9 |
+| RowGroupColumn`1 | prop | `Metadata` | `Reading.Logical.ParquetColumnChunkMetadata get` | reached | W | 43 |
+| RowGroupColumn`1+Enumerator | method | `MoveNext` | `():Boolean` | reached | MRW | 71 |
+| RowGroupColumn`1+Enumerator | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| RowGroupColumn`1+Enumerator | prop | `Current` | `Reading.Logical.ColumnBuffer<T> get` | reached | MRW | 84 |
 | MemoryReadSource | ctor | `.ctor` | `(ReadOnlyMemory<Byte> bytes)` | reached | MRW | 0 |
-| MemoryReadSource | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| MemoryReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | reached | MRW | 16 |
-| MemoryReadSource | prop | `Length` | `UInt64 get` | reached | MRW | 1119 |
+| MemoryReadSource | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| MemoryReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | reached | MRW | 21 |
+| MemoryReadSource | prop | `Length` | `UInt64 get` | reached | MRW | 1393 |
 | PageHeader | ctor | `.ctor` | `(Reading.PageHeaderType Type, UInt32 UncompressedPageSize, UInt32 CompressedPageSize, UInt32 ValueCount, Schem` | no-code-map |  | 0 |
-| PageHeader | method | `ToString` | `():String` | no-code-map |  | 27 |
-| PageHeader | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| PageHeader | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| PageHeader | method | `Equals` | `(Reading.PageHeader other):Boolean` | no-code-map |  | 31 |
+| PageHeader | method | `ToString` | `():String` | no-code-map |  | 58 |
+| PageHeader | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| PageHeader | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| PageHeader | method | `Equals` | `(Reading.PageHeader other):Boolean` | no-code-map |  | 57 |
 | PageHeader | method | `Deconstruct` | `(ref Reading.PageHeaderType Type, ref UInt32 UncompressedPageSize, ref UInt32 CompressedPageSize, ref UInt32 V` | no-code-map |  | 0 |
-| PageHeader | prop | `Type` | `Reading.PageHeaderType get set` | reached | MRW | 34 |
-| PageHeader | prop | `UncompressedPageSize` | `UInt32 get set` | reached | MRW | 0 |
-| PageHeader | prop | `CompressedPageSize` | `UInt32 get set` | reached | MRW | 0 |
-| PageHeader | prop | `ValueCount` | `UInt32 get set` | reached | MRW | 6 |
-| PageHeader | prop | `Encoding` | `Schema.EncodingKind get set` | reached | MRW | 96 |
-| PageHeader | prop | `HeaderLength` | `Int32 get set` | reached | MRW | 1 |
+| PageHeader | prop | `Type` | `Reading.PageHeaderType get set` | reached | MRW | 54 |
+| PageHeader | prop | `UncompressedPageSize` | `UInt32 get set` | reached | MRW | 2 |
+| PageHeader | prop | `CompressedPageSize` | `UInt32 get set` | reached | MRW | 1 |
+| PageHeader | prop | `ValueCount` | `UInt32 get set` | reached | MRW | 14 |
+| PageHeader | prop | `Encoding` | `Schema.EncodingKind get set` | reached | MRW | 121 |
+| PageHeader | prop | `HeaderLength` | `Int32 get set` | reached | MRW | 6 |
 | PageHeader | prop | `RepetitionLevelsByteLength` | `UInt32 get set` | reached | MRW | 0 |
 | PageHeader | prop | `DefinitionLevelsByteLength` | `UInt32 get set` | reached | MRW | 0 |
-| PageHeader | prop | `NullCount` | `UInt32 get set` | reached | MRW | 12 |
+| PageHeader | prop | `NullCount` | `UInt32 get set` | reached | MRW | 23 |
 | PageHeader | prop | `IsCompressed` | `Boolean get set` | reached | MRW | 0 |
 | PageHeader | prop | `RepetitionLevelEncoding` | `Schema.EncodingKind get set` | reached | MRW | 0 |
 | PageHeader | prop | `DefinitionLevelEncoding` | `Schema.EncodingKind get set` | reached | MRW | 0 |
-| PageHeader | prop | `RowCount` | `UInt32 get set` | reached | R | 124 |
-| PageHeader | prop | `Crc` | `Nullable<UInt32> get set` | reached | MRW | 2 |
+| PageHeader | prop | `RowCount` | `UInt32 get set` | reached | MRW | 150 |
+| PageHeader | prop | `Crc` | `Nullable<UInt32> get set` | reached | MRW | 3 |
 | ParquetSchemaEvolutionOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetSchemaEvolutionOptions | prop | `Default` | `Reading.ParquetSchemaEvolutionOptions get` | reached | W | 18 |
-| ParquetSchemaEvolutionOptions | prop | `MissingColumns` | `Reading.MissingColumnEvolutionBehavior get set` | reached | RW | 6 |
-| ParquetSchemaEvolutionOptions | prop | `Repetition` | `Reading.RepetitionEvolutionBehavior get set` | reached | RW | 20 |
-| ParquetSchemaEvolutionOptions | prop | `PhysicalTypes` | `Reading.SchemaTypeEvolutionBehavior get set` | reached | RW | 2 |
-| ParquetSchemaEvolutionOptions | prop | `LogicalTypes` | `Reading.SchemaTypeEvolutionBehavior get set` | reached | RW | 2 |
-| ParquetSchemaEvolutionOptions | prop | `MaterializedTypes` | `Reading.SchemaTypeEvolutionBehavior get set` | reached | RW | 2 |
+| ParquetSchemaEvolutionOptions | prop | `Default` | `Reading.ParquetSchemaEvolutionOptions get` | reached | W | 31 |
+| ParquetSchemaEvolutionOptions | prop | `MissingColumns` | `Reading.MissingColumnEvolutionBehavior get set` | reached | RW | 7 |
+| ParquetSchemaEvolutionOptions | prop | `Repetition` | `Reading.RepetitionEvolutionBehavior get set` | reached | RW | 31 |
+| ParquetSchemaEvolutionOptions | prop | `PhysicalTypes` | `Reading.SchemaTypeEvolutionBehavior get set` | reached | RW | 3 |
+| ParquetSchemaEvolutionOptions | prop | `LogicalTypes` | `Reading.SchemaTypeEvolutionBehavior get set` | reached | RW | 3 |
+| ParquetSchemaEvolutionOptions | prop | `MaterializedTypes` | `Reading.SchemaTypeEvolutionBehavior get set` | reached | RW | 3 |
 | LogicalTypeInfo | ctor | `.ctor` | `(Schema.LogicalTypeKind Kind, Int32 Precision=, Int32 Scale=, Byte BitWidth=, Boolean IsSigned=, Schema.TimeUn` | no-code-map |  | 0 |
-| LogicalTypeInfo | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalTypeInfo | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalTypeInfo | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalTypeInfo | method | `Equals` | `(Reading.Physical.LogicalTypeInfo other):Boolean` | no-code-map |  | 31 |
+| LogicalTypeInfo | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalTypeInfo | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalTypeInfo | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalTypeInfo | method | `Equals` | `(Reading.Physical.LogicalTypeInfo other):Boolean` | no-code-map |  | 57 |
 | LogicalTypeInfo | method | `Deconstruct` | `(ref Schema.LogicalTypeKind Kind, ref Int32 Precision, ref Int32 Scale, ref Byte BitWidth, ref Boolean IsSigne` | no-code-map |  | 0 |
-| LogicalTypeInfo | prop | `Kind` | `Schema.LogicalTypeKind get set` | reached | MRW | 32 |
-| LogicalTypeInfo | prop | `Precision` | `Int32 get set` | no-code-map |  | 15 |
-| LogicalTypeInfo | prop | `Scale` | `Int32 get set` | no-code-map |  | 17 |
-| LogicalTypeInfo | prop | `BitWidth` | `Byte get set` | reached | MRW | 14 |
-| LogicalTypeInfo | prop | `IsSigned` | `Boolean get set` | no-code-map |  | 14 |
-| LogicalTypeInfo | prop | `Unit` | `Schema.TimeUnit get set` | no-code-map |  | 7 |
-| LogicalTypeInfo | prop | `IsAdjustedToUtc` | `Boolean get set` | no-code-map |  | 31 |
+| LogicalTypeInfo | prop | `Kind` | `Schema.LogicalTypeKind get set` | reached | MRW | 115 |
+| LogicalTypeInfo | prop | `Precision` | `Int32 get set` | no-code-map |  | 21 |
+| LogicalTypeInfo | prop | `Scale` | `Int32 get set` | no-code-map |  | 27 |
+| LogicalTypeInfo | prop | `BitWidth` | `Byte get set` | reached | MRW | 26 |
+| LogicalTypeInfo | prop | `IsSigned` | `Boolean get set` | no-code-map |  | 31 |
+| LogicalTypeInfo | prop | `Unit` | `Schema.TimeUnit get set` | no-code-map |  | 16 |
+| LogicalTypeInfo | prop | `IsAdjustedToUtc` | `Boolean get set` | no-code-map |  | 37 |
 | LogicalTypeInfo | prop | `SpecificationVersion` | `Nullable<SByte> get` | reached | RW | 0 |
 | LogicalTypeInfo | prop | `Algorithm` | `Nullable<Schema.EdgeInterpolationAlgorithm> get` | reached | RW | 0 |
 | LogicalTypeInfo | prop | `HasCrs` | `Boolean get` | reached | RW | 0 |
-| ParquetBloomFilter | method | `MightContain` | `(Int32 value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(UInt32 value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(Byte value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(UInt16 value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(Int64 value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(UInt64 value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(Single value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(Double value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(ReadOnlySpan<Byte> value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContain` | `(Guid value):Boolean` | reached | RW | 32 |
-| ParquetBloomFilter | method | `MightContainHash` | `(UInt64 hash):Boolean` | reached | RW | 1 |
-| ParquetBloomFilter | method | `Dispose` | `():Void` | reached | RW | 93 |
-| ParquetBloomFilter | prop | `BitsetSizeBytes` | `Int32 get` | reached | R | 2 |
-| ParquetBloomFilter | prop | `Bitset` | `ReadOnlySpan<Byte> get` | reached | RW | 1 |
-| ParquetBoundingBox | prop | `XMin` | `Double get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `XMax` | `Double get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `YMin` | `Double get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `YMax` | `Double get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `ZMin` | `Nullable<Double> get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `ZMax` | `Nullable<Double> get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `MMin` | `Nullable<Double> get` | reached | R | 1 |
-| ParquetBoundingBox | prop | `MMax` | `Nullable<Double> get` | reached | R | 1 |
-| ParquetColumnChunkEncodings | prop | `Count` | `Int32 get` | reached | MRW | 379 |
+| ParquetBloomFilter | method | `MightContain` | `(Int32 value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(UInt32 value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(Byte value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(UInt16 value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(Int64 value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(UInt64 value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(Single value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(Double value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(ReadOnlySpan<Byte> value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContain` | `(Guid value):Boolean` | reached | MRW | 60 |
+| ParquetBloomFilter | method | `MightContainHash` | `(UInt64 hash):Boolean` | reached | MRW | 3 |
+| ParquetBloomFilter | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| ParquetBloomFilter | prop | `BitsetSizeBytes` | `Int32 get` | reached | RW | 8 |
+| ParquetBloomFilter | prop | `Bitset` | `ReadOnlySpan<Byte> get` | reached | MRW | 4 |
+| ParquetBoundingBox | prop | `XMin` | `Double get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `XMax` | `Double get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `YMin` | `Double get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `YMax` | `Double get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `ZMin` | `Nullable<Double> get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `ZMax` | `Nullable<Double> get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `MMin` | `Nullable<Double> get` | reached | RW | 2 |
+| ParquetBoundingBox | prop | `MMax` | `Nullable<Double> get` | reached | RW | 2 |
+| ParquetColumnChunkEncodings | prop | `Count` | `Int32 get` | reached | MRW | 584 |
 | ParquetColumnChunkEncodings | prop | `Item` | `Schema.EncodingKind get` | reached | MW | 0 |
 | ParquetColumnChunkInfo | ctor | `.ctor` | `(Int32 RowGroupOrdinal, Int32 ColumnOrdinal, Schema.ParquetPhysicalType PhysicalType, Schema.CompressionKind C` | no-code-map |  | 0 |
-| ParquetColumnChunkInfo | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ParquetColumnChunkInfo | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| ParquetColumnChunkInfo | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| ParquetColumnChunkInfo | method | `Equals` | `(Reading.Physical.ParquetColumnChunkInfo other):Boolean` | no-code-map |  | 31 |
+| ParquetColumnChunkInfo | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ParquetColumnChunkInfo | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| ParquetColumnChunkInfo | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| ParquetColumnChunkInfo | method | `Equals` | `(Reading.Physical.ParquetColumnChunkInfo other):Boolean` | no-code-map |  | 57 |
 | ParquetColumnChunkInfo | method | `Deconstruct` | `(ref Int32 RowGroupOrdinal, ref Int32 ColumnOrdinal, ref Schema.ParquetPhysicalType PhysicalType, ref Schema.C` | no-code-map |  | 0 |
-| ParquetColumnChunkInfo | prop | `RowGroupOrdinal` | `Int32 get set` | reached | R | 0 |
-| ParquetColumnChunkInfo | prop | `ColumnOrdinal` | `Int32 get set` | reached | MRW | 8 |
-| ParquetColumnChunkInfo | prop | `PhysicalType` | `Schema.ParquetPhysicalType get set` | reached | MRW | 64 |
-| ParquetColumnChunkInfo | prop | `Compression` | `Schema.CompressionKind get set` | reached | MRW | 188 |
+| ParquetColumnChunkInfo | prop | `RowGroupOrdinal` | `Int32 get set` | reached | RW | 2 |
+| ParquetColumnChunkInfo | prop | `ColumnOrdinal` | `Int32 get set` | reached | MRW | 17 |
+| ParquetColumnChunkInfo | prop | `PhysicalType` | `Schema.ParquetPhysicalType get set` | reached | MRW | 100 |
+| ParquetColumnChunkInfo | prop | `Compression` | `Schema.CompressionKind get set` | reached | MRW | 196 |
 | ParquetColumnChunkInfo | prop | `DataPageOffset` | `UInt64 get set` | reached | MRW | 1 |
 | ParquetColumnChunkInfo | prop | `DictionaryPageOffset` | `UInt64 get set` | reached | MRW | 0 |
-| ParquetColumnChunkInfo | prop | `TotalCompressedSize` | `UInt64 get set` | reached | MRW | 0 |
+| ParquetColumnChunkInfo | prop | `TotalCompressedSize` | `UInt64 get set` | reached | MRW | 6 |
 | ParquetColumnChunkInfo | prop | `TotalUncompressedSize` | `UInt64 get set` | reached | MRW | 0 |
 | ParquetColumnChunkInfo | prop | `ColumnIndexOffset` | `UInt64 get set` | reached | MRW | 0 |
 | ParquetColumnChunkInfo | prop | `ColumnIndexLength` | `UInt32 get set` | reached | MRW | 4 |
 | ParquetColumnChunkInfo | prop | `OffsetIndexOffset` | `UInt64 get set` | reached | MRW | 0 |
 | ParquetColumnChunkInfo | prop | `OffsetIndexLength` | `UInt32 get set` | reached | MRW | 3 |
-| ParquetColumnChunkInfo | prop | `Encodings` | `Reading.Physical.ParquetColumnChunkEncodings get set` | reached | MRW | 38 |
-| ParquetColumnChunkInfo | prop | `ValueCount` | `UInt64 get set` | reached | MRW | 6 |
+| ParquetColumnChunkInfo | prop | `Encodings` | `Reading.Physical.ParquetColumnChunkEncodings get set` | reached | MRW | 41 |
+| ParquetColumnChunkInfo | prop | `ValueCount` | `UInt64 get set` | reached | MRW | 14 |
 | ParquetColumnChunkInfo | prop | `BloomFilterOffset` | `UInt64 get set` | reached | MRW | 1 |
 | ParquetColumnChunkInfo | prop | `BloomFilterLength` | `UInt32 get set` | reached | MRW | 4 |
-| ParquetColumnChunkInfo | prop | `HasBloomFilter` | `Boolean get` | reached | MRW | 11 |
-| ParquetColumnChunkInfo | prop | `ChunkOffset` | `UInt64 get` | reached | MRW | 4 |
-| ParquetColumnSchemaInfo | prop | `Ordinal` | `Int32 get` | reached | MRW | 65 |
-| ParquetColumnSchemaInfo | prop | `PathSegmentCount` | `Int32 get` | reached | MRW | 2 |
-| ParquetColumnSchemaInfo | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | reached | MRW | 64 |
-| ParquetColumnSchemaInfo | prop | `TypeLength` | `UInt32 get` | unreached |  | 8 |
-| ParquetColumnSchemaInfo | prop | `LogicalType` | `Reading.Physical.LogicalTypeInfo get` | reached | R | 338 |
+| ParquetColumnChunkInfo | prop | `HasBloomFilter` | `Boolean get` | reached | MRW | 19 |
+| ParquetColumnChunkInfo | prop | `ChunkOffset` | `UInt64 get` | reached | MRW | 10 |
+| ParquetColumnSchemaInfo | prop | `Ordinal` | `Int32 get` | reached | MRW | 111 |
+| ParquetColumnSchemaInfo | prop | `PathSegmentCount` | `Int32 get` | reached | MRW | 4 |
+| ParquetColumnSchemaInfo | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | reached | MRW | 100 |
+| ParquetColumnSchemaInfo | prop | `TypeLength` | `UInt32 get` | reached | MRW | 19 |
+| ParquetColumnSchemaInfo | prop | `LogicalType` | `Reading.Physical.LogicalTypeInfo get` | reached | R | 424 |
 | ParquetFileMetadata | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetFileMetadata | method | `ReadGeospatialStatistics` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetGeospatialStatistics` | reached | R | 1 |
+| ParquetFileMetadata | method | `ReadGeospatialStatistics` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetGeospatialStatistics` | reached | RW | 5 |
 | ParquetFileMetadata | method | `SchemaNodeNameUtf8` | `(Int32 nodeOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 1 |
 | ParquetFileMetadata | method | `SchemaNodeLogicalTypeCrsUtf8` | `(Int32 nodeOrdinal):ReadOnlySpan<Byte>` | reached | RW | 1 |
-| ParquetFileMetadata | method | `ColumnSchema` | `(Int32 columnOrdinal):Reading.Physical.ParquetColumnSchemaInfo` | reached | MRW | 5 |
-| ParquetFileMetadata | method | `ColumnPathSegmentUtf8` | `(Int32 columnOrdinal, Int32 segmentOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 1 |
+| ParquetFileMetadata | method | `ColumnSchema` | `(Int32 columnOrdinal):Reading.Physical.ParquetColumnSchemaInfo` | reached | MRW | 12 |
+| ParquetFileMetadata | method | `ColumnPathSegmentUtf8` | `(Int32 columnOrdinal, Int32 segmentOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 5 |
 | ParquetFileMetadata | method | `ColumnLogicalTypeCrsUtf8` | `(Int32 columnOrdinal):ReadOnlySpan<Byte>` | reached | R | 1 |
-| ParquetFileMetadata | method | `RowGroup` | `(Int32 rowGroupOrdinal):Reading.Physical.ParquetRowGroupInfo` | reached | MRW | 41 |
-| ParquetFileMetadata | method | `ColumnChunk` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetColumnChunkInfo` | reached | MRW | 10 |
-| ParquetFileMetadata | method | `RowGroupSortingColumns` | `(Int32 rowGroupOrdinal):ReadOnlySpan<Schema.ParquetSortingColumn>` | reached | MRW | 6 |
-| ParquetFileMetadata | method | `KeyValueMetadataKeyUtf8` | `(Int32 metadataOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 6 |
-| ParquetFileMetadata | method | `KeyValueMetadataValueUtf8` | `(Int32 metadataOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 6 |
-| ParquetFileMetadata | prop | `FileVersion` | `Int32 get` | reached | MRW | 40 |
-| ParquetFileMetadata | prop | `FooterOffset` | `UInt64 get` | reached | MRW | 2 |
-| ParquetFileMetadata | prop | `FooterLength` | `UInt32 get` | reached | MRW | 2 |
+| ParquetFileMetadata | method | `RowGroup` | `(Int32 rowGroupOrdinal):Reading.Physical.ParquetRowGroupInfo` | reached | MRW | 63 |
+| ParquetFileMetadata | method | `ColumnChunk` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetColumnChunkInfo` | reached | MRW | 17 |
+| ParquetFileMetadata | method | `RowGroupSortingColumns` | `(Int32 rowGroupOrdinal):ReadOnlySpan<Schema.ParquetSortingColumn>` | reached | MRW | 9 |
+| ParquetFileMetadata | method | `KeyValueMetadataKeyUtf8` | `(Int32 metadataOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 9 |
+| ParquetFileMetadata | method | `KeyValueMetadataValueUtf8` | `(Int32 metadataOrdinal):ReadOnlySpan<Byte>` | reached | MRW | 7 |
+| ParquetFileMetadata | prop | `FileVersion` | `Int32 get` | reached | MRW | 43 |
+| ParquetFileMetadata | prop | `FooterOffset` | `UInt64 get` | reached | MRW | 6 |
+| ParquetFileMetadata | prop | `FooterLength` | `UInt32 get` | reached | MRW | 5 |
 | ParquetFileMetadata | prop | `SchemaNodeCount` | `Int32 get` | reached | MRW | 1 |
-| ParquetFileMetadata | prop | `ColumnCount` | `Int32 get` | reached | MRW | 15 |
-| ParquetFileMetadata | prop | `RowGroupCount` | `Int32 get` | reached | MRW | 18 |
-| ParquetFileMetadata | prop | `KeyValueMetadataCount` | `Int32 get` | reached | MRW | 10 |
-| ParquetFileMetadata | prop | `HasCreatedBy` | `Boolean get` | reached | MRW | 5 |
+| ParquetFileMetadata | prop | `ColumnCount` | `Int32 get` | reached | MRW | 29 |
+| ParquetFileMetadata | prop | `RowGroupCount` | `Int32 get` | reached | MRW | 27 |
+| ParquetFileMetadata | prop | `KeyValueMetadataCount` | `Int32 get` | reached | MRW | 14 |
+| ParquetFileMetadata | prop | `HasCreatedBy` | `Boolean get` | reached | MRW | 7 |
 | ParquetFileMetadata | prop | `SchemaNodes` | `ReadOnlySpan<Reading.Physical.ParquetSchemaNodeInfo> get` | reached | MRW | 0 |
-| ParquetFileMetadata | prop | `Columns` | `ReadOnlySpan<Reading.Physical.ParquetColumnSchemaInfo> get` | reached | MRW | 30 |
-| ParquetFileMetadata | prop | `RowGroups` | `ReadOnlySpan<Reading.Physical.ParquetRowGroupInfo> get` | reached | MRW | 406 |
-| ParquetFileMetadata | prop | `ColumnChunks` | `ReadOnlySpan<Reading.Physical.ParquetColumnChunkInfo> get` | reached | MRW | 0 |
-| ParquetFileMetadata | prop | `SortingColumns` | `ReadOnlySpan<Schema.ParquetSortingColumn> get` | reached | MRW | 20 |
-| ParquetFileMetadata | prop | `KeyValueMetadata` | `ReadOnlySpan<Reading.Physical.ParquetKeyValueMetadataInfo> get` | reached | MRW | 14 |
-| ParquetFileMetadata | prop | `CreatedByUtf8` | `ReadOnlySpan<Byte> get` | reached | MRW | 6 |
+| ParquetFileMetadata | prop | `Columns` | `ReadOnlySpan<Reading.Physical.ParquetColumnSchemaInfo> get` | reached | MRW | 32 |
+| ParquetFileMetadata | prop | `RowGroups` | `ReadOnlySpan<Reading.Physical.ParquetRowGroupInfo> get` | reached | MRW | 474 |
+| ParquetFileMetadata | prop | `ColumnChunks` | `ReadOnlySpan<Reading.Physical.ParquetColumnChunkInfo> get` | reached | MRW | 4 |
+| ParquetFileMetadata | prop | `SortingColumns` | `ReadOnlySpan<Schema.ParquetSortingColumn> get` | reached | MRW | 28 |
+| ParquetFileMetadata | prop | `KeyValueMetadata` | `ReadOnlySpan<Reading.Physical.ParquetKeyValueMetadataInfo> get` | reached | MRW | 24 |
+| ParquetFileMetadata | prop | `CreatedByUtf8` | `ReadOnlySpan<Byte> get` | reached | MRW | 8 |
 | ParquetFileReader | ctor | `.ctor` | `(Reading.Physical.ParquetFileReaderOptions options=)` | reached | MRW | 0 |
-| ParquetFileReader | method | `Reset` | `(IO.Stream stream):Void` | reached | MRW | 97 |
-| ParquetFileReader | method | `Reset` | `(Reading.IParquetReadSource source):Void` | reached | MRW | 97 |
-| ParquetFileReader | method | `OpenPages` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetPageCursor` | reached | MRW | 8 |
-| ParquetFileReader | method | `OpenBloomFilter` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetBloomFilter` | reached | RW | 23 |
-| ParquetFileReader | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| ParquetFileReader | prop | `Metadata` | `Reading.Physical.ParquetFileMetadata get` | reached | MRW | 32 |
+| ParquetFileReader | method | `Reset` | `(IO.Stream stream):Void` | reached | MRW | 124 |
+| ParquetFileReader | method | `Reset` | `(Reading.IParquetReadSource source):Void` | reached | MRW | 124 |
+| ParquetFileReader | method | `OpenPages` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetPageCursor` | reached | MRW | 23 |
+| ParquetFileReader | method | `OpenBloomFilter` | `(Int32 rowGroupOrdinal, Int32 columnOrdinal):Reading.Physical.ParquetBloomFilter` | reached | MRW | 30 |
+| ParquetFileReader | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| ParquetFileReader | prop | `Metadata` | `Reading.Physical.ParquetFileMetadata get` | reached | MRW | 43 |
 | ParquetFileReaderOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetFileReaderOptions | prop | `Default` | `Reading.Physical.ParquetFileReaderOptions get` | reached | MRW | 18 |
-| ParquetFileReaderOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MRW | 32 |
-| ParquetFileReaderOptions | prop | `VerifyPageCrc` | `Boolean get set` | reached | MRW | 12 |
-| ParquetGeospatialStatistics | prop | `BoundingBox` | `Reading.Physical.ParquetBoundingBox get` | reached | R | 1 |
-| ParquetGeospatialStatistics | prop | `GeospatialTypes` | `Collections.Generic.IReadOnlyList<Int32> get` | reached | R | 1 |
+| ParquetFileReaderOptions | prop | `Default` | `Reading.Physical.ParquetFileReaderOptions get` | reached | MRW | 31 |
+| ParquetFileReaderOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MRW | 42 |
+| ParquetFileReaderOptions | prop | `VerifyPageCrc` | `Boolean get set` | reached | MRW | 16 |
+| ParquetGeospatialStatistics | prop | `BoundingBox` | `Reading.Physical.ParquetBoundingBox get` | reached | RW | 3 |
+| ParquetGeospatialStatistics | prop | `GeospatialTypes` | `Collections.Generic.IReadOnlyList<Int32> get` | reached | RW | 3 |
 | ParquetKeyValueMetadataInfo | prop | `KeyLength` | `Int32 get` | reached | MRW | 0 |
 | ParquetKeyValueMetadataInfo | prop | `ValueLength` | `Int32 get` | reached | MRW | 0 |
-| ParquetKeyValueMetadataInfo | prop | `HasValue` | `Boolean get` | reached | MRW | 30 |
-| ParquetPage | prop | `Header` | `Reading.PageHeader get` | unreached |  | 0 |
-| ParquetPage | prop | `Payload` | `ReadOnlySpan<Byte> get` | unreached |  | 55 |
+| ParquetKeyValueMetadataInfo | prop | `HasValue` | `Boolean get` | reached | MRW | 31 |
+| ParquetPage | prop | `Header` | `Reading.PageHeader get` | reached | W | 1 |
+| ParquetPage | prop | `Payload` | `ReadOnlySpan<Byte> get` | reached | W | 58 |
 | ParquetPageCursor | method | `GetEnumerator` | `():Reading.Physical.ParquetPageCursor` | unreached |  | 5 |
-| ParquetPageCursor | method | `MoveNext` | `():Boolean` | reached | MRW | 64 |
-| ParquetPageCursor | method | `Dispose` | `():Void` | reached | MRW | 93 |
-| ParquetPageCursor | prop | `CurrentHeader` | `Reading.PageHeader get` | reached | MRW | 1 |
-| ParquetPageCursor | prop | `Current` | `Reading.Physical.ParquetPage get` | reached | R | 74 |
-| ParquetPageCursor | prop | `CurrentPayload` | `ReadOnlySpan<Byte> get` | reached | MRW | 0 |
-| ParquetRowGroupInfo | prop | `Ordinal` | `Int32 get` | unreached |  | 65 |
+| ParquetPageCursor | method | `MoveNext` | `():Boolean` | reached | MRW | 71 |
+| ParquetPageCursor | method | `Dispose` | `():Void` | reached | MRW | 109 |
+| ParquetPageCursor | prop | `CurrentHeader` | `Reading.PageHeader get` | reached | MRW | 3 |
+| ParquetPageCursor | prop | `Current` | `Reading.Physical.ParquetPage get` | reached | RW | 84 |
+| ParquetPageCursor | prop | `CurrentPayload` | `ReadOnlySpan<Byte> get` | reached | MRW | 2 |
+| ParquetRowGroupInfo | prop | `Ordinal` | `Int32 get` | reached | W | 111 |
 | ParquetRowGroupInfo | prop | `MetadataOffset` | `UInt64 get` | reached | MRW | 0 |
 | ParquetRowGroupInfo | prop | `ColumnChunkOffset` | `UInt64 get` | reached | MRW | 0 |
-| ParquetRowGroupInfo | prop | `RowCount` | `UInt64 get` | reached | MRW | 124 |
-| ParquetRowGroupInfo | prop | `ColumnCount` | `Int32 get` | reached | MRW | 15 |
-| ParquetRowGroupInfo | prop | `SortingColumnCount` | `Int32 get` | reached | MRW | 0 |
-| ParquetSchemaNodeInfo | prop | `Ordinal` | `Int32 get` | reached | MRW | 65 |
+| ParquetRowGroupInfo | prop | `RowCount` | `UInt64 get` | reached | MRW | 150 |
+| ParquetRowGroupInfo | prop | `ColumnCount` | `Int32 get` | reached | MRW | 29 |
+| ParquetRowGroupInfo | prop | `SortingColumnCount` | `Int32 get` | reached | MRW | 4 |
+| ParquetSchemaNodeInfo | prop | `Ordinal` | `Int32 get` | reached | MRW | 111 |
 | ParquetSchemaNodeInfo | prop | `ParentOrdinal` | `Int32 get` | reached | MRW | 0 |
-| ParquetSchemaNodeInfo | prop | `Kind` | `Schema.NodeKind get` | reached | MRW | 32 |
-| ParquetSchemaNodeInfo | prop | `Repetition` | `Schema.ParquetRepetition get` | reached | MRW | 20 |
-| ParquetSchemaNodeInfo | prop | `PhysicalType` | `Nullable<Schema.ParquetPhysicalType> get` | reached | MRW | 64 |
-| ParquetSchemaNodeInfo | prop | `TypeLength` | `UInt32 get` | reached | MRW | 8 |
-| ParquetSchemaNodeInfo | prop | `LogicalType` | `Reading.Physical.LogicalTypeInfo get` | reached | MRW | 338 |
+| ParquetSchemaNodeInfo | prop | `Kind` | `Schema.NodeKind get` | reached | MRW | 115 |
+| ParquetSchemaNodeInfo | prop | `Repetition` | `Schema.ParquetRepetition get` | reached | MRW | 31 |
+| ParquetSchemaNodeInfo | prop | `PhysicalType` | `Nullable<Schema.ParquetPhysicalType> get` | reached | MRW | 100 |
+| ParquetSchemaNodeInfo | prop | `TypeLength` | `UInt32 get` | reached | MRW | 19 |
+| ParquetSchemaNodeInfo | prop | `LogicalType` | `Reading.Physical.LogicalTypeInfo get` | reached | MRW | 424 |
 | ParquetSchemaNodeInfo | prop | `ChildCount` | `Int32 get` | reached | MRW | 0 |
 | ParquetSchemaNodeInfo | prop | `FieldId` | `Nullable<Int32> get` | reached | MRW | 12 |
 | StreamReadSource | ctor | `.ctor` | `(IO.Stream stream)` | reached | MRW | 0 |
-| StreamReadSource | method | `Reset` | `(IO.Stream stream):Void` | reached | MW | 97 |
-| StreamReadSource | method | `Dispose` | `():Void` | reached | R | 93 |
-| StreamReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | reached | MRW | 16 |
-| StreamReadSource | prop | `Length` | `UInt64 get` | reached | MRW | 1119 |
+| StreamReadSource | method | `Reset` | `(IO.Stream stream):Void` | reached | MW | 124 |
+| StreamReadSource | method | `Dispose` | `():Void` | reached | RW | 109 |
+| StreamReadSource | method | `ReadExactly` | `(UInt64 offset, Span<Byte> destination):Void` | reached | MRW | 21 |
+| StreamReadSource | prop | `Length` | `UInt64 get` | reached | MRW | 1393 |
 | RowApiCollectionLevel | ctor | `.ctor` | `(Int32 repetitionLevel, Int32 definedDefinitionLevel, Int32 elementDefinitionLevel)` | reached | MRW | 0 |
 | RowApiCollectionLevel | prop | `RepetitionLevel` | `Int32 get` | reached | MRW | 0 |
 | RowApiCollectionLevel | prop | `DefinedDefinitionLevel` | `Int32 get` | reached | MRW | 3 |
-| RowApiCollectionLevel | prop | `ElementDefinitionLevel` | `Int32 get` | reached | MRW | 4 |
+| RowApiCollectionLevel | prop | `ElementDefinitionLevel` | `Int32 get` | reached | MRW | 5 |
 | RowApiColumnDescriptor | prop | `PropertyName` | `String get` | reached | MRW | 0 |
-| RowApiColumnDescriptor | prop | `Column` | `Schema.LeafColumn get` | reached | MRW | 392 |
+| RowApiColumnDescriptor | prop | `Column` | `Schema.LeafColumn get` | reached | MRW | 442 |
 | RowApiColumnDescriptor`1 | ctor | `.ctor` | `(String propertyName, Schema.LeafColumn column)` | reached | MRW | 0 |
 | RowApiNestedColumnDescriptor`1 | ctor | `.ctor` | `(String propertyName, Schema.LeafColumn column, RowApi.RowApiCollectionLevel[] collectionLevels)` | reached | MRW | 0 |
 | RowApiNestedLeafBuffer`1 | method | `BeginRow` | `(Int32 rowIndex):Void` | reached | MW | 0 |
 | RowApiNestedLeafBuffer`1 | method | `AddNull` | `(Int32 repetitionLevel, Int32 definitionLevel):Void` | reached | MW | 0 |
-| RowApiNestedLeafBuffer`1 | method | `Add` | `(Int32 repetitionLevel, TValue value):Void` | reached | MW | 184 |
+| RowApiNestedLeafBuffer`1 | method | `Add` | `(Int32 repetitionLevel, TValue value):Void` | reached | MW | 312 |
 | RowApiNestedLeafBuffer`1 | method | `EndRow` | `():Void` | reached | MW | 0 |
-| RowApiNestedLeafBuffer`1 | method | `GetRow` | `(Int32 rowIndex):RowApi.RowApiNestedLeafRow<TValue>` | unreached |  | 46 |
+| RowApiNestedLeafBuffer`1 | method | `GetRow` | `(Int32 rowIndex):RowApi.RowApiNestedLeafRow<TValue>` | unreached |  | 48 |
 | RowApiNestedLeafBuffer`1 | method | `EstimateRowSize` | `(Int32 rowIndex):UInt64` | reached | MW | 0 |
-| RowApiNestedLeafRow`1 | prop | `RepetitionLevels` | `ReadOnlySpan<Byte> get` | reached | MRW | 8 |
-| RowApiNestedLeafRow`1 | prop | `DefinitionLevels` | `ReadOnlySpan<Byte> get` | reached | MRW | 9 |
-| RowApiNestedLeafRow`1 | prop | `Values` | `ReadOnlySpan<TValue> get` | reached | MRW | 138 |
+| RowApiNestedLeafRow`1 | prop | `RepetitionLevels` | `ReadOnlySpan<Byte> get` | reached | MRW | 13 |
+| RowApiNestedLeafRow`1 | prop | `DefinitionLevels` | `ReadOnlySpan<Byte> get` | reached | MRW | 15 |
+| RowApiNestedLeafRow`1 | prop | `Values` | `ReadOnlySpan<TValue> get` | reached | MRW | 241 |
 | RowBufferSlot | method | `RegisterOwner` | `(IDisposable owner):Void` | unreached |  | 0 |
 | RowGroupWriterCore`1 | ctor | `.ctor` | `(Writing.RowGroupWriter rowGroupWriter, TSlot slot)` | reached | W | 0 |
 | RowGroupWriterCore`1 | method | `GetSlotForRow` | `():TSlot` | reached | W | 0 |
-| RowGroupWriterCore`1 | method | `Write` | `():Void` | reached | W | 501 |
-| RowReaderBinaryValue | prop | `Value` | `ReadOnlySpan<Byte> get` | reached | MRW | 107 |
-| RowReaderBinaryValue | prop | `IsNull` | `Boolean get` | reached | MRW | 35 |
+| RowGroupWriterCore`1 | method | `Write` | `():Void` | reached | W | 561 |
+| RowReaderBinaryValue | prop | `Value` | `ReadOnlySpan<Byte> get` | reached | MRW | 170 |
+| RowReaderBinaryValue | prop | `IsNull` | `Boolean get` | reached | MRW | 52 |
 | RowReaderCore | ctor | `.ctor` | `(IO.Stream stream, Schema.ParquetSchema schema, RowApi.RowApiColumnDescriptor[] columns, RowApi.RowApiColumnDe` | reached | MRW | 0 |
 | RowReaderCore | ctor | `.ctor` | `(Reading.IParquetReadSource source, Schema.ParquetSchema schema, RowApi.RowApiColumnDescriptor[] columns, RowA` | reached | MRW | 0 |
-| RowReaderCore | method | `MoveNext` | `():Boolean` | reached | MRW | 64 |
-| RowReaderCore | method | `Reset` | `(IO.Stream stream, RowApi.RowApiColumnDescriptor[] projection, Reading.ParquetSchemaEvolutionOptions schemaEvo` | reached | MW | 97 |
-| RowReaderCore | method | `Reset` | `(Reading.IParquetReadSource source, RowApi.RowApiColumnDescriptor[] projection, Reading.ParquetSchemaEvolution` | reached | MW | 97 |
+| RowReaderCore | method | `MoveNext` | `():Boolean` | reached | MRW | 71 |
+| RowReaderCore | method | `Reset` | `(IO.Stream stream, RowApi.RowApiColumnDescriptor[] projection, Reading.ParquetSchemaEvolutionOptions schemaEvo` | reached | MW | 124 |
+| RowReaderCore | method | `Reset` | `(Reading.IParquetReadSource source, RowApi.RowApiColumnDescriptor[] projection, Reading.ParquetSchemaEvolution` | reached | MW | 124 |
 | RowReaderCore | method | `GetCurrent` | `(RowApi.RowApiColumnDescriptor<T> column):ref T` | reached | MRW | 8 |
 | RowReaderCore | method | `GetCurrent` | `(Int32 columnIndex):ref T` | reached | MRW | 8 |
 | RowReaderCore | method | `GetCurrentBinary` | `(RowApi.RowApiColumnDescriptor<T> column):RowApi.RowReaderBinaryValue` | reached | MRW | 1 |
 | RowReaderCore | method | `GetCurrentNested` | `(RowApi.RowApiNestedColumnDescriptor<TValue> column):RowApi.RowApiNestedLeafRow<TValue>` | reached | MRW | 8 |
 | RowReaderCore | method | `ThrowIfNotPositioned` | `():Void` | reached | MRW | 0 |
-| RowReaderCore | method | `Dispose` | `():Void` | reached | MRW | 93 |
+| RowReaderCore | method | `Dispose` | `():Void` | reached | MRW | 109 |
 | RowReaderOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| RowReaderOptions | prop | `Default` | `RowApi.RowReaderOptions get` | reached | W | 18 |
-| RowReaderOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MRW | 32 |
-| RowReaderOptions | prop | `Execution` | `ParquetExecutionOptions get set` | reached | MRW | 14 |
-| RowReaderOptions | prop | `MaxReadAheadRowGroups` | `Int32 get set` | reached | MRW | 6 |
-| RowReaderOptions | prop | `VerifyPageCrc` | `Boolean get set` | reached | MRW | 12 |
+| RowReaderOptions | prop | `Default` | `RowApi.RowReaderOptions get` | reached | W | 31 |
+| RowReaderOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MRW | 42 |
+| RowReaderOptions | prop | `Execution` | `ParquetExecutionOptions get set` | reached | MRW | 18 |
+| RowReaderOptions | prop | `MaxReadAheadRowGroups` | `Int32 get set` | reached | MRW | 9 |
+| RowReaderOptions | prop | `VerifyPageCrc` | `Boolean get set` | reached | MRW | 16 |
 | ColumnDefinition | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ColumnDefinition | static | `RequiredGroup` | `(String name, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | MW | 11 |
-| ColumnDefinition | static | `RequiredGroup` | `(String name, Int32 fieldId, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 11 |
-| ColumnDefinition | static | `RequiredGroup` | `(String name, Schema.LogicalType logicalType, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 11 |
-| ColumnDefinition | static | `OptionalGroup` | `(String name, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | MW | 8 |
-| ColumnDefinition | static | `OptionalGroup` | `(String name, Int32 fieldId, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 8 |
-| ColumnDefinition | static | `OptionalGroup` | `(String name, Schema.LogicalType logicalType, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 8 |
-| ColumnDefinition | static | `RequiredLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | MRW | 188 |
-| ColumnDefinition | static | `RequiredLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | MW | 188 |
-| ColumnDefinition | static | `OptionalLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | MRW | 144 |
-| ColumnDefinition | static | `OptionalLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | W | 144 |
-| ColumnDefinition | static | `Leaf` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | MRW | 163 |
-| ColumnDefinition | static | `Leaf` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | W | 163 |
-| ColumnDefinition | static | `List` | `(String name, Schema.ColumnDefinition element, Schema.ParquetRepetition repetition=):Schema.ColumnDefinition` | reached | MW | 286 |
-| ColumnDefinition | static | `List` | `(String name, Schema.ColumnDefinition element, Int32 fieldId, Schema.ParquetRepetition repetition=):Schema.Col` | reached | W | 286 |
-| ColumnDefinition | static | `Map` | `(String name, Schema.ColumnDefinition key, Schema.ColumnDefinition value, Schema.ParquetRepetition repetition=` | reached | MW | 6 |
-| ColumnDefinition | static | `Map` | `(String name, Schema.ColumnDefinition key, Schema.ColumnDefinition value, Int32 fieldId, Schema.ParquetRepetit` | reached | W | 6 |
-| ColumnDefinition | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ColumnDefinition | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| ColumnDefinition | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| ColumnDefinition | method | `Equals` | `(Schema.ColumnDefinition other):Boolean` | no-code-map |  | 31 |
+| ColumnDefinition | static | `RequiredGroup` | `(String name, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | MW | 12 |
+| ColumnDefinition | static | `RequiredGroup` | `(String name, Int32 fieldId, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 12 |
+| ColumnDefinition | static | `RequiredGroup` | `(String name, Schema.LogicalType logicalType, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 12 |
+| ColumnDefinition | static | `OptionalGroup` | `(String name, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | MW | 9 |
+| ColumnDefinition | static | `OptionalGroup` | `(String name, Int32 fieldId, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 9 |
+| ColumnDefinition | static | `OptionalGroup` | `(String name, Schema.LogicalType logicalType, Schema.ColumnDefinition[] children):Schema.ColumnDefinition` | reached | W | 9 |
+| ColumnDefinition | static | `RequiredLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | MRW | 198 |
+| ColumnDefinition | static | `RequiredLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | MW | 198 |
+| ColumnDefinition | static | `OptionalLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | MRW | 148 |
+| ColumnDefinition | static | `OptionalLeaf` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | W | 148 |
+| ColumnDefinition | static | `Leaf` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | MRW | 195 |
+| ColumnDefinition | static | `Leaf` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | W | 195 |
+| ColumnDefinition | static | `List` | `(String name, Schema.ColumnDefinition element, Schema.ParquetRepetition repetition=):Schema.ColumnDefinition` | reached | MW | 422 |
+| ColumnDefinition | static | `List` | `(String name, Schema.ColumnDefinition element, Int32 fieldId, Schema.ParquetRepetition repetition=):Schema.Col` | unreached |  | 422 |
+| ColumnDefinition | static | `Map` | `(String name, Schema.ColumnDefinition key, Schema.ColumnDefinition value, Schema.ParquetRepetition repetition=` | reached | MW | 12 |
+| ColumnDefinition | static | `Map` | `(String name, Schema.ColumnDefinition key, Schema.ColumnDefinition value, Int32 fieldId, Schema.ParquetRepetit` | reached | W | 12 |
+| ColumnDefinition | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ColumnDefinition | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| ColumnDefinition | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| ColumnDefinition | method | `Equals` | `(Schema.ColumnDefinition other):Boolean` | no-code-map |  | 57 |
 | ColumnDefinition | method | `<Clone>$` | `():Schema.ColumnDefinition` | no-code-map |  | 0 |
-| ColumnDefinition | prop | `Name` | `String get set` | reached | MRW | 101 |
-| ColumnDefinition | prop | `Kind` | `Schema.NodeKind get set` | reached | MRW | 32 |
-| ColumnDefinition | prop | `Repetition` | `Schema.ParquetRepetition get set` | reached | MRW | 20 |
-| ColumnDefinition | prop | `PhysicalType` | `Nullable<Schema.ParquetPhysicalType> get set` | reached | MRW | 64 |
-| ColumnDefinition | prop | `LogicalType` | `Schema.LogicalType get set` | reached | MRW | 338 |
+| ColumnDefinition | prop | `Name` | `String get set` | reached | MRW | 179 |
+| ColumnDefinition | prop | `Kind` | `Schema.NodeKind get set` | reached | MRW | 115 |
+| ColumnDefinition | prop | `Repetition` | `Schema.ParquetRepetition get set` | reached | MRW | 31 |
+| ColumnDefinition | prop | `PhysicalType` | `Nullable<Schema.ParquetPhysicalType> get set` | reached | MRW | 100 |
+| ColumnDefinition | prop | `LogicalType` | `Schema.LogicalType get set` | reached | MRW | 424 |
 | ColumnDefinition | prop | `FieldId` | `Nullable<Int32> get set` | reached | MRW | 12 |
-| ColumnDefinition | prop | `Options` | `Schema.ColumnOptions get set` | reached | MRW | 29 |
-| ColumnDefinition | prop | `PageStrategy` | `Writing.PageStrategy.IPageStrategy get set` | reached | MRW | 6 |
-| ColumnDefinition | prop | `Converter` | `Schema.ParquetValueConverter get set` | reached | MRW | 10 |
-| ColumnDefinition | prop | `Children` | `Collections.Immutable.ImmutableArray<Schema.ColumnDefinition> get set` | reached | MRW | 11 |
+| ColumnDefinition | prop | `Options` | `Schema.ColumnOptions get set` | reached | MRW | 34 |
+| ColumnDefinition | prop | `PageStrategy` | `Writing.PageStrategy.IPageStrategy get set` | reached | MRW | 7 |
+| ColumnDefinition | prop | `Converter` | `Schema.ParquetValueConverter get set` | reached | MRW | 13 |
+| ColumnDefinition | prop | `Children` | `Collections.Immutable.ImmutableArray<Schema.ColumnDefinition> get set` | reached | MRW | 28 |
 | ColumnOptions | ctor | `.ctor` | `(Schema.ParquetRepetition repetition=, Collections.Immutable.ImmutableArray<Schema.EncodingKind> encodings=, U` | reached | MRW | 0 |
-| ColumnOptions | method | `Equals` | `(Schema.ColumnOptions other):Boolean` | reached | W | 31 |
-| ColumnOptions | method | `GetHashCode` | `():Int32` | reached | W | 2 |
-| ColumnOptions | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ColumnOptions | method | `Equals` | `(Object obj):Boolean` | reached | W | 31 |
+| ColumnOptions | method | `Equals` | `(Schema.ColumnOptions other):Boolean` | reached | W | 57 |
+| ColumnOptions | method | `GetHashCode` | `():Int32` | reached | W | 12 |
+| ColumnOptions | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ColumnOptions | method | `Equals` | `(Object obj):Boolean` | reached | W | 57 |
 | ColumnOptions | method | `<Clone>$` | `():Schema.ColumnOptions` | no-code-map |  | 0 |
-| ColumnOptions | prop | `Repetition` | `Schema.ParquetRepetition get` | reached | MRW | 20 |
-| ColumnOptions | prop | `Encodings` | `Collections.Immutable.ImmutableArray<Schema.EncodingKind> get` | reached | MRW | 38 |
-| ColumnOptions | prop | `TypeLength` | `UInt32 get` | reached | MRW | 8 |
-| ColumnOptions | prop | `Compression` | `Nullable<Schema.CompressionKind> get` | reached | MRW | 188 |
-| ColumnOptions | prop | `CompressionLevel` | `Nullable<Int32> get` | reached | MRW | 25 |
+| ColumnOptions | prop | `Repetition` | `Schema.ParquetRepetition get` | reached | MRW | 31 |
+| ColumnOptions | prop | `Encodings` | `Collections.Immutable.ImmutableArray<Schema.EncodingKind> get` | reached | MRW | 41 |
+| ColumnOptions | prop | `TypeLength` | `UInt32 get` | reached | MRW | 19 |
+| ColumnOptions | prop | `Compression` | `Nullable<Schema.CompressionKind> get` | reached | MRW | 196 |
+| ColumnOptions | prop | `CompressionLevel` | `Nullable<Int32> get` | reached | MRW | 27 |
 | ColumnOptions | prop | `BloomFilter` | `Schema.ParquetBloomFilterOptions get` | reached | MRW | 12 |
-| ColumnOptions | field | `Default` | `Schema.ColumnOptions` | no-code-map |  | 18 |
-| LeafColumn | prop | `Ordinal` | `Int32 get` | reached | MRW | 65 |
-| LeafColumn | prop | `Path` | `String get` | reached | RW | 23 |
-| LeafColumn | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | reached | MRW | 64 |
-| LeafColumn | prop | `MaxRepetitionLevel` | `Int32 get` | reached | MRW | 26 |
-| LeafColumn | prop | `MaxDefinitionLevel` | `Int32 get` | reached | MRW | 37 |
-| LeafColumn | prop | `Options` | `Schema.ColumnOptions get` | reached | MRW | 29 |
-| LeafColumn | prop | `LogicalType` | `Schema.LogicalType get` | reached | RW | 338 |
-| LeafColumn | prop | `Converter` | `Schema.ParquetValueConverter get` | reached | MRW | 10 |
+| ColumnOptions | field | `Default` | `Schema.ColumnOptions` | no-code-map |  | 31 |
+| LeafColumn | prop | `Ordinal` | `Int32 get` | reached | MRW | 111 |
+| LeafColumn | prop | `Path` | `String get` | reached | MRW | 43 |
+| LeafColumn | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | reached | MRW | 100 |
+| LeafColumn | prop | `MaxRepetitionLevel` | `Int32 get` | reached | MRW | 41 |
+| LeafColumn | prop | `MaxDefinitionLevel` | `Int32 get` | reached | MRW | 51 |
+| LeafColumn | prop | `Options` | `Schema.ColumnOptions get` | reached | MRW | 34 |
+| LeafColumn | prop | `LogicalType` | `Schema.LogicalType get` | reached | MRW | 424 |
+| LeafColumn | prop | `Converter` | `Schema.ParquetValueConverter get` | reached | MRW | 13 |
 | LeafColumn | prop | `FieldId` | `Nullable<Int32> get` | reached | W | 12 |
-| LeafColumn | prop | `PageStrategy` | `Writing.PageStrategy.IPageStrategy get` | unreached |  | 6 |
-| LogicalType | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
+| LeafColumn | prop | `PageStrategy` | `Writing.PageStrategy.IPageStrategy get` | unreached |  | 7 |
+| LogicalType | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
 | LogicalType | method | `<Clone>$` | `():Schema.LogicalType` | no-code-map |  | 0 |
 | LogicalType+Bson | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Bson | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Bson | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Bson | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Bson | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Bson | method | `Equals` | `(Schema.LogicalType+Bson other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Bson | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Bson | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Bson | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Bson | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Bson | method | `Equals` | `(Schema.LogicalType+Bson other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Bson | method | `<Clone>$` | `():Schema.LogicalType+Bson` | no-code-map |  | 0 |
 | LogicalType+Date | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Date | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Date | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Date | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Date | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Date | method | `Equals` | `(Schema.LogicalType+Date other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Date | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Date | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Date | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Date | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Date | method | `Equals` | `(Schema.LogicalType+Date other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Date | method | `<Clone>$` | `():Schema.LogicalType+Date` | no-code-map |  | 0 |
 | LogicalType+Decimal | ctor | `.ctor` | `(Int32 Precision, Int32 Scale)` | reached | MRW | 0 |
-| LogicalType+Decimal | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Decimal | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Decimal | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Decimal | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Decimal | method | `Equals` | `(Schema.LogicalType+Decimal other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Decimal | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Decimal | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Decimal | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Decimal | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Decimal | method | `Equals` | `(Schema.LogicalType+Decimal other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Decimal | method | `<Clone>$` | `():Schema.LogicalType+Decimal` | no-code-map |  | 0 |
-| LogicalType+Decimal | prop | `Precision` | `Int32 get set` | reached | MRW | 15 |
-| LogicalType+Decimal | prop | `Scale` | `Int32 get set` | reached | MRW | 17 |
+| LogicalType+Decimal | prop | `Precision` | `Int32 get set` | reached | MRW | 21 |
+| LogicalType+Decimal | prop | `Scale` | `Int32 get set` | reached | MRW | 27 |
 | LogicalType+Enum | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Enum | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Enum | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Enum | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Enum | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Enum | method | `Equals` | `(Schema.LogicalType+Enum other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Enum | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Enum | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Enum | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Enum | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Enum | method | `Equals` | `(Schema.LogicalType+Enum other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Enum | method | `<Clone>$` | `():Schema.LogicalType+Enum` | no-code-map |  | 0 |
 | LogicalType+Float16 | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Float16 | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Float16 | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Float16 | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Float16 | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Float16 | method | `Equals` | `(Schema.LogicalType+Float16 other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Float16 | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Float16 | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Float16 | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Float16 | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Float16 | method | `Equals` | `(Schema.LogicalType+Float16 other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Float16 | method | `<Clone>$` | `():Schema.LogicalType+Float16` | no-code-map |  | 0 |
 | LogicalType+Geography | ctor | `.ctor` | `(String Crs=, Nullable<Schema.EdgeInterpolationAlgorithm> Algorithm=)` | no-code-map |  | 0 |
-| LogicalType+Geography | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Geography | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Geography | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Geography | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Geography | method | `Equals` | `(Schema.LogicalType+Geography other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Geography | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Geography | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Geography | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Geography | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Geography | method | `Equals` | `(Schema.LogicalType+Geography other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Geography | method | `<Clone>$` | `():Schema.LogicalType+Geography` | no-code-map |  | 0 |
 | LogicalType+Geography | method | `Deconstruct` | `(ref String Crs, ref Nullable<Schema.EdgeInterpolationAlgorithm> Algorithm):Void` | no-code-map |  | 0 |
 | LogicalType+Geography | prop | `Crs` | `String get set` | reached | RW | 0 |
 | LogicalType+Geography | prop | `Algorithm` | `Nullable<Schema.EdgeInterpolationAlgorithm> get set` | reached | RW | 0 |
 | LogicalType+Geometry | ctor | `.ctor` | `(String Crs=)` | no-code-map |  | 0 |
-| LogicalType+Geometry | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Geometry | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Geometry | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Geometry | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Geometry | method | `Equals` | `(Schema.LogicalType+Geometry other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Geometry | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Geometry | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Geometry | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Geometry | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Geometry | method | `Equals` | `(Schema.LogicalType+Geometry other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Geometry | method | `<Clone>$` | `():Schema.LogicalType+Geometry` | no-code-map |  | 0 |
 | LogicalType+Geometry | method | `Deconstruct` | `(ref String Crs):Void` | no-code-map |  | 0 |
 | LogicalType+Geometry | prop | `Crs` | `String get set` | reached | RW | 0 |
 | LogicalType+Int | ctor | `.ctor` | `(Byte bitWidth, Boolean isSigned)` | reached | MRW | 0 |
-| LogicalType+Int | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Int | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Int | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Int | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Int | method | `Equals` | `(Schema.LogicalType+Int other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Int | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Int | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Int | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Int | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Int | method | `Equals` | `(Schema.LogicalType+Int other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Int | method | `<Clone>$` | `():Schema.LogicalType+Int` | no-code-map |  | 0 |
-| LogicalType+Int | prop | `BitWidth` | `Byte get` | reached | MRW | 14 |
-| LogicalType+Int | prop | `IsSigned` | `Boolean get` | reached | MRW | 14 |
+| LogicalType+Int | prop | `BitWidth` | `Byte get` | reached | MRW | 26 |
+| LogicalType+Int | prop | `IsSigned` | `Boolean get` | reached | MRW | 31 |
 | LogicalType+Interval | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Interval | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Interval | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Interval | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Interval | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Interval | method | `Equals` | `(Schema.LogicalType+Interval other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Interval | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Interval | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Interval | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Interval | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Interval | method | `Equals` | `(Schema.LogicalType+Interval other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Interval | method | `<Clone>$` | `():Schema.LogicalType+Interval` | no-code-map |  | 0 |
 | LogicalType+Json | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Json | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Json | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Json | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Json | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Json | method | `Equals` | `(Schema.LogicalType+Json other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Json | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Json | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Json | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Json | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Json | method | `Equals` | `(Schema.LogicalType+Json other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Json | method | `<Clone>$` | `():Schema.LogicalType+Json` | no-code-map |  | 0 |
 | LogicalType+String | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+String | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+String | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+String | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+String | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+String | method | `Equals` | `(Schema.LogicalType+String other):Boolean` | no-code-map |  | 31 |
+| LogicalType+String | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+String | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+String | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+String | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+String | method | `Equals` | `(Schema.LogicalType+String other):Boolean` | no-code-map |  | 57 |
 | LogicalType+String | method | `<Clone>$` | `():Schema.LogicalType+String` | no-code-map |  | 0 |
 | LogicalType+Time | ctor | `.ctor` | `(Schema.TimeUnit Unit, Boolean IsAdjustedToUtc)` | no-code-map |  | 0 |
-| LogicalType+Time | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Time | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Time | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Time | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Time | method | `Equals` | `(Schema.LogicalType+Time other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Time | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Time | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Time | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Time | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Time | method | `Equals` | `(Schema.LogicalType+Time other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Time | method | `<Clone>$` | `():Schema.LogicalType+Time` | no-code-map |  | 0 |
 | LogicalType+Time | method | `Deconstruct` | `(ref Schema.TimeUnit Unit, ref Boolean IsAdjustedToUtc):Void` | no-code-map |  | 0 |
-| LogicalType+Time | prop | `Unit` | `Schema.TimeUnit get set` | reached | MRW | 7 |
-| LogicalType+Time | prop | `IsAdjustedToUtc` | `Boolean get set` | no-code-map |  | 31 |
+| LogicalType+Time | prop | `Unit` | `Schema.TimeUnit get set` | reached | MRW | 16 |
+| LogicalType+Time | prop | `IsAdjustedToUtc` | `Boolean get set` | no-code-map |  | 37 |
 | LogicalType+Timestamp | ctor | `.ctor` | `(Schema.TimeUnit Unit, Boolean IsAdjustedToUtc)` | no-code-map |  | 0 |
-| LogicalType+Timestamp | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Timestamp | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Timestamp | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Timestamp | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Timestamp | method | `Equals` | `(Schema.LogicalType+Timestamp other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Timestamp | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Timestamp | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Timestamp | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Timestamp | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Timestamp | method | `Equals` | `(Schema.LogicalType+Timestamp other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Timestamp | method | `<Clone>$` | `():Schema.LogicalType+Timestamp` | no-code-map |  | 0 |
 | LogicalType+Timestamp | method | `Deconstruct` | `(ref Schema.TimeUnit Unit, ref Boolean IsAdjustedToUtc):Void` | no-code-map |  | 0 |
-| LogicalType+Timestamp | prop | `Unit` | `Schema.TimeUnit get set` | reached | MRW | 7 |
-| LogicalType+Timestamp | prop | `IsAdjustedToUtc` | `Boolean get set` | no-code-map |  | 31 |
+| LogicalType+Timestamp | prop | `Unit` | `Schema.TimeUnit get set` | reached | MRW | 16 |
+| LogicalType+Timestamp | prop | `IsAdjustedToUtc` | `Boolean get set` | no-code-map |  | 37 |
 | LogicalType+Unknown | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Unknown | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Unknown | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Unknown | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Unknown | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Unknown | method | `Equals` | `(Schema.LogicalType+Unknown other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Unknown | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Unknown | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Unknown | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Unknown | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Unknown | method | `Equals` | `(Schema.LogicalType+Unknown other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Unknown | method | `<Clone>$` | `():Schema.LogicalType+Unknown` | no-code-map |  | 0 |
 | LogicalType+Uuid | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| LogicalType+Uuid | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Uuid | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Uuid | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Uuid | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Uuid | method | `Equals` | `(Schema.LogicalType+Uuid other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Uuid | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Uuid | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Uuid | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Uuid | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Uuid | method | `Equals` | `(Schema.LogicalType+Uuid other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Uuid | method | `<Clone>$` | `():Schema.LogicalType+Uuid` | no-code-map |  | 0 |
 | LogicalType+Variant | ctor | `.ctor` | `(Nullable<SByte> SpecificationVersion=)` | no-code-map |  | 0 |
-| LogicalType+Variant | method | `ToString` | `():String` | no-code-map |  | 27 |
-| LogicalType+Variant | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| LogicalType+Variant | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| LogicalType+Variant | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 31 |
-| LogicalType+Variant | method | `Equals` | `(Schema.LogicalType+Variant other):Boolean` | no-code-map |  | 31 |
+| LogicalType+Variant | method | `ToString` | `():String` | no-code-map |  | 58 |
+| LogicalType+Variant | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| LogicalType+Variant | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| LogicalType+Variant | method | `Equals` | `(Schema.LogicalType other):Boolean` | no-code-map |  | 57 |
+| LogicalType+Variant | method | `Equals` | `(Schema.LogicalType+Variant other):Boolean` | no-code-map |  | 57 |
 | LogicalType+Variant | method | `<Clone>$` | `():Schema.LogicalType+Variant` | no-code-map |  | 0 |
 | LogicalType+Variant | method | `Deconstruct` | `(ref Nullable<SByte> SpecificationVersion):Void` | no-code-map |  | 0 |
 | LogicalType+Variant | prop | `SpecificationVersion` | `Nullable<SByte> get set` | reached | RW | 0 |
 | ParquetBloomFilterOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetBloomFilterOptions | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ParquetBloomFilterOptions | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| ParquetBloomFilterOptions | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| ParquetBloomFilterOptions | method | `Equals` | `(Schema.ParquetBloomFilterOptions other):Boolean` | no-code-map |  | 31 |
+| ParquetBloomFilterOptions | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ParquetBloomFilterOptions | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| ParquetBloomFilterOptions | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| ParquetBloomFilterOptions | method | `Equals` | `(Schema.ParquetBloomFilterOptions other):Boolean` | no-code-map |  | 57 |
 | ParquetBloomFilterOptions | method | `<Clone>$` | `():Schema.ParquetBloomFilterOptions` | no-code-map |  | 0 |
 | ParquetBloomFilterOptions | prop | `FalsePositiveProbability` | `Double get set` | reached | MW | 12 |
 | ParquetBloomFilterOptions | prop | `ExpectedDistinctValueCount` | `Nullable<UInt32> get set` | reached | MW | 5 |
 | ParquetBloomFilterOptions | prop | `MaximumBytes` | `UInt32 get set` | reached | MW | 15 |
-| ParquetBloomFilterOptions | field | `Default` | `Schema.ParquetBloomFilterOptions` | no-code-map |  | 18 |
+| ParquetBloomFilterOptions | field | `Default` | `Schema.ParquetBloomFilterOptions` | no-code-map |  | 31 |
 | ParquetColumnAttribute | ctor | `.ctor` | `()` | unreached |  | 0 |
 | ParquetColumnAttribute | ctor | `.ctor` | `(String name)` | unreached |  | 0 |
 | ParquetColumnAttribute | ctor | `.ctor` | `(Schema.ParquetPhysicalType physicalType)` | unreached |  | 0 |
 | ParquetColumnAttribute | ctor | `.ctor` | `(String name, Schema.ParquetPhysicalType physicalType)` | unreached |  | 0 |
-| ParquetColumnAttribute | prop | `Name` | `String get` | unreached |  | 101 |
-| ParquetColumnAttribute | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | unreached |  | 64 |
+| ParquetColumnAttribute | prop | `Name` | `String get` | unreached |  | 179 |
+| ParquetColumnAttribute | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | unreached |  | 100 |
 | ParquetColumnAttribute | prop | `HasPhysicalType` | `Boolean get` | unreached |  | 0 |
-| ParquetColumnAttribute | prop | `Encodings` | `Schema.EncodingKind[] get set` | unreached |  | 38 |
-| ParquetColumnAttribute | prop | `Compression` | `Schema.CompressionKind get set` | unreached |  | 188 |
-| ParquetColumnAttribute | prop | `CompressionLevel` | `Int32 get set` | unreached |  | 25 |
-| ParquetColumnAttribute | prop | `LogicalType` | `Schema.LogicalTypeKind get set` | unreached |  | 338 |
+| ParquetColumnAttribute | prop | `Encodings` | `Schema.EncodingKind[] get set` | unreached |  | 41 |
+| ParquetColumnAttribute | prop | `Compression` | `Schema.CompressionKind get set` | unreached |  | 196 |
+| ParquetColumnAttribute | prop | `CompressionLevel` | `Int32 get set` | unreached |  | 27 |
+| ParquetColumnAttribute | prop | `LogicalType` | `Schema.LogicalTypeKind get set` | unreached |  | 424 |
 | ParquetColumnAttribute | prop | `FieldId` | `Int32 get set` | unreached |  | 12 |
-| ParquetColumnAttribute | prop | `Precision` | `Int32 get set` | unreached |  | 15 |
-| ParquetColumnAttribute | prop | `Scale` | `Int32 get set` | unreached |  | 17 |
-| ParquetColumnAttribute | prop | `Converter` | `Type get set` | unreached |  | 10 |
+| ParquetColumnAttribute | prop | `Precision` | `Int32 get set` | unreached |  | 21 |
+| ParquetColumnAttribute | prop | `Scale` | `Int32 get set` | unreached |  | 27 |
+| ParquetColumnAttribute | prop | `Converter` | `Type get set` | unreached |  | 13 |
 | ParquetColumnAttribute | prop | `BloomFilter` | `Boolean get set` | unreached |  | 12 |
 | ParquetColumnAttribute | prop | `BloomFilterFalsePositiveProbability` | `Double get set` | unreached |  | 0 |
 | ParquetColumnAttribute | prop | `BloomFilterExpectedDistinctValueCount` | `UInt32 get set` | unreached |  | 0 |
 | ParquetColumnAttribute | prop | `BloomFilterMaximumBytes` | `UInt32 get set` | unreached |  | 0 |
 | ParquetSchema | ctor | `.ctor` | `(Collections.Immutable.ImmutableArray<Schema.ColumnDefinition> definitions)` | reached | MRW | 0 |
-| ParquetSchema | method | `CreateReader` | `(IO.Stream stream, Reading.Logical.ParquetReaderOptions options=, Reading.Logical.ParquetPagePruner pagePruner` | reached | MRW | 141 |
-| ParquetSchema | method | `CreateReader` | `(Reading.IParquetReadSource source, Reading.Logical.ParquetReaderOptions options=, Reading.Logical.ParquetPage` | reached | MRW | 141 |
-| ParquetSchema | method | `CreateWriter` | `(IO.Stream stream, Writing.ParquetWriterOptions options=):Writing.ParquetWriter` | reached | MW | 158 |
-| ParquetSchema | method | `CreateWriter` | `(Writing.IParquetWriteSource destination, Writing.ParquetWriterOptions options=):Writing.ParquetWriter` | reached | MW | 158 |
-| ParquetSchema | method | `CreateAppender` | `(IO.Stream stream, Writing.ParquetAppendOptions options=):Writing.ParquetWriter` | reached | W | 15 |
-| ParquetSchema | method | `CreateAppender` | `(Reading.IParquetReadSource source, Writing.IParquetWriteSource destination, Writing.ParquetAppendOptions opti` | reached | MW | 15 |
-| ParquetSchema | method | `CreateMerger` | `(Writing.IParquetReadWriteSource destination, Writing.ParquetMergeOptions options=):Writing.ParquetFileMerger` | reached | MW | 22 |
-| ParquetSchema | method | `CreateMerger` | `(Reading.IParquetReadSource source, Writing.IParquetWriteSource destination, Writing.ParquetMergeOptions optio` | reached | MW | 22 |
-| ParquetSchema | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ParquetSchema | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| ParquetSchema | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| ParquetSchema | method | `Equals` | `(Schema.ParquetSchema other):Boolean` | no-code-map |  | 31 |
+| ParquetSchema | method | `CreateReader` | `(IO.Stream stream, Reading.Logical.ParquetReaderOptions options=, Reading.Logical.ParquetPagePruner pagePruner` | reached | MRW | 152 |
+| ParquetSchema | method | `CreateReader` | `(Reading.IParquetReadSource source, Reading.Logical.ParquetReaderOptions options=, Reading.Logical.ParquetPage` | reached | MRW | 152 |
+| ParquetSchema | method | `CreateWriter` | `(IO.Stream stream, Writing.ParquetWriterOptions options=):Writing.ParquetWriter` | reached | MW | 175 |
+| ParquetSchema | method | `CreateWriter` | `(Writing.IParquetWriteSource destination, Writing.ParquetWriterOptions options=):Writing.ParquetWriter` | reached | MW | 175 |
+| ParquetSchema | method | `CreateAppender` | `(IO.Stream stream, Writing.ParquetAppendOptions options=):Writing.ParquetWriter` | reached | W | 24 |
+| ParquetSchema | method | `CreateAppender` | `(Reading.IParquetReadSource source, Writing.IParquetWriteSource destination, Writing.ParquetAppendOptions opti` | reached | MW | 24 |
+| ParquetSchema | method | `CreateMerger` | `(Writing.IParquetReadWriteSource destination, Writing.ParquetMergeOptions options=):Writing.ParquetFileMerger` | reached | MW | 27 |
+| ParquetSchema | method | `CreateMerger` | `(Reading.IParquetReadSource source, Writing.IParquetWriteSource destination, Writing.ParquetMergeOptions optio` | reached | MW | 27 |
+| ParquetSchema | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ParquetSchema | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| ParquetSchema | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| ParquetSchema | method | `Equals` | `(Schema.ParquetSchema other):Boolean` | no-code-map |  | 57 |
 | ParquetSchema | method | `<Clone>$` | `():Schema.ParquetSchema` | no-code-map |  | 0 |
-| ParquetSchema | prop | `Definitions` | `Collections.Immutable.ImmutableArray<Schema.ColumnDefinition> get` | reached | MRW | 6 |
-| ParquetSchema | prop | `LeafColumns` | `Collections.Immutable.ImmutableArray<Schema.LeafColumn> get` | reached | MRW | 423 |
+| ParquetSchema | prop | `Definitions` | `Collections.Immutable.ImmutableArray<Schema.ColumnDefinition> get` | reached | MRW | 10 |
+| ParquetSchema | prop | `LeafColumns` | `Collections.Immutable.ImmutableArray<Schema.LeafColumn> get` | reached | MRW | 502 |
 | ParquetSchemaAttribute | ctor | `.ctor` | `()` | no-code-map |  | 0 |
 | ParquetSchemaAttribute | prop | `AllowAllocatingValues` | `Boolean get set` | unreached |  | 17 |
 | ParquetSortingColumn | ctor | `.ctor` | `(Int32 columnOrdinal, Boolean descending=, Boolean nullsFirst=)` | reached | RW | 0 |
-| ParquetSortingColumn | prop | `ColumnOrdinal` | `Int32 get` | reached | RW | 8 |
-| ParquetSortingColumn | prop | `Descending` | `Boolean get` | reached | RW | 8 |
-| ParquetSortingColumn | prop | `NullsFirst` | `Boolean get` | reached | RW | 8 |
-| ParquetValueConverter | prop | `ValueType` | `Type get` | no-code-map |  | 0 |
-| ParquetValueConverter | prop | `PhysicalType` | `Type get` | no-code-map |  | 64 |
-| ParquetValueConverter`2 | method | `ConvertToPhysical` | `(TValue value):TPhysical` | no-code-map |  | 12 |
-| ParquetValueConverter`2 | method | `ConvertFromPhysical` | `(TPhysical value):TValue` | no-code-map |  | 12 |
-| ParquetValueConverter`2 | method | `ConvertToPhysical` | `(ReadOnlySpan<TValue> source, Span<TPhysical> destination):Void` | reached | MW | 12 |
-| ParquetValueConverter`2 | method | `ConvertFromPhysical` | `(ReadOnlySpan<TPhysical> source, Span<TValue> destination):Void` | reached | MRW | 12 |
-| ParquetValueConverter`2 | prop | `ValueType` | `Type get` | reached | W | 0 |
-| ParquetValueConverter`2 | prop | `PhysicalType` | `Type get` | reached | MRW | 64 |
+| ParquetSortingColumn | prop | `ColumnOrdinal` | `Int32 get` | reached | RW | 17 |
+| ParquetSortingColumn | prop | `Descending` | `Boolean get` | reached | RW | 15 |
+| ParquetSortingColumn | prop | `NullsFirst` | `Boolean get` | reached | RW | 14 |
+| ParquetValueConverter | prop | `ValueType` | `Type get` | no-code-map |  | 1 |
+| ParquetValueConverter | prop | `PhysicalType` | `Type get` | no-code-map |  | 100 |
+| ParquetValueConverter`2 | method | `ConvertToPhysical` | `(TValue value):TPhysical` | no-code-map |  | 17 |
+| ParquetValueConverter`2 | method | `ConvertFromPhysical` | `(TPhysical value):TValue` | no-code-map |  | 17 |
+| ParquetValueConverter`2 | method | `ConvertToPhysical` | `(ReadOnlySpan<TValue> source, Span<TPhysical> destination):Void` | reached | MW | 17 |
+| ParquetValueConverter`2 | method | `ConvertFromPhysical` | `(ReadOnlySpan<TPhysical> source, Span<TValue> destination):Void` | reached | MRW | 17 |
+| ParquetValueConverter`2 | prop | `ValueType` | `Type get` | reached | W | 1 |
+| ParquetValueConverter`2 | prop | `PhysicalType` | `Type get` | reached | MRW | 100 |
 | RowSchema | ctor | `.ctor` | `(Collections.Immutable.ImmutableArray<Schema.RowSchemaColumn> columns)` | reached | W | 0 |
-| RowSchema | static | `Create` | `(Schema.RowSchemaColumn[] columns):Schema.RowSchema` | reached | W | 154 |
-| RowSchema | static | `Create` | `(Collections.Immutable.ImmutableArray<Schema.RowSchemaColumn> columns):Schema.RowSchema` | reached | W | 154 |
-| RowSchema | static | `Column` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | W | 392 |
-| RowSchema | static | `Column` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | W | 392 |
-| RowSchema | method | `ToString` | `():String` | no-code-map |  | 27 |
-| RowSchema | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| RowSchema | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| RowSchema | method | `Equals` | `(Schema.RowSchema other):Boolean` | no-code-map |  | 31 |
+| RowSchema | static | `Create` | `(Schema.RowSchemaColumn[] columns):Schema.RowSchema` | reached | W | 171 |
+| RowSchema | static | `Create` | `(Collections.Immutable.ImmutableArray<Schema.RowSchemaColumn> columns):Schema.RowSchema` | reached | W | 171 |
+| RowSchema | static | `Column` | `(String name, Schema.ParquetPhysicalType physicalType, Schema.ColumnOptions options=, Schema.LogicalType logic` | reached | W | 442 |
+| RowSchema | static | `Column` | `(String name, Schema.ParquetPhysicalType physicalType, Int32 fieldId, Schema.ColumnOptions options=, Schema.Lo` | reached | W | 442 |
+| RowSchema | method | `ToString` | `():String` | no-code-map |  | 58 |
+| RowSchema | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| RowSchema | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| RowSchema | method | `Equals` | `(Schema.RowSchema other):Boolean` | no-code-map |  | 57 |
 | RowSchema | method | `<Clone>$` | `():Schema.RowSchema` | no-code-map |  | 0 |
-| RowSchema | prop | `Columns` | `Collections.Immutable.ImmutableArray<Schema.RowSchemaColumn> get` | reached | W | 30 |
-| RowSchema | prop | `ParquetSchema` | `Schema.ParquetSchema get` | reached | W | 242 |
+| RowSchema | prop | `Columns` | `Collections.Immutable.ImmutableArray<Schema.RowSchemaColumn> get` | reached | W | 32 |
+| RowSchema | prop | `ParquetSchema` | `Schema.ParquetSchema get` | reached | W | 252 |
 | RowSchemaColumn | ctor | `.ctor` | `(String name, Schema.ParquetPhysicalType physicalType, Type clrType, Schema.ColumnOptions options=, Schema.Log` | reached | W | 0 |
 | RowSchemaColumn | ctor | `.ctor` | `(String name, Schema.ParquetPhysicalType physicalType, Type clrType, Int32 fieldId, Schema.ColumnOptions optio` | reached | W | 0 |
-| RowSchemaColumn | method | `ToString` | `():String` | no-code-map |  | 27 |
-| RowSchemaColumn | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| RowSchemaColumn | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| RowSchemaColumn | method | `Equals` | `(Schema.RowSchemaColumn other):Boolean` | no-code-map |  | 31 |
+| RowSchemaColumn | method | `ToString` | `():String` | no-code-map |  | 58 |
+| RowSchemaColumn | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| RowSchemaColumn | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| RowSchemaColumn | method | `Equals` | `(Schema.RowSchemaColumn other):Boolean` | no-code-map |  | 57 |
 | RowSchemaColumn | method | `<Clone>$` | `():Schema.RowSchemaColumn` | no-code-map |  | 0 |
-| RowSchemaColumn | prop | `Name` | `String get` | reached | W | 101 |
-| RowSchemaColumn | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | reached | W | 64 |
-| RowSchemaColumn | prop | `ClrType` | `Type get` | reached | W | 52 |
-| RowSchemaColumn | prop | `Options` | `Schema.ColumnOptions get` | reached | W | 29 |
-| RowSchemaColumn | prop | `LogicalType` | `Schema.LogicalType get` | reached | W | 338 |
-| RowSchemaColumn | prop | `PageStrategy` | `Writing.PageStrategy.IPageStrategy get` | reached | W | 6 |
-| RowSchemaColumn | prop | `Converter` | `Schema.ParquetValueConverter get` | reached | W | 10 |
+| RowSchemaColumn | prop | `Name` | `String get` | reached | W | 179 |
+| RowSchemaColumn | prop | `PhysicalType` | `Schema.ParquetPhysicalType get` | reached | W | 100 |
+| RowSchemaColumn | prop | `ClrType` | `Type get` | reached | W | 59 |
+| RowSchemaColumn | prop | `Options` | `Schema.ColumnOptions get` | reached | W | 34 |
+| RowSchemaColumn | prop | `LogicalType` | `Schema.LogicalType get` | reached | W | 424 |
+| RowSchemaColumn | prop | `PageStrategy` | `Writing.PageStrategy.IPageStrategy get` | reached | W | 7 |
+| RowSchemaColumn | prop | `Converter` | `Schema.ParquetValueConverter get` | reached | W | 13 |
 | RowSchemaColumn | prop | `FieldId` | `Nullable<Int32> get` | reached | W | 12 |
 | IParquetWriteSource | method | `Open` | `(ReadOnlySpan<Byte> path, IO.FileMode mode):Void` | no-code-map |  | 33 |
 | IParquetWriteSource | method | `Close` | `():Void` | no-code-map |  | 12 |
-| IParquetWriteSource | method | `Write` | `(UInt64 offset, ReadOnlySpan<Byte> source):Void` | no-code-map |  | 501 |
-| IParquetWriteSource | method | `SetLength` | `(UInt64 length):Void` | no-code-map |  | 29 |
-| IParquetWriteSource | method | `Flush` | `():Void` | no-code-map |  | 19 |
+| IParquetWriteSource | method | `Write` | `(UInt64 offset, ReadOnlySpan<Byte> source):Void` | no-code-map |  | 561 |
+| IParquetWriteSource | method | `SetLength` | `(UInt64 length):Void` | no-code-map |  | 30 |
+| IParquetWriteSource | method | `Flush` | `():Void` | no-code-map |  | 20 |
 | ForceDictionaryPageStrategy | method | `GetDictionaryMode` | `():Writing.PageStrategy.DictionaryMode` | reached | W | 1 |
 | ForceDictionaryPageStrategy | method | `ShouldDropDictionary` | `(UInt32 uniqueCount, UInt32 totalRowCount, UInt32 rowsSeen):Boolean` | unreached |  | 1 |
 | ForceDictionaryPageStrategy | prop | `Shared` | `Writing.PageStrategy.ForceDictionaryPageStrategy get` | reached | W | 39 |
@@ -793,65 +793,65 @@ Status: **unreached** = no covered line in any target/ISA tier (W=writer, R=read
 | IPageStrategy | method | `TryGetTargetDataPageSizeBytes` | `(ref UInt32 sizeBytes):Boolean` | reached | W | 0 |
 | IPageStrategy | method | `GetNextDataPageRowCount` | `(UInt32 totalRowCount, UInt32 rowsWritten):UInt32` | no-code-map |  | 1 |
 | ParquetAppendOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetAppendOptions | prop | `WriterOptions` | `Writing.ParquetWriterOptions get set` | reached | MW | 80 |
-| ParquetAppendOptions | prop | `PreserveExistingMetadata` | `Boolean get set` | reached | MW | 5 |
-| ParquetAppendOptions | prop | `AppendToLatestRowGroup` | `Boolean get set` | reached | MW | 16 |
-| ParquetAppendOptions | field | `Default` | `Writing.ParquetAppendOptions` | no-code-map |  | 18 |
-| ParquetFileMerger | method | `AppendFile` | `(Reading.IParquetReadSource source):Void` | reached | MW | 10 |
-| ParquetFileMerger | method | `CloseFile` | `():Void` | reached | MW | 156 |
-| ParquetFileMerger | prop | `SourceFileCount` | `Int32 get` | reached | MW | 19 |
-| ParquetFileMerger | prop | `RowGroupCount` | `Int32 get` | reached | MW | 18 |
-| ParquetFileMerger | prop | `RowCount` | `Int64 get` | reached | MW | 124 |
+| ParquetAppendOptions | prop | `WriterOptions` | `Writing.ParquetWriterOptions get set` | reached | MW | 96 |
+| ParquetAppendOptions | prop | `PreserveExistingMetadata` | `Boolean get set` | reached | MW | 9 |
+| ParquetAppendOptions | prop | `AppendToLatestRowGroup` | `Boolean get set` | reached | MW | 25 |
+| ParquetAppendOptions | field | `Default` | `Writing.ParquetAppendOptions` | no-code-map |  | 31 |
+| ParquetFileMerger | method | `AppendFile` | `(Reading.IParquetReadSource source):Void` | reached | MW | 18 |
+| ParquetFileMerger | method | `CloseFile` | `():Void` | reached | MW | 191 |
+| ParquetFileMerger | prop | `SourceFileCount` | `Int32 get` | reached | MW | 23 |
+| ParquetFileMerger | prop | `RowGroupCount` | `Int32 get` | reached | MW | 27 |
+| ParquetFileMerger | prop | `RowCount` | `Int64 get` | reached | MW | 150 |
 | ParquetFilePath | ctor | `.ctor` | `(Object object, IntPtr method)` | no-code-map |  | 0 |
-| ParquetFilePath | method | `Invoke` | `(UInt64 fileIndex, IParquetBufferPool bufferPool, ref Nullable<ParquetBuffer> allocation):ReadOnlySpan<Byte>` | no-code-map |  | 2 |
+| ParquetFilePath | method | `Invoke` | `(UInt64 fileIndex, IParquetBufferPool bufferPool, ref Nullable<ParquetBuffer> allocation):ReadOnlySpan<Byte>` | no-code-map |  | 8 |
 | ParquetFilePath | method | `BeginInvoke` | `(UInt64 fileIndex, IParquetBufferPool bufferPool, ref Nullable<ParquetBuffer> allocation, AsyncCallback callba` | no-code-map |  | 0 |
 | ParquetFilePath | method | `EndInvoke` | `(ref Nullable<ParquetBuffer> allocation, IAsyncResult result):ReadOnlySpan<Byte>` | no-code-map |  | 0 |
 | ParquetKeyValueMetadata | ctor | `.ctor` | `(String Key, String Value)` | no-code-map |  | 0 |
-| ParquetKeyValueMetadata | method | `ToString` | `():String` | no-code-map |  | 27 |
-| ParquetKeyValueMetadata | method | `GetHashCode` | `():Int32` | no-code-map |  | 2 |
-| ParquetKeyValueMetadata | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 31 |
-| ParquetKeyValueMetadata | method | `Equals` | `(Writing.ParquetKeyValueMetadata other):Boolean` | no-code-map |  | 31 |
+| ParquetKeyValueMetadata | method | `ToString` | `():String` | no-code-map |  | 58 |
+| ParquetKeyValueMetadata | method | `GetHashCode` | `():Int32` | no-code-map |  | 12 |
+| ParquetKeyValueMetadata | method | `Equals` | `(Object obj):Boolean` | no-code-map |  | 57 |
+| ParquetKeyValueMetadata | method | `Equals` | `(Writing.ParquetKeyValueMetadata other):Boolean` | no-code-map |  | 57 |
 | ParquetKeyValueMetadata | method | `Deconstruct` | `(ref String Key, ref String Value):Void` | no-code-map |  | 0 |
-| ParquetKeyValueMetadata | prop | `Key` | `String get set` | reached | MW | 25 |
-| ParquetKeyValueMetadata | prop | `Value` | `String get set` | no-code-map |  | 107 |
+| ParquetKeyValueMetadata | prop | `Key` | `String get set` | reached | MW | 48 |
+| ParquetKeyValueMetadata | prop | `Value` | `String get set` | no-code-map |  | 170 |
 | ParquetMergeOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetMergeOptions | prop | `WriterOptions` | `Writing.ParquetWriterOptions get set` | reached | MW | 80 |
-| ParquetMergeOptions | prop | `PreserveFirstFileMetadata` | `Boolean get set` | reached | MW | 15 |
-| ParquetMergeOptions | field | `Default` | `Writing.ParquetMergeOptions` | no-code-map |  | 18 |
-| ParquetWriter | method | `CreateSerializedColumn` | `(Schema.LeafColumn column):Writing.SerializedColumn<T>` | reached | MW | 225 |
-| ParquetWriter | method | `Reset` | `(IO.Stream stream):Void` | reached | W | 97 |
-| ParquetWriter | method | `Reset` | `(Writing.IParquetWriteSource destination):Void` | reached | W | 97 |
-| ParquetWriter | method | `StartRowGroup` | `():Writing.RowGroupWriter` | reached | MW | 159 |
-| ParquetWriter | method | `CloseFile` | `():Void` | reached | MW | 156 |
-| ParquetWriter | method | `Dispose` | `():Void` | reached | MW | 93 |
-| ParquetWriter | prop | `RowApiMaxParallelism` | `UInt32 get` | unreached |  | 11 |
+| ParquetMergeOptions | prop | `WriterOptions` | `Writing.ParquetWriterOptions get set` | reached | MW | 96 |
+| ParquetMergeOptions | prop | `PreserveFirstFileMetadata` | `Boolean get set` | reached | MW | 16 |
+| ParquetMergeOptions | field | `Default` | `Writing.ParquetMergeOptions` | no-code-map |  | 31 |
+| ParquetWriter | method | `CreateSerializedColumn` | `(Schema.LeafColumn column):Writing.SerializedColumn<T>` | reached | MW | 263 |
+| ParquetWriter | method | `Reset` | `(IO.Stream stream):Void` | reached | W | 124 |
+| ParquetWriter | method | `Reset` | `(Writing.IParquetWriteSource destination):Void` | reached | W | 124 |
+| ParquetWriter | method | `StartRowGroup` | `():Writing.RowGroupWriter` | reached | MW | 182 |
+| ParquetWriter | method | `CloseFile` | `():Void` | reached | MW | 191 |
+| ParquetWriter | method | `Dispose` | `():Void` | reached | MW | 109 |
+| ParquetWriter | prop | `RowApiMaxParallelism` | `UInt32 get` | unreached |  | 13 |
 | ParquetWriterOptions | ctor | `.ctor` | `()` | no-code-map |  | 0 |
-| ParquetWriterOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MW | 32 |
-| ParquetWriterOptions | prop | `Execution` | `ParquetExecutionOptions get set` | reached | MW | 14 |
-| ParquetWriterOptions | prop | `BufferChunkSizeBytes` | `UInt32 get set` | reached | MW | 40 |
-| ParquetWriterOptions | prop | `InitialPageBufferBytes` | `UInt32 get set` | reached | MW | 14 |
-| ParquetWriterOptions | prop | `InitialColumnBufferBytes` | `UInt32 get set` | reached | MW | 12 |
-| ParquetWriterOptions | prop | `InitialPageCapacity` | `UInt32 get set` | reached | MW | 8 |
-| ParquetWriterOptions | prop | `RowApiInitialRowCapacity` | `Int32 get set` | reached | MW | 27 |
-| ParquetWriterOptions | prop | `TargetDataPageSizeBytes` | `UInt32 get set` | reached | MW | 62 |
-| ParquetWriterOptions | prop | `TargetRowGroupSizeBytes` | `UInt64 get set` | reached | MW | 29 |
-| ParquetWriterOptions | prop | `TargetFileSizeBytes` | `UInt64 get set` | reached | MW | 20 |
-| ParquetWriterOptions | prop | `FileVersion` | `Writing.ParquetFileVersion get set` | reached | MW | 40 |
-| ParquetWriterOptions | prop | `DataPageVersion` | `Writing.ParquetDataPageVersion get set` | reached | MW | 57 |
-| ParquetWriterOptions | prop | `Compression` | `Schema.CompressionKind get set` | reached | MW | 188 |
-| ParquetWriterOptions | prop | `CompressionLevel` | `Nullable<Int32> get set` | reached | MW | 25 |
-| ParquetWriterOptions | prop | `CreatedBy` | `String get set` | reached | MW | 13 |
-| ParquetWriterOptions | prop | `KeyValueMetadata` | `Collections.Generic.IReadOnlyList<Writing.ParquetKeyValueMetadata> get set` | reached | MW | 14 |
-| ParquetWriterOptions | prop | `WritePageIndexes` | `Boolean get set` | reached | MW | 67 |
-| ParquetWriterOptions | prop | `SortingColumns` | `Collections.Immutable.ImmutableArray<Schema.ParquetSortingColumn> get set` | reached | MW | 20 |
-| ParquetWriterOptions | prop | `WritePageCrc` | `Boolean get set` | reached | MW | 39 |
-| ParquetWriterOptions | prop | `RowApiMaxParallelism` | `UInt32 get set` | reached | MW | 11 |
-| ParquetWriterOptions | field | `Default` | `Writing.ParquetWriterOptions` | no-code-map |  | 18 |
-| RowGroupWriter | method | `CreateSerializedColumn` | `(Schema.LeafColumn column):Writing.SerializedColumn<T>` | reached | W | 225 |
-| RowGroupWriter | method | `Write` | `(Writing.SerializedColumn<T> serialized):Void` | reached | MW | 501 |
-| RowWriterBase`1 | method | `Dispose` | `():Void` | reached | MW | 93 |
-| SerializedColumn`1 | method | `Serialize` | `(ReadOnlySpan<T> values):Void` | reached | MW | 234 |
-| SerializedColumn`1 | method | `Serialize` | `(T[] values):Void` | reached | MW | 234 |
+| ParquetWriterOptions | prop | `BufferPool` | `IParquetBufferPool get set` | reached | MW | 42 |
+| ParquetWriterOptions | prop | `Execution` | `ParquetExecutionOptions get set` | reached | MW | 18 |
+| ParquetWriterOptions | prop | `BufferChunkSizeBytes` | `UInt32 get set` | reached | MW | 45 |
+| ParquetWriterOptions | prop | `InitialPageBufferBytes` | `UInt32 get set` | reached | MW | 19 |
+| ParquetWriterOptions | prop | `InitialColumnBufferBytes` | `UInt32 get set` | reached | MW | 17 |
+| ParquetWriterOptions | prop | `InitialPageCapacity` | `UInt32 get set` | reached | MW | 10 |
+| ParquetWriterOptions | prop | `RowApiInitialRowCapacity` | `Int32 get set` | reached | MW | 34 |
+| ParquetWriterOptions | prop | `TargetDataPageSizeBytes` | `UInt32 get set` | reached | MW | 72 |
+| ParquetWriterOptions | prop | `TargetRowGroupSizeBytes` | `UInt64 get set` | reached | MW | 34 |
+| ParquetWriterOptions | prop | `TargetFileSizeBytes` | `UInt64 get set` | reached | MW | 23 |
+| ParquetWriterOptions | prop | `FileVersion` | `Writing.ParquetFileVersion get set` | reached | MW | 43 |
+| ParquetWriterOptions | prop | `DataPageVersion` | `Writing.ParquetDataPageVersion get set` | reached | MW | 65 |
+| ParquetWriterOptions | prop | `Compression` | `Schema.CompressionKind get set` | reached | MW | 196 |
+| ParquetWriterOptions | prop | `CompressionLevel` | `Nullable<Int32> get set` | reached | MW | 27 |
+| ParquetWriterOptions | prop | `CreatedBy` | `String get set` | reached | MW | 18 |
+| ParquetWriterOptions | prop | `KeyValueMetadata` | `Collections.Generic.IReadOnlyList<Writing.ParquetKeyValueMetadata> get set` | reached | MW | 24 |
+| ParquetWriterOptions | prop | `WritePageIndexes` | `Boolean get set` | reached | MW | 75 |
+| ParquetWriterOptions | prop | `SortingColumns` | `Collections.Immutable.ImmutableArray<Schema.ParquetSortingColumn> get set` | reached | MW | 28 |
+| ParquetWriterOptions | prop | `WritePageCrc` | `Boolean get set` | reached | MW | 47 |
+| ParquetWriterOptions | prop | `RowApiMaxParallelism` | `UInt32 get set` | reached | MW | 13 |
+| ParquetWriterOptions | field | `Default` | `Writing.ParquetWriterOptions` | no-code-map |  | 31 |
+| RowGroupWriter | method | `CreateSerializedColumn` | `(Schema.LeafColumn column):Writing.SerializedColumn<T>` | reached | W | 263 |
+| RowGroupWriter | method | `Write` | `(Writing.SerializedColumn<T> serialized):Void` | reached | MW | 561 |
+| RowWriterBase`1 | method | `Dispose` | `():Void` | reached | MW | 109 |
+| SerializedColumn`1 | method | `Serialize` | `(ReadOnlySpan<T> values):Void` | reached | MW | 275 |
+| SerializedColumn`1 | method | `Serialize` | `(T[] values):Void` | reached | MW | 275 |
 
 ## SourceGen output (compiled into Plank.Fuzzing)
 
@@ -878,7 +878,7 @@ Status: **unreached** = no covered line in any target/ISA tier (W=writer, R=read
 
 ## Route review (surface agent): which public members are driven with fuzzer-chosen arguments
 
-Measured table above is *reach* only (cobertura of the seed corpus, master 3a6a28a: 429 reached, 42 unreached methods/properties — the unreached
+Measured table above is *reach* only (cobertura of the seed corpus incl. routes PRN1/PHY1/SRF1/WRG1/OPT1/NST1, master 3a6a28a, regenerated after the NST1 commit but before its accessor mode: 439 reached, 32 unreached methods and 22 unreached properties (was 429/42/31) — the unreached
 ones are attribute properties read only by SourceGen at compile time, geospatial statistics, a few offset/version getters, and
 `ParquetFileMetadata(ParquetSchema)`; 234 `no-code-map` entries are records' compiler-generated members, delegates, interfaces). Whether the
 arguments are fuzzer-chosen was judged by reading the routes. Routes added by this pass (each with seeds in `fuzz/corpus/surface-*`, magic in `parquet.dict`):
@@ -889,8 +889,17 @@ arguments are fuzzer-chosen was judged by reading the routes. Routes added by th
 | 0xC5 `PHY1` | PhysicalReaderSurfaceCases | `ParquetFileReader` (Reset/OpenPages/OpenBloomFilter/Dispose ordering, stale handles), `ParquetFileMetadata` (all counts, footer/chunk layout, key-values, created-by, sorting), `ParquetPageCursor` (header/payload/CRC32/value counts), `ParquetBloomFilter.MightContain` no false negatives, ordinal probes -1/0/n-1/n/int.Max |
 | 0xC4 `SRF1` | SurfaceReflectionCases | reflection over *all* public types: equality/hash/ToString/clone laws with edge-valued constructor args, `default(struct)` members, `ColumnBuffer.IsNull/GetValue/Retain`, `RowGroups[]`, `Column(int)`, `GetColumnMetadata(int)` index edges, `MemoryReadSource/StreamReadSource/FileReadSource.ReadExactly` offset/length boundaries |
 | 0xC3 `WRG1` | RowGroupProtocolCases | `RowGroupWriter.Write/CreateSerializedColumn`, `ParquetWriter.StartRowGroup/CloseFile/Reset/Dispose` ordering misuse and refusal atomicity |
+| 0xC1 `NST1` | NestedSurfaceCases | `ParquetGeospatialStatistics.Read` on hand-encoded Thrift (valid decode exact, mistyped/missing-required/oversized lists are Corrupt, truncations and bit flips only ever Corrupt), `ReadGeospatialStatistics` ordinals, nested-list `Serialize` slices vs Dremel levels, `RowReaderOptions` on the nested row reader, accessors: `RowGroup.MetadataOffset/ColumnChunkOffset`, `ParquetPageCursor.GetEnumerator`, `*.Definition/Metadata` handles, `ColumnDefinition.List(fieldId)`, `LeafColumn.PageStrategy`, `ForceDictionaryPageStrategy.ShouldDropDictionary`, `ParquetWriter.RowApiMaxParallelism` |
 | 0xC2 `OPT1` | OptionsSweepCases | every `ParquetWriterOptions` property (edge values, independent validity model), `ParquetReaderOptions`/`ParquetFileReaderOptions`/`RowReaderOptions`/`ParquetExecutionOptions`, `SerializedColumn.Serialize(ReadOnlySpan<T>/T[])` slices, `ParquetFileMerger` counters/refusals, `CreateAppender` flags, `DatasetWriterOptions.PendingRowCapacity`/`RowApiInitialRowCapacity` rollover |
 
-Still shallow (next): `ParquetFileMerger`/appender argument edges beyond the merger target, `DatasetWriter` rollover with fuzzed `PendingRowCapacity`,
-`ParquetGeospatialStatistics`, `RowReaderOptions` combinations on the row-API reader, `SerializedColumn.Serialize(ReadOnlySpan<T>)` exact/short span edges.
-Regenerate the table with `Plank.Fuzzing.ApiSurface` + `fuzz/api-surface-join.py` (see script header).
+### Still unreached or fixed-argument after this pass
+- **Unreached by the corpus** (after the NST1 accessor mode these should be reached; re-measure with `fuzz/coverage-all.sh`): the `ParquetColumnAttribute`/`ParquetSchemaAttribute` properties (read only by SourceGen at compile time, unreachable at run time by design),
+  `RowBufferSlot.RegisterOwner` and `RowApiNestedLeafBuffer.GetRow(int)` (called only from generated code paths the current schemas do not select).
+- **Reached only incidentally (harness never names the member, `refs` <= 1)**: `LogicalType.Geography/Geometry` CRS and algorithm accessors, `Variant.SpecificationVersion`, `LogicalTypeInfo.HasCrs/Algorithm/SpecificationVersion`,
+  `ParquetFileMetadata.SchemaNodes/SchemaNodeNameUtf8/SchemaNodeLogicalTypeCrsUtf8/ColumnLogicalTypeCrsUtf8`, `PageHeader` level-encoding / byte-length fields,
+  `ParquetColumnChunkInfo` offset fields, `NestedColumnBuffer.RetainLevels/StartsWithContinuation`, `DefaultParquetBufferPool.RetentionPolicy`, `ParquetBuffer.DangerousGetAddress`.
+  They have no correctness check beyond "does not throw"; the PHY1 chunk/page layout checks cover the offset/size ones indirectly.
+- **Fixed-argument**: `ParquetFileMerger` with more than two source files and different writer options per file, `DatasetWriter` with a custom `ParquetFilePath` rollover under drawn `TargetFileSizeBytes`,
+  CRS strings and Variant versions in written schemas (the writer fixes them to the defaults), `ColumnBuffer<T>.Retain()` lifetime across enumerator advance (harness retains but does not mutate the pool afterwards),
+  compression levels per codec beyond the documented range (OPT1 treats those as either-outcome), the row-API dataset writer's `Queue` on multi-threaded workers.
+- **Not driven by any route**: `IPageStrategy.TryGetTargetDataPageSizeBytes` custom strategies (only `ForceDictionaryPageStrategy` exists publicly).
