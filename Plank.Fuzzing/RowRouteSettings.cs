@@ -138,9 +138,11 @@ internal sealed class RowRouteSettings
         return false;
     }
 
-    internal ParquetWriterOptions WriterOptions()
+    internal ParquetWriterOptions WriterOptions(string? createdBy = null, IReadOnlyList<ParquetKeyValueMetadata>? keyValues = null)
         => new()
         {
+            CreatedBy = createdBy,
+            KeyValueMetadata = keyValues ?? [],
             RowApiInitialRowCapacity = InitialCapacity,
             RowApiMaxParallelism = MaxParallelism,
             TargetRowGroupSizeBytes = TargetRowGroupSizeBytes,

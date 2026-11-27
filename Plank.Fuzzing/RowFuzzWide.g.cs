@@ -653,6 +653,8 @@ static class RowFuzzWideRoutes
         var all = new List<RowFuzzWide>();
         var files = new byte[fileCount][];
         var groupCounts = new int[fileCount];
+        var firstCreatedBy = (string?)null;
+        var firstKeyValues = new List<ParquetKeyValueMetadata>();
         for (var f = 0; f < fileCount; f++)
         {
             var fs = RowRouteSettings.Draw(ref c);
@@ -661,8 +663,16 @@ static class RowFuzzWideRoutes
             for (var i = 0; i < count; i++)
                 rows[i] = RowFuzzWideOps.Generate(ref c, all.Count + i);
             all.AddRange(rows);
+            // Every input carries its own created_by and key-value metadata; only the first can survive a merge.
+            var createdBy = c.NextBool() ? null : $"file-{f} {c.NextLabel()}";
+            var keyValues = DrawKeyValues(ref c, $"f{f}");
+            if (f == 0)
+            {
+                firstCreatedBy = createdBy;
+                firstKeyValues = keyValues;
+            }
             using var stream = new MemoryStream();
-            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(createdBy, keyValues), null))
             {
                 foreach (var v in rows)
                     RowFuzzWideOps.Set(w.GetRow(), v);
@@ -673,10 +683,13 @@ static class RowFuzzWideRoutes
             groupCounts[f] = meta.RowGroups.Count;
         }
 
+        var mergerCreatedBy = c.NextBool() ? null : "merger " + c.NextLabel();
+        var mergerKeyValues = DrawKeyValues(ref c, "m");
+        var preserve = c.NextBool();
         var options = new ParquetMergeOptions
         {
-            PreserveFirstFileMetadata = c.NextBool(),
-            WriterOptions = s.WriterOptions()
+            PreserveFirstFileMetadata = preserve,
+            WriterOptions = s.WriterOptions(mergerCreatedBy, mergerKeyValues)
         };
         using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
         ParquetFileMerger merger;
@@ -695,7 +708,40 @@ static class RowFuzzWideRoutes
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzWide merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
         merger.CloseFile();
-        CheckFile(destination.ToArray(), all.ToArray(), s, "RowFuzzWide merged");
+        var merged = destination.ToArray();
+        CheckFile(merged, all.ToArray(), s, "RowFuzzWide merged");
+
+        // Footer metadata: with PreserveFirstFileMetadata the first file's key-values come first and the
+        // merger's own follow; created_by is the merger's if set, else the first file's. Without it only
+        // the merger's own survive. The file version is always the merger's writer option, never an input's.
+        var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
+        var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
+        using var physical = new Plank.Reading.Physical.ParquetFileReader();
+        using var mergedSource = new MemoryReadSource(merged);
+        physical.Reset(mergedSource);
+        var footer = physical.Metadata;
+        var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
+        if (actualCreatedBy != expectedCreatedBy)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWide merged created_by '{actualCreatedBy}'; expected '{expectedCreatedBy}' (preserve={preserve}).");
+        if (footer.KeyValueMetadataCount != expectedKeyValues.Count)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWide merged footer has {footer.KeyValueMetadataCount} key-values; expected {expectedKeyValues.Count} (preserve={preserve}).");
+        for (var i = 0; i < expectedKeyValues.Count; i++)
+        {
+            var key = System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataKeyUtf8(i));
+            var value = footer.KeyValueMetadata[i].HasValue ? System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataValueUtf8(i)) : null;
+            if (key != expectedKeyValues[i].Key || value != expectedKeyValues[i].Value)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWide merged key-value {i} is ({key}, {value}); expected ({expectedKeyValues[i].Key}, {expectedKeyValues[i].Value}).");
+        }
+        if (footer.FileVersion != (int)options.WriterOptions.FileVersion)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWide merged file version {footer.FileVersion}; the merger writes {(int)options.WriterOptions.FileVersion}.");
+    }
+
+    static List<ParquetKeyValueMetadata> DrawKeyValues(ref PlankRowApiFuzzTarget.Cursor c, string prefix)
+    {
+        var list = new List<ParquetKeyValueMetadata>();
+        for (var i = c.NextInt(0, 4); i > 0; i--)
+            list.Add(new ParquetKeyValueMetadata(c.NextBool() ? $"{prefix}-{list.Count}" : "shared", c.NextInt(0, 4) == 0 ? null : c.NextLabel()));
+        return list;
     }
 
     static RowFuzzWide.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)
@@ -1408,6 +1454,8 @@ static class RowFuzzWideNullableRoutes
         var all = new List<RowFuzzWideNullable>();
         var files = new byte[fileCount][];
         var groupCounts = new int[fileCount];
+        var firstCreatedBy = (string?)null;
+        var firstKeyValues = new List<ParquetKeyValueMetadata>();
         for (var f = 0; f < fileCount; f++)
         {
             var fs = RowRouteSettings.Draw(ref c);
@@ -1416,8 +1464,16 @@ static class RowFuzzWideNullableRoutes
             for (var i = 0; i < count; i++)
                 rows[i] = RowFuzzWideNullableOps.Generate(ref c, all.Count + i);
             all.AddRange(rows);
+            // Every input carries its own created_by and key-value metadata; only the first can survive a merge.
+            var createdBy = c.NextBool() ? null : $"file-{f} {c.NextLabel()}";
+            var keyValues = DrawKeyValues(ref c, $"f{f}");
+            if (f == 0)
+            {
+                firstCreatedBy = createdBy;
+                firstKeyValues = keyValues;
+            }
             using var stream = new MemoryStream();
-            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(createdBy, keyValues), null))
             {
                 foreach (var v in rows)
                     RowFuzzWideNullableOps.Set(w.GetRow(), v);
@@ -1428,10 +1484,13 @@ static class RowFuzzWideNullableRoutes
             groupCounts[f] = meta.RowGroups.Count;
         }
 
+        var mergerCreatedBy = c.NextBool() ? null : "merger " + c.NextLabel();
+        var mergerKeyValues = DrawKeyValues(ref c, "m");
+        var preserve = c.NextBool();
         var options = new ParquetMergeOptions
         {
-            PreserveFirstFileMetadata = c.NextBool(),
-            WriterOptions = s.WriterOptions()
+            PreserveFirstFileMetadata = preserve,
+            WriterOptions = s.WriterOptions(mergerCreatedBy, mergerKeyValues)
         };
         using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
         ParquetFileMerger merger;
@@ -1450,7 +1509,40 @@ static class RowFuzzWideNullableRoutes
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzWideNullable merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
         merger.CloseFile();
-        CheckFile(destination.ToArray(), all.ToArray(), s, "RowFuzzWideNullable merged");
+        var merged = destination.ToArray();
+        CheckFile(merged, all.ToArray(), s, "RowFuzzWideNullable merged");
+
+        // Footer metadata: with PreserveFirstFileMetadata the first file's key-values come first and the
+        // merger's own follow; created_by is the merger's if set, else the first file's. Without it only
+        // the merger's own survive. The file version is always the merger's writer option, never an input's.
+        var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
+        var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
+        using var physical = new Plank.Reading.Physical.ParquetFileReader();
+        using var mergedSource = new MemoryReadSource(merged);
+        physical.Reset(mergedSource);
+        var footer = physical.Metadata;
+        var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
+        if (actualCreatedBy != expectedCreatedBy)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWideNullable merged created_by '{actualCreatedBy}'; expected '{expectedCreatedBy}' (preserve={preserve}).");
+        if (footer.KeyValueMetadataCount != expectedKeyValues.Count)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWideNullable merged footer has {footer.KeyValueMetadataCount} key-values; expected {expectedKeyValues.Count} (preserve={preserve}).");
+        for (var i = 0; i < expectedKeyValues.Count; i++)
+        {
+            var key = System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataKeyUtf8(i));
+            var value = footer.KeyValueMetadata[i].HasValue ? System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataValueUtf8(i)) : null;
+            if (key != expectedKeyValues[i].Key || value != expectedKeyValues[i].Value)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWideNullable merged key-value {i} is ({key}, {value}); expected ({expectedKeyValues[i].Key}, {expectedKeyValues[i].Value}).");
+        }
+        if (footer.FileVersion != (int)options.WriterOptions.FileVersion)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzWideNullable merged file version {footer.FileVersion}; the merger writes {(int)options.WriterOptions.FileVersion}.");
+    }
+
+    static List<ParquetKeyValueMetadata> DrawKeyValues(ref PlankRowApiFuzzTarget.Cursor c, string prefix)
+    {
+        var list = new List<ParquetKeyValueMetadata>();
+        for (var i = c.NextInt(0, 4); i > 0; i--)
+            list.Add(new ParquetKeyValueMetadata(c.NextBool() ? $"{prefix}-{list.Count}" : "shared", c.NextInt(0, 4) == 0 ? null : c.NextLabel()));
+        return list;
     }
 
     static RowFuzzWideNullable.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)
@@ -2154,6 +2246,8 @@ static class RowFuzzFlatNullableRoutes
         var all = new List<RowFuzzFlatNullable>();
         var files = new byte[fileCount][];
         var groupCounts = new int[fileCount];
+        var firstCreatedBy = (string?)null;
+        var firstKeyValues = new List<ParquetKeyValueMetadata>();
         for (var f = 0; f < fileCount; f++)
         {
             var fs = RowRouteSettings.Draw(ref c);
@@ -2162,8 +2256,16 @@ static class RowFuzzFlatNullableRoutes
             for (var i = 0; i < count; i++)
                 rows[i] = RowFuzzFlatNullableOps.Generate(ref c, all.Count + i);
             all.AddRange(rows);
+            // Every input carries its own created_by and key-value metadata; only the first can survive a merge.
+            var createdBy = c.NextBool() ? null : $"file-{f} {c.NextLabel()}";
+            var keyValues = DrawKeyValues(ref c, $"f{f}");
+            if (f == 0)
+            {
+                firstCreatedBy = createdBy;
+                firstKeyValues = keyValues;
+            }
             using var stream = new MemoryStream();
-            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(createdBy, keyValues), null))
             {
                 foreach (var v in rows)
                     RowFuzzFlatNullableOps.Set(w.GetRow(), v);
@@ -2174,10 +2276,13 @@ static class RowFuzzFlatNullableRoutes
             groupCounts[f] = meta.RowGroups.Count;
         }
 
+        var mergerCreatedBy = c.NextBool() ? null : "merger " + c.NextLabel();
+        var mergerKeyValues = DrawKeyValues(ref c, "m");
+        var preserve = c.NextBool();
         var options = new ParquetMergeOptions
         {
-            PreserveFirstFileMetadata = c.NextBool(),
-            WriterOptions = s.WriterOptions()
+            PreserveFirstFileMetadata = preserve,
+            WriterOptions = s.WriterOptions(mergerCreatedBy, mergerKeyValues)
         };
         using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
         ParquetFileMerger merger;
@@ -2196,7 +2301,40 @@ static class RowFuzzFlatNullableRoutes
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzFlatNullable merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
         merger.CloseFile();
-        CheckFile(destination.ToArray(), all.ToArray(), s, "RowFuzzFlatNullable merged");
+        var merged = destination.ToArray();
+        CheckFile(merged, all.ToArray(), s, "RowFuzzFlatNullable merged");
+
+        // Footer metadata: with PreserveFirstFileMetadata the first file's key-values come first and the
+        // merger's own follow; created_by is the merger's if set, else the first file's. Without it only
+        // the merger's own survive. The file version is always the merger's writer option, never an input's.
+        var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
+        var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
+        using var physical = new Plank.Reading.Physical.ParquetFileReader();
+        using var mergedSource = new MemoryReadSource(merged);
+        physical.Reset(mergedSource);
+        var footer = physical.Metadata;
+        var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
+        if (actualCreatedBy != expectedCreatedBy)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable merged created_by '{actualCreatedBy}'; expected '{expectedCreatedBy}' (preserve={preserve}).");
+        if (footer.KeyValueMetadataCount != expectedKeyValues.Count)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable merged footer has {footer.KeyValueMetadataCount} key-values; expected {expectedKeyValues.Count} (preserve={preserve}).");
+        for (var i = 0; i < expectedKeyValues.Count; i++)
+        {
+            var key = System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataKeyUtf8(i));
+            var value = footer.KeyValueMetadata[i].HasValue ? System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataValueUtf8(i)) : null;
+            if (key != expectedKeyValues[i].Key || value != expectedKeyValues[i].Value)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable merged key-value {i} is ({key}, {value}); expected ({expectedKeyValues[i].Key}, {expectedKeyValues[i].Value}).");
+        }
+        if (footer.FileVersion != (int)options.WriterOptions.FileVersion)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzFlatNullable merged file version {footer.FileVersion}; the merger writes {(int)options.WriterOptions.FileVersion}.");
+    }
+
+    static List<ParquetKeyValueMetadata> DrawKeyValues(ref PlankRowApiFuzzTarget.Cursor c, string prefix)
+    {
+        var list = new List<ParquetKeyValueMetadata>();
+        for (var i = c.NextInt(0, 4); i > 0; i--)
+            list.Add(new ParquetKeyValueMetadata(c.NextBool() ? $"{prefix}-{list.Count}" : "shared", c.NextInt(0, 4) == 0 ? null : c.NextLabel()));
+        return list;
     }
 
     static RowFuzzFlatNullable.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)
@@ -2633,6 +2771,8 @@ static class RowFuzzDeepRoutes
         var all = new List<RowFuzzDeep>();
         var files = new byte[fileCount][];
         var groupCounts = new int[fileCount];
+        var firstCreatedBy = (string?)null;
+        var firstKeyValues = new List<ParquetKeyValueMetadata>();
         for (var f = 0; f < fileCount; f++)
         {
             var fs = RowRouteSettings.Draw(ref c);
@@ -2641,8 +2781,16 @@ static class RowFuzzDeepRoutes
             for (var i = 0; i < count; i++)
                 rows[i] = RowFuzzDeepOps.Generate(ref c, all.Count + i);
             all.AddRange(rows);
+            // Every input carries its own created_by and key-value metadata; only the first can survive a merge.
+            var createdBy = c.NextBool() ? null : $"file-{f} {c.NextLabel()}";
+            var keyValues = DrawKeyValues(ref c, $"f{f}");
+            if (f == 0)
+            {
+                firstCreatedBy = createdBy;
+                firstKeyValues = keyValues;
+            }
             using var stream = new MemoryStream();
-            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(createdBy, keyValues), null))
             {
                 foreach (var v in rows)
                     RowFuzzDeepOps.Set(w.GetRow(), v);
@@ -2653,10 +2801,13 @@ static class RowFuzzDeepRoutes
             groupCounts[f] = meta.RowGroups.Count;
         }
 
+        var mergerCreatedBy = c.NextBool() ? null : "merger " + c.NextLabel();
+        var mergerKeyValues = DrawKeyValues(ref c, "m");
+        var preserve = c.NextBool();
         var options = new ParquetMergeOptions
         {
-            PreserveFirstFileMetadata = c.NextBool(),
-            WriterOptions = s.WriterOptions()
+            PreserveFirstFileMetadata = preserve,
+            WriterOptions = s.WriterOptions(mergerCreatedBy, mergerKeyValues)
         };
         using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
         ParquetFileMerger merger;
@@ -2675,7 +2826,40 @@ static class RowFuzzDeepRoutes
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"RowFuzzDeep merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
         merger.CloseFile();
-        CheckFile(destination.ToArray(), all.ToArray(), s, "RowFuzzDeep merged");
+        var merged = destination.ToArray();
+        CheckFile(merged, all.ToArray(), s, "RowFuzzDeep merged");
+
+        // Footer metadata: with PreserveFirstFileMetadata the first file's key-values come first and the
+        // merger's own follow; created_by is the merger's if set, else the first file's. Without it only
+        // the merger's own survive. The file version is always the merger's writer option, never an input's.
+        var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
+        var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
+        using var physical = new Plank.Reading.Physical.ParquetFileReader();
+        using var mergedSource = new MemoryReadSource(merged);
+        physical.Reset(mergedSource);
+        var footer = physical.Metadata;
+        var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
+        if (actualCreatedBy != expectedCreatedBy)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzDeep merged created_by '{actualCreatedBy}'; expected '{expectedCreatedBy}' (preserve={preserve}).");
+        if (footer.KeyValueMetadataCount != expectedKeyValues.Count)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzDeep merged footer has {footer.KeyValueMetadataCount} key-values; expected {expectedKeyValues.Count} (preserve={preserve}).");
+        for (var i = 0; i < expectedKeyValues.Count; i++)
+        {
+            var key = System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataKeyUtf8(i));
+            var value = footer.KeyValueMetadata[i].HasValue ? System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataValueUtf8(i)) : null;
+            if (key != expectedKeyValues[i].Key || value != expectedKeyValues[i].Value)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzDeep merged key-value {i} is ({key}, {value}); expected ({expectedKeyValues[i].Key}, {expectedKeyValues[i].Value}).");
+        }
+        if (footer.FileVersion != (int)options.WriterOptions.FileVersion)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"RowFuzzDeep merged file version {footer.FileVersion}; the merger writes {(int)options.WriterOptions.FileVersion}.");
+    }
+
+    static List<ParquetKeyValueMetadata> DrawKeyValues(ref PlankRowApiFuzzTarget.Cursor c, string prefix)
+    {
+        var list = new List<ParquetKeyValueMetadata>();
+        for (var i = c.NextInt(0, 4); i > 0; i--)
+            list.Add(new ParquetKeyValueMetadata(c.NextBool() ? $"{prefix}-{list.Count}" : "shared", c.NextInt(0, 4) == 0 ? null : c.NextLabel()));
+        return list;
     }
 
     static RowFuzzDeep.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)

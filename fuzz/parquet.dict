@@ -163,3 +163,4 @@ rowapi_flat_dataset_append_magic="RDA1"
 
 rowapi_rowschema_magic="RSC1"
 rowapi_evolution_magic="RSE1"
+rowapi_merge_schemas_magic="RMS1"

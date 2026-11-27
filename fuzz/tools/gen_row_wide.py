@@ -568,6 +568,8 @@ static class @S@Routes
         var all = new List<@S@>();
         var files = new byte[fileCount][];
         var groupCounts = new int[fileCount];
+        var firstCreatedBy = (string?)null;
+        var firstKeyValues = new List<ParquetKeyValueMetadata>();
         for (var f = 0; f < fileCount; f++)
         {
             var fs = RowRouteSettings.Draw(ref c);
@@ -576,8 +578,16 @@ static class @S@Routes
             for (var i = 0; i < count; i++)
                 rows[i] = @S@Ops.Generate(ref c, all.Count + i);
             all.AddRange(rows);
+            // Every input carries its own created_by and key-value metadata; only the first can survive a merge.
+            var createdBy = c.NextBool() ? null : $"file-{f} {c.NextLabel()}";
+            var keyValues = DrawKeyValues(ref c, $"f{f}");
+            if (f == 0)
+            {
+                firstCreatedBy = createdBy;
+                firstKeyValues = keyValues;
+            }
             using var stream = new MemoryStream();
-            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(createdBy, keyValues), null))
             {
                 foreach (var v in rows)
                     @S@Ops.Set(w.GetRow(), v);
@@ -588,10 +598,13 @@ static class @S@Routes
             groupCounts[f] = meta.RowGroups.Count;
         }
 
+        var mergerCreatedBy = c.NextBool() ? null : "merger " + c.NextLabel();
+        var mergerKeyValues = DrawKeyValues(ref c, "m");
+        var preserve = c.NextBool();
         var options = new ParquetMergeOptions
         {
-            PreserveFirstFileMetadata = c.NextBool(),
-            WriterOptions = s.WriterOptions()
+            PreserveFirstFileMetadata = preserve,
+            WriterOptions = s.WriterOptions(mergerCreatedBy, mergerKeyValues)
         };
         using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
         ParquetFileMerger merger;
@@ -610,7 +623,40 @@ static class @S@Routes
             throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
                 $"@S@ merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
         merger.CloseFile();
-        CheckFile(destination.ToArray(), all.ToArray(), s, "@S@ merged");
+        var merged = destination.ToArray();
+        CheckFile(merged, all.ToArray(), s, "@S@ merged");
+
+        // Footer metadata: with PreserveFirstFileMetadata the first file's key-values come first and the
+        // merger's own follow; created_by is the merger's if set, else the first file's. Without it only
+        // the merger's own survive. The file version is always the merger's writer option, never an input's.
+        var expectedCreatedBy = preserve ? mergerCreatedBy ?? firstCreatedBy : mergerCreatedBy;
+        var expectedKeyValues = preserve ? firstKeyValues.Concat(mergerKeyValues).ToList() : mergerKeyValues;
+        using var physical = new Plank.Reading.Physical.ParquetFileReader();
+        using var mergedSource = new MemoryReadSource(merged);
+        physical.Reset(mergedSource);
+        var footer = physical.Metadata;
+        var actualCreatedBy = footer.HasCreatedBy ? System.Text.Encoding.UTF8.GetString(footer.CreatedByUtf8) : null;
+        if (actualCreatedBy != expectedCreatedBy)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ merged created_by '{actualCreatedBy}'; expected '{expectedCreatedBy}' (preserve={preserve}).");
+        if (footer.KeyValueMetadataCount != expectedKeyValues.Count)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ merged footer has {footer.KeyValueMetadataCount} key-values; expected {expectedKeyValues.Count} (preserve={preserve}).");
+        for (var i = 0; i < expectedKeyValues.Count; i++)
+        {
+            var key = System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataKeyUtf8(i));
+            var value = footer.KeyValueMetadata[i].HasValue ? System.Text.Encoding.UTF8.GetString(footer.KeyValueMetadataValueUtf8(i)) : null;
+            if (key != expectedKeyValues[i].Key || value != expectedKeyValues[i].Value)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ merged key-value {i} is ({key}, {value}); expected ({expectedKeyValues[i].Key}, {expectedKeyValues[i].Value}).");
+        }
+        if (footer.FileVersion != (int)options.WriterOptions.FileVersion)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ merged file version {footer.FileVersion}; the merger writes {(int)options.WriterOptions.FileVersion}.");
+    }
+
+    static List<ParquetKeyValueMetadata> DrawKeyValues(ref PlankRowApiFuzzTarget.Cursor c, string prefix)
+    {
+        var list = new List<ParquetKeyValueMetadata>();
+        for (var i = c.NextInt(0, 4); i > 0; i--)
+            list.Add(new ParquetKeyValueMetadata(c.NextBool() ? $"{prefix}-{list.Count}" : "shared", c.NextInt(0, 4) == 0 ? null : c.NextLabel()));
+        return list;
     }
 
     static @S@.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)
