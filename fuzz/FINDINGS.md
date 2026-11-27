@@ -118,7 +118,15 @@ Plank ignores deprecated-only `min`/`max` statistics (parquet-testing `int32_dec
 where Arrow reads them for signed-order columns — a missed pruning opportunity, never a wrong value; where a footer has
 both `min`/`min_value` and they differ, Plank uses `min_value` (spec) and Arrow the deprecated one, so the oracle checks
 Plank's statistics against an independent raw Thrift parse of the footer (`RawFooter.cs`); a footer `num_rows` that
-disagrees with the row groups' sum (parquet-testing `repeated_no_annotation` has 0) is an acceptance difference.
+disagrees with the row groups' sum (parquet-testing `repeated_no_annotation` has 0) is an acceptance difference:
+that file (parquet-rs 0.3.0) writes `FileMetaData.num_rows = 0` but `RowGroup.num_rows = 6`, and its data holds 6
+records (pyarrow decodes 6; Plank's 6 rows match Arrow value for value), so nothing is lost or invented — the footer
+field is the writer's bug. The deprecated-only statistics files (parquet-mr 1.8.x `int32_decimal`, `int64_decimal`,
+`fixed_length_decimal(_legacy)`, `datapage_v2`, `nested_lists`, `nested_maps`, `nonnullable.impala`) carry only
+fields 1/2 and no `column_orders`; those fields were computed with signed byte order for every type (PARQUET-686), so
+they are wrong for strings and unreliable for FLBA decimals. Ignoring them is the safe choice; for signed ints it only
+loses pruning. Reader-target replays built before 21e876a still report these 10 as "Plank lost a min/max" and
+"file row count differs"; from 21e876a on, reader-pqt-seeds replays with 0 mismatches.
 
 Not defects (checked by the same oracle): Plank's Bloom writer hashes -0.0 and NaN payloads by their
 plain bytes as the spec says, and its typed `MightContain(±0.0)` also answers true for the other zero
