@@ -21,50 +21,50 @@ internal static class NestedDescriptorValidationCoverageCase
         {
             case 0:
                 Expect<ArgumentNullException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated, null!));
+                    _ = new RowApiNestedColumnDescriptor<int>("items", repeated, null!));
                 break;
             case 1:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", flat, valid));
+                    _ = new RowApiNestedColumnDescriptor<int>("items", flat, valid));
                 break;
             case 2:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated, []));
+                    _ = new RowApiNestedColumnDescriptor<int>("items", repeated, []));
                 break;
             case 3:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated,
+                    _ = new RowApiNestedColumnDescriptor<int>("items", repeated,
                         new RowApiCollectionLevel(0, 1, 2)));
                 break;
             case 4:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated,
+                    _ = new RowApiNestedColumnDescriptor<int>("items", repeated,
                         new RowApiCollectionLevel(1, -1, 2)));
                 break;
             case 5:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated,
+                    _ = new RowApiNestedColumnDescriptor<int>("items", repeated,
                         new RowApiCollectionLevel(1, 1, 1)));
                 break;
             case 6:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated,
+                    _ = new RowApiNestedColumnDescriptor<int>("items", repeated,
                         new RowApiCollectionLevel(1, 1, repeated.MaxDefinitionLevel + 1)));
                 break;
             case 7:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int, int>("items", repeated, valid));
+                    _ = new RowApiNestedColumnDescriptor<byte[]>("items", repeated, valid));
                 break;
             case 8:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[,], int>("items", repeated, valid));
+                    _ = new RowApiNestedColumnDescriptor<string>("items", repeated, valid));
                 break;
             case 9:
                 Expect<ArgumentException>(() =>
-                    _ = new RowApiNestedColumnDescriptor<int[], long>("items", repeated, valid));
+                    _ = new RowApiNestedColumnDescriptor<long>("items", repeated, valid));
                 break;
             default:
-                _ = new RowApiNestedColumnDescriptor<int[], int>("items", repeated, valid);
+                _ = new RowApiNestedColumnDescriptor<int>("items", repeated, valid);
                 break;
         }
     }

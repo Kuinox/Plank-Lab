@@ -1,7 +1,7 @@
 # Fuzz findings
 
 What fuzzing Plank has found, and what is still open. Status as of 2026-11-18,
-against Plank `master` at `127b567`.
+against Plank `master` at `3a6a28a`.
 
 The detailed coverage and reachability notes that used to live here are in
 [`notes/coverage-audit-2026-11.md`](notes/coverage-audit-2026-11.md). They are

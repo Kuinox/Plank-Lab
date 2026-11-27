@@ -779,7 +779,7 @@ public static class PlankReaderFuzzTarget
         ReaderAcceptanceOracle.VerifyWithParquetSharp(parquetBytes, [[trace]]);
 
         var levels = new[] { new RowApiCollectionLevel(1, 1, 2) };
-        var nullable = new RowApiNestedColumnDescriptor<int?[], int>("Items", schema.LeafColumns[0], levels);
+        var nullable = new RowApiNestedColumnDescriptor<int>("Items", schema.LeafColumns[0], levels);
         var rowOptions = new RowReaderOptions
         {
             BufferPool = bufferPool,
@@ -791,7 +791,8 @@ public static class PlankReaderFuzzTarget
         {
             while (rows.MoveNext())
             {
-                var row = rows.GetCurrentNested(nullable);
+                var row = (object?[]?)NestedRowMaterializer.Materialize(rows.GetCurrentNested(nullable),
+                    schema.LeafColumns[0], levels);
                 actual.Add(row is null ? "null" : "[" + string.Join(',', row.Select(static value =>
                     value?.ToString() ?? "null")) + "]");
             }
@@ -800,30 +801,11 @@ public static class PlankReaderFuzzTarget
         if (!actual.SequenceEqual(["[1,null,2]", "null", "[]", "[3]"]))
             throw new InvalidDataException("The nullable Row API descriptor changed its nested null/empty/value shape.");
 
-        var nonNullable = new RowApiNestedColumnDescriptor<int[], int>("Items", schema.LeafColumns[0], levels);
-        const string ExpectedMessage =
-            "Column 'Items' contains a null leaf that cannot be materialized as System.Int32.";
-        var rejected = false;
-        using (var rows = new RowReaderCore(new MemoryReadSource(parquetBytes), schema, [nonNullable],
-            projection: null, rowOptions, schemaEvolution: null))
-        {
-            try
-            {
-                while (rows.MoveNext())
-                    _ = rows.GetCurrentNested(nonNullable);
-            }
-            catch (CorruptParquetException error) when (error.Message == ExpectedMessage)
-            {
-                rejected = true;
-            }
-            catch (Exception error)
-            {
-                throw new InvalidDataException("The non-nullable nested shape changed its rejection classification.", error);
-            }
-        }
-
-        if (!rejected)
-            throw new InvalidDataException("The non-nullable nested shape accepted a valid null leaf.");
+        // The old "non-nullable shape rejects a null leaf" probe is gone with the API it
+        // exercised: Plank now returns raw levels and the generated row code decides how to
+        // materialize a null leaf, so there is no runtime rejection left to check. The
+        // strict levels asserted above (definition level below the leaf maximum) are what
+        // the generated code keys on.
     }
 
     static void RunBufferRetentionProbe(ReadOnlySpan<byte> fileBytes, IParquetBufferPool bufferPool)
@@ -1730,34 +1712,35 @@ public static class PlankReaderFuzzTarget
         if (repetition is not (1 or 2) || definition < repetition)
             return null;
 
+        var levels = NestedCollectionLevels(leaf)!;
+
+        // The row reader returns raw levels and dense values, so the descriptor
+        // only depends on the physical value type; the nested shape is rebuilt
+        // by NestedRowMaterializer.
+        return leaf.PhysicalType switch
+        {
+            ParquetPhysicalType.Boolean => new RowApiNestedColumnDescriptor<bool>(name, leaf, levels),
+            ParquetPhysicalType.Int32 => new RowApiNestedColumnDescriptor<int>(name, leaf, levels),
+            ParquetPhysicalType.Int64 => new RowApiNestedColumnDescriptor<long>(name, leaf, levels),
+            ParquetPhysicalType.Float => new RowApiNestedColumnDescriptor<float>(name, leaf, levels),
+            ParquetPhysicalType.Double => new RowApiNestedColumnDescriptor<double>(name, leaf, levels),
+            _ => new RowApiNestedColumnDescriptor<byte[]>(name, leaf, levels)
+        };
+    }
+
+    static RowApiCollectionLevel[]? NestedCollectionLevels(LeafColumn leaf)
+    {
+        var repetition = leaf.MaxRepetitionLevel;
+        var definition = leaf.MaxDefinitionLevel;
+        if (repetition is not (1 or 2) || definition < repetition)
+            return null;
         var levels = new RowApiCollectionLevel[repetition];
         for (var i = 0; i < repetition; i++)
         {
             var element = definition - (repetition - 1 - i);
             levels[i] = new RowApiCollectionLevel(i + 1, element - 1, element);
         }
-
-        // A nested binary leaf decodes into byte[] dense elements — the read
-        // state requires exactly that type and rejects anything else.
-        return repetition == 1
-            ? leaf.PhysicalType switch
-            {
-                ParquetPhysicalType.Boolean => new RowApiNestedColumnDescriptor<bool?[], bool>(name, leaf, levels),
-                ParquetPhysicalType.Int32 => new RowApiNestedColumnDescriptor<int?[], int>(name, leaf, levels),
-                ParquetPhysicalType.Int64 => new RowApiNestedColumnDescriptor<long?[], long>(name, leaf, levels),
-                ParquetPhysicalType.Float => new RowApiNestedColumnDescriptor<float?[], float>(name, leaf, levels),
-                ParquetPhysicalType.Double => new RowApiNestedColumnDescriptor<double?[], double>(name, leaf, levels),
-                _ => new RowApiNestedColumnDescriptor<byte[][], byte[]>(name, leaf, levels)
-            }
-            : leaf.PhysicalType switch
-            {
-                ParquetPhysicalType.Boolean => new RowApiNestedColumnDescriptor<bool?[][], bool>(name, leaf, levels),
-                ParquetPhysicalType.Int32 => new RowApiNestedColumnDescriptor<int?[][], int>(name, leaf, levels),
-                ParquetPhysicalType.Int64 => new RowApiNestedColumnDescriptor<long?[][], long>(name, leaf, levels),
-                ParquetPhysicalType.Float => new RowApiNestedColumnDescriptor<float?[][], float>(name, leaf, levels),
-                ParquetPhysicalType.Double => new RowApiNestedColumnDescriptor<double?[][], double>(name, leaf, levels),
-                _ => new RowApiNestedColumnDescriptor<byte[][][], byte[]>(name, leaf, levels)
-            };
+        return levels;
     }
 
     static object? ReadCurrent(RowReaderCore rows, RowApiColumnDescriptor descriptor)
@@ -1780,64 +1763,21 @@ public static class PlankReaderFuzzTarget
                 return current.IsNull ? null : span.ToArray();
             }
 
-            // The materialized shape is what the repetition-level bookkeeping
-            // produces, so walking it is what checks that bookkeeping.
-            case RowApiNestedColumnDescriptor<bool?[], bool> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<int?[], int> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<long?[], long> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<float?[], float> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<double?[], double> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-
-            case RowApiNestedColumnDescriptor<bool?[][], bool> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<int?[][], int> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<long?[][], long> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<float?[][], float> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-            case RowApiNestedColumnDescriptor<double?[][], double> typed: { var value = rows.GetCurrentNested(typed); Consume(value); return value; }
-
-            case RowApiNestedColumnDescriptor<byte[][], byte[]> typed: { var value = rows.GetCurrentNested(typed); ConsumeBinaryShape(value); return value; }
-            case RowApiNestedColumnDescriptor<byte[][][], byte[]> typed:
-            {
-                var shape = rows.GetCurrentNested(typed);
-                if (shape is not null)
-                    for (var i = 0; i < shape.Length; i++)
-                        ConsumeBinaryShape(shape[i]);
-                return shape;
-            }
+            // The shape rebuilt from the levels is what checks the row reader's
+            // repetition-level bookkeeping.
+            case RowApiNestedColumnDescriptor<bool> typed: return MaterializeNested(typed, rows.GetCurrentNested(typed));
+            case RowApiNestedColumnDescriptor<int> typed: return MaterializeNested(typed, rows.GetCurrentNested(typed));
+            case RowApiNestedColumnDescriptor<long> typed: return MaterializeNested(typed, rows.GetCurrentNested(typed));
+            case RowApiNestedColumnDescriptor<float> typed: return MaterializeNested(typed, rows.GetCurrentNested(typed));
+            case RowApiNestedColumnDescriptor<double> typed: return MaterializeNested(typed, rows.GetCurrentNested(typed));
+            case RowApiNestedColumnDescriptor<byte[]> typed: return MaterializeNested(typed, rows.GetCurrentNested(typed));
         }
         return null;
     }
 
-    static void ConsumeBinaryShape(byte[][]? shape)
-    {
-        if (shape is null)
-            return;
-        for (var i = 0; i < shape.Length; i++)
-            Consume(shape[i]);
-    }
-
-    static void Consume(byte[]? value)
-    {
-        if (value is null)
-            return;
-        for (var i = 0; i < value.Length; i++)
-            _ = value[i];
-    }
-
-    static void Consume<T>(T?[]? shape) where T : struct
-    {
-        if (shape is null)
-            return;
-        for (var i = 0; i < shape.Length; i++)
-            _ = shape[i];
-    }
-
-    static void Consume<T>(T?[][]? shape) where T : struct
-    {
-        if (shape is null)
-            return;
-        for (var i = 0; i < shape.Length; i++)
-            Consume(shape[i]);
-    }
+    static object? MaterializeNested<TValue>(RowApiNestedColumnDescriptor<TValue> descriptor,
+        RowApiNestedLeafRow<TValue> row)
+        => NestedRowMaterializer.Materialize(row, descriptor.Column, NestedCollectionLevels(descriptor.Column)!);
 
     // Acceptance alone does not catch two readers successfully decoding the
     // same bytes to different values. The Parquet.Net route is deliberately
