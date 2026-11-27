@@ -116,3 +116,18 @@ hides on model 158), `DecodeInt64MiniBlockBmi2` / the non-PDEP side of the Delta
 ## Fleet
 
 `fuzz/run-fleet.sh` now gives worker-04 `DOTNET_EnableAVX512=0 PLANK_FUZZ_ISA_MASK=all`, and the rotation tiers (`PLANK_FUZZ_ROTATE_ISA`) gained the two flags-inverted tiers.
+
+## AVX-512 tier (kuinox-desktop, Ryzen 9 7900X) — pending
+
+Not measured yet: the desktop was in use, interactive commands there were killed, and the Kueue queue `kuinox-desktop-worker` reported "inactive" / "insufficient unused quota",
+so `job-24574813-reader-avx512-039359` (2 cpu, 5 Gi; the queue caps memory at 6 Gi) was still queued when this was written. The job is restart-safe: `fuzz/tools-reader-coverage/avx512-job.sh`
+(copy it with the replay build under `agents/reader-c/rp-avx`, adjust the paths at the top) skips finished tiers, and writes to `agents/reader-c/avx512/`:
+
+* `dg-avx512.txt`, `dg-avx512-flagsall.txt`, `dg-avx2.txt` (AVX-512 switched off), `dg-scalar.txt` — one `input-hash<TAB>decode-digest` line per file-schema input
+  (`PLANK_FUZZ_DIGEST_FILE`, `IsaDifferential.AppendDigest`);
+* `cov-avx512.xml`, `cov-avx512-flagsall.xml`, `cov-avx2.xml` — coverlet reports for the reader replay.
+
+When it finishes: `fuzz/tools-reader-coverage/digest-compare.sh dg-avx512.txt dg-scalar.txt` (and `dg-avx2.txt`) must print no `DIFF` lines — that is the scalar-vs-AVX-512
+differential for every kernel gated on `Avx512F.IsSupported` / `Vector512.IsHardwareAccelerated`; `covunion.py` on the cobertura files against the ovh tiers gives the AVX-512-only methods
+(expected: the byte-stream-split interleave around `ColumnChunkReader.cs` 3151/3258 and `BooleanBitUnpacker.cs` 55). Fill the numbers in here.
+The same digest files also give a cross-ISA differential on ovh today: the existing AVX2/scalar tiers can be compared with `PLANK_FUZZ_DIGEST_FILE` runs.
