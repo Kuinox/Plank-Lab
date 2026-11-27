@@ -251,7 +251,7 @@ public static class PlankMergerFuzzTarget
             new ColumnOptions(ParquetRepetition.Required, encodings: ImmutableArray.Create(EncodingKind.Plain)))]);
         var sourceFile = sourceBytes.ToArray();
         var expected = new List<int>();
-        using (var source = FullValueOracle.Source(sourceFile))
+        using (var source = new MemoryReadSource(sourceFile))
         using (var reader = schema.CreateReader(source))
         {
             if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != 5)
@@ -277,14 +277,14 @@ public static class PlankMergerFuzzTarget
         var schema = new ParquetSchema([ColumnDefinition.Leaf("value", ParquetPhysicalType.Int32,
             new ColumnOptions(ParquetRepetition.Required, encodings: ImmutableArray.Create(EncodingKind.Plain)))]);
         using var destination = new MemoryReadWriteSource();
-        var merger = schema.CreateMerger(FullValueOracle.Source(sourceFile), destination,
+        var merger = schema.CreateMerger(new MemoryReadSource(sourceFile), destination,
             new ParquetMergeOptions { PreserveFirstFileMetadata = true });
         if (merger.SourceFileCount != 1 || merger.RowGroupCount != 1 || merger.RowCount != expected.Count)
             throw new MergeException("No-statistics import changed the merger source counters.");
         merger.CloseFile();
 
         var merged = destination.ToArray();
-        using var mergedSource = FullValueOracle.Source(merged);
+        using var mergedSource = FullValueOracle.SourceDerivedFrom(merged, sourceFile);
         using var mergedReader = schema.CreateReader(mergedSource);
         if (mergedReader.RowGroups.Count != 1 || mergedReader.RowGroups[0].RowCount != (ulong)expected.Count)
             throw new MergeException("No-statistics import changed the merged row-group shape.");

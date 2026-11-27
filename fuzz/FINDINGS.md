@@ -97,6 +97,18 @@ metadata from Arrow-decoded values.
   [`repros/statistics-uint-in-signed-int32-order/`](repros/statistics-uint-in-signed-int32-order/)
   (`writer-gap-seeds/delta-binary-packed-int32/public-generic-dispatch.bin`).
 
+- **Minor spec deviation: precision/scale without any annotation read as DECIMAL.** A FIXED_LEN_BYTE_ARRAY schema
+  element with `precision = 9, scale = 0` but neither `converted_type` nor `logicalType` is exposed by Plank as
+  `LogicalType.Decimal(9, 0)`; the specification (and Arrow) leave it unannotated. Seeds:
+  `reader-footer-seeds/footer-legacy-both-dropped-r00.bin`, `-r04.bin`. The reader oracle excludes exactly this shape.
+
+Reader-side disagreements with Arrow classified as not Plank defects (replay of all reader seed dirs + 17k mutants):
+Plank ignores deprecated-only `min`/`max` statistics (parquet-testing `int32_decimal`, `nested_lists`, impala files...)
+where Arrow reads them for signed-order columns — a missed pruning opportunity, never a wrong value; where a footer has
+both `min`/`min_value` and they differ, Plank uses `min_value` (spec) and Arrow the deprecated one, so the oracle checks
+Plank's statistics against an independent raw Thrift parse of the footer (`RawFooter.cs`); a footer `num_rows` that
+disagrees with the row groups' sum (parquet-testing `repeated_no_annotation` has 0) is an acceptance difference.
+
 Not defects (checked by the same oracle): Plank's Bloom writer hashes -0.0 and NaN payloads by their
 plain bytes as the spec says, and its typed `MightContain(±0.0)` also answers true for the other zero
 (an allowed false positive; `Plank.Lab.Tests/FullValueOracleTests`). `ParquetWriterOptions.SortingColumns`

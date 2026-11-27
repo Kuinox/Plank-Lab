@@ -1499,6 +1499,8 @@ public static class PlankReaderFuzzTarget
         var first = ReadAllRows(rows, descriptors, compareAfterReset, expected);
         if (ReaderAcceptanceOracle.HasParquetHeader(fileBytes))
             ReaderAcceptanceOracle.VerifyWithParquetSharp(fileBytes);
+        if (expected is not null)
+            FullValueOracle.CompareFlatRowsWithArrow(fileBytes, expected); // oracle agent: columnar (= rows) vs Arrow
         if (!compareAfterReset)
             return;
 

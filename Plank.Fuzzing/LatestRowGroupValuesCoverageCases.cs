@@ -279,7 +279,7 @@ internal static class LatestRowGroupValuesCoverageCases
             ColumnDefinition.RequiredLeaf("x", ParquetPhysicalType.Int32,
                 new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain)))
         ]);
-        using (var sourceReader = schema.CreateReader(FullValueOracle.Source(sourceBytes)))
+        using (var sourceReader = schema.CreateReader(new MemoryReadSource(sourceBytes)))
         {
             if (sourceReader.RowGroups.Count != 2)
                 throw new InvalidOperationException("External append source must contain two row groups.");
@@ -318,7 +318,7 @@ internal static class LatestRowGroupValuesCoverageCases
             writer.CloseFile();
         }
 
-        using var reader = schema.CreateReader(FullValueOracle.Source(appended.ToArray()));
+        using var reader = schema.CreateReader(FullValueOracle.SourceDerivedFrom(appended.ToArray(), sourceBytes));
         if (reader.RowGroups.Count != 2 || reader.RowGroups[0].RowCount != 2 || reader.RowGroups[1].RowCount != 4)
             throw new InvalidOperationException("External replacement-offset append changed row-group shape.");
         if (layout == 4)

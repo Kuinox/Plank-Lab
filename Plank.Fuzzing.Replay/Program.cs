@@ -111,7 +111,7 @@ static class Program
             + $"{stopwatch.Elapsed.TotalSeconds:F0}s");
         Console.WriteLine($"full-value oracle: {FullValueOracle.CheckedFiles} accepted + {FullValueOracle.CheckedWrittenFiles} written files, "
             + $"{FullValueOracle.CheckedStatistics} chunk statistics vs Arrow, {FullValueOracle.CheckedPages} pages, "
-            + $"{FullValueOracle.CheckedBloomValues} bloom values, {FullValueOracle.CheckedSortedRows} sorted-row pairs");
+            + $"{FullValueOracle.CheckedBloomValues} bloom values, {FullValueOracle.CheckedSortedRows} sorted-row pairs, {FullValueOracle.CheckedNestedLogicalValues} nested logical values");
         return 0;
     }
 

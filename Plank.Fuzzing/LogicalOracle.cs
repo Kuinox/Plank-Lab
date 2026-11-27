@@ -24,9 +24,9 @@ public static class LogicalOracle
 {
     public static long ComparedValues;
 
-    enum Verdict { Representable, Unrepresentable, Unspecified }
+    internal enum Verdict { Representable, Unrepresentable, Unspecified }
 
-    readonly record struct Expected<T>(Verdict Verdict, T Value)
+    internal readonly record struct Expected<T>(Verdict Verdict, T Value)
     {
         public static Expected<T> Is(T value) => new(Verdict.Representable, value);
         public static readonly Expected<T> Not = new(Verdict.Unrepresentable, default!);
@@ -100,7 +100,7 @@ public static class LogicalOracle
         }
     }
 
-    static Expected<DateOnly> ExpectDate(int days)
+    internal static Expected<DateOnly> ExpectDate(int days)
     {
         var dayNumber = (long)UnixEpochDate.DayNumber + days;
         return dayNumber >= DateOnly.MinValue.DayNumber && dayNumber <= DateOnly.MaxValue.DayNumber
@@ -108,7 +108,7 @@ public static class LogicalOracle
             : Expected<DateOnly>.Not;
     }
 
-    static Expected<TimeOnly> ExpectTime(TimeUnit unit, ParquetPhysicalType physical, byte[] b)
+    internal static Expected<TimeOnly> ExpectTime(TimeUnit unit, ParquetPhysicalType physical, byte[] b)
     {
         // Only the combinations the specification allows have a defined meaning.
         Int128 ticks;
@@ -136,7 +136,7 @@ public static class LogicalOracle
             : Expected<TimeOnly>.Not;
     }
 
-    static Expected<DateTime> ExpectTimestamp(TimeUnit unit, long raw, DateTimeKind kind)
+    internal static Expected<DateTime> ExpectTimestamp(TimeUnit unit, long raw, DateTimeKind kind)
     {
         Int128 ticks = unit switch
         {
@@ -154,7 +154,7 @@ public static class LogicalOracle
             : Expected<DateTime>.Not;
     }
 
-    static Expected<decimal> ExpectDecimal(ParquetPhysicalType physical, byte[] b, int scale)
+    internal static Expected<decimal> ExpectDecimal(ParquetPhysicalType physical, byte[] b, int scale)
     {
         BigInteger unscaled;
         switch (physical)

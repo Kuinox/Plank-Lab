@@ -52,6 +52,44 @@ public static class FullValueOracle
         return new MemoryReadSource(bytes);
     }
 
+    /// <summary>
+    /// For a file Plank produced from a fuzzer-supplied input file (append to it, merge it):
+    /// the output inherits whatever the input's metadata says, so it is checked only when the
+    /// input itself passes the oracle (its metadata agrees with its values).
+    /// </summary>
+    public static MemoryReadSource SourceDerivedFrom(ReadOnlyMemory<byte> output, ReadOnlyMemory<byte> input)
+    {
+        if (IsConsistent(input))
+            VerifyWritten(output);
+        return new MemoryReadSource(output);
+    }
+
+    static bool IsConsistent(ReadOnlyMemory<byte> input)
+    {
+        if (Disabled)
+            return false;
+        var file = input.ToArray();
+        using var plank = new ParquetReader();
+        var traces = new List<ColumnTrace?[]>();
+        try
+        {
+            plank.Reset(new MemoryReadSource(file));
+            foreach (var group in plank.RowGroups)
+            {
+                var groupTraces = new ColumnTrace?[plank.Schema.LeafColumns.Length];
+                traces.Add(groupTraces);
+                for (var c = 0; c < groupTraces.Length; c++)
+                    groupTraces[c] = ColumnTrace.CapturePlank(group, plank.Schema.LeafColumns[c]);
+            }
+            VerifyWrittenCore(file, plank, traces);
+            return true;
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Same as <see cref="Source"/> for routes that read through a stream.</summary>
     public static byte[] Checked(byte[] bytes)
     {
@@ -159,14 +197,206 @@ public static class FullValueOracle
         {
             try
             {
-                CompareMetadata(plank, arrow, strict: false, values: null);
+                CompareMetadata(plank, arrow, strict: false, values: null, RawFooter.TryParse(fileBytes));
             }
             catch (Ps.ParquetException)
             {
                 // Arrow could not parse a metadata structure Plank parsed: not a value verdict.
             }
         }
+        CheckNestedLogical(plank);
         CheckedFiles++;
+    }
+
+    /// <summary>
+    /// Reader target, row-API route: the row reader's values are held to the flat columnar
+    /// values (<c>CaptureColumnarRows</c>); this holds those to Arrow, closing the chain
+    /// row API → columnar → Arrow on the same input. One list per leaf, null = not compared.
+    /// </summary>
+    public static void CompareFlatRowsWithArrow(byte[] fileBytes, List<byte[]?>?[] columnar)
+    {
+        if (Disabled || !ReaderAcceptanceOracle.HasParquetHeader(fileBytes))
+            return;
+        Ps.ParquetFileReader arrow;
+        try
+        {
+            arrow = new Ps.ParquetFileReader(new MemoryStream(fileBytes, writable: false), leaveOpen: false);
+        }
+        catch (Exception error) when (error is Ps.ParquetException or ArgumentOutOfRangeException
+                                          or OverflowException)
+        {
+            return;
+        }
+        using (arrow)
+        {
+            if (arrow.FileMetaData.NumColumns != columnar.Length)
+                return;
+            var arrowValues = new List<byte[]?>?[columnar.Length];
+            try
+            {
+                for (var g = 0; g < arrow.FileMetaData.NumRowGroups; g++)
+                {
+                    using var group = arrow.RowGroup(g);
+                    for (var c = 0; c < columnar.Length; c++)
+                    {
+                        if (columnar[c] is null)
+                            continue;
+                        using var chunk = group.MetaData.GetColumnChunkMetaData(c);
+                        if (IsUndecodableByArrow(chunk, group, c))
+                        {
+                            columnar[c] = null;
+                            continue;
+                        }
+                        using var reader = group.Column(c);
+                        var column = ArrowColumn.Capture(reader);
+                        var list = arrowValues[c] ??= [];
+                        for (var e = 0; e < column.EntryCount; e++)
+                            list.Add(column.ValueAtEntry(e));
+                    }
+                }
+            }
+            catch (Exception error) when (error is Ps.ParquetException or InvalidDataException)
+            {
+                // Arrow's verdict on the file is ReaderAcceptanceOracle's business.
+                return;
+            }
+            for (var c = 0; c < columnar.Length; c++)
+            {
+                if (columnar[c] is not { } plank || arrowValues[c] is not { } expected)
+                    continue;
+                if (plank.Count != expected.Count)
+                    throw Mismatch("row route: columnar row count differs from Arrow", $"column {c}: Plank={plank.Count}, Arrow={expected.Count}");
+                for (var r = 0; r < plank.Count; r++)
+                    if ((plank[r] is null) != (expected[r] is null)
+                        || (plank[r] is { } a && !a.AsSpan().SequenceEqual(expected[r])))
+                        throw Mismatch("row route: columnar value differs from Arrow",
+                            $"column {c}, row {r}: Plank={(plank[r] is { } p ? Hex(p) : "null")}, Arrow={(expected[r] is { } x ? Hex(x) : "null")}");
+            }
+        }
+    }
+
+    // ---- Logical values of nested (repeated) leaves ---------------------------
+
+    public static long CheckedNestedLogicalValues;
+
+    /// <summary>
+    /// LogicalOracle checks flat leaves only; nested leaves have their own decode family. Their
+    /// logical CLR values (read through <c>NestedColumn&lt;T&gt;</c>) must be the specification's
+    /// conversion of the nested physical values (themselves compared with Arrow).
+    /// </summary>
+    public static void CheckNestedLogical(ParquetReader plank)
+    {
+        foreach (var group in plank.RowGroups)
+            foreach (var column in plank.Schema.LeafColumns)
+                if (column.MaxRepetitionLevel > 0 && column.LogicalType is not null)
+                    CheckNestedLogical(group, column);
+    }
+
+    static void CheckNestedLogical(RowGroup group, LeafColumn column)
+    {
+        List<byte[]> physical;
+        try
+        {
+            physical = column.PhysicalType switch
+            {
+                ParquetPhysicalType.Int32 => NestedValues<int>(group, column).ConvertAll(static v => Le(v)),
+                ParquetPhysicalType.Int64 => NestedValues<long>(group, column).ConvertAll(static v => Le(v)),
+                ParquetPhysicalType.FixedLenByteArray or ParquetPhysicalType.ByteArray => NestedBinary(group, column),
+                _ => [],
+            };
+        }
+        catch (Exception error) when (error is CorruptParquetException or NotSupportedException or InvalidOperationException)
+        {
+            return;
+        }
+        if (physical.Count == 0)
+            return;
+        var p = column.PhysicalType;
+        switch (column.LogicalType)
+        {
+            case LogicalType.Date when p == ParquetPhysicalType.Int32:
+                NestedCompare<DateOnly>(group, column, physical, "Date", static b => LogicalOracle.ExpectDate(BitConverter.ToInt32(b)),
+                    static (e, a) => e == a);
+                return;
+            case LogicalType.Time time:
+                NestedCompare<TimeOnly>(group, column, physical, $"Time({time.Unit})", b => LogicalOracle.ExpectTime(time.Unit, p, b),
+                    static (e, a) => e == a);
+                return;
+            case LogicalType.Timestamp timestamp when p == ParquetPhysicalType.Int64:
+            {
+                var kind = timestamp.IsAdjustedToUtc ? DateTimeKind.Utc : DateTimeKind.Unspecified;
+                NestedCompare<DateTime>(group, column, physical, $"Timestamp({timestamp.Unit}, utc={timestamp.IsAdjustedToUtc})",
+                    b => LogicalOracle.ExpectTimestamp(timestamp.Unit, BitConverter.ToInt64(b), kind),
+                    static (e, a) => e.Ticks == a.Ticks && e.Kind == a.Kind);
+                return;
+            }
+            case LogicalType.Decimal decimalType:
+                NestedCompare<decimal>(group, column, physical, $"Decimal({decimalType.Precision},{decimalType.Scale})",
+                    b => LogicalOracle.ExpectDecimal(p, b, decimalType.Scale), static (e, a) => e == a);
+                return;
+            case LogicalType.Uuid when p == ParquetPhysicalType.FixedLenByteArray:
+                NestedCompare<Guid>(group, column, physical, "Uuid",
+                    static b => b.Length == 16 ? LogicalOracle.Expected<Guid>.Is(new Guid(b, bigEndian: true)) : LogicalOracle.Expected<Guid>.Any,
+                    static (e, a) => e == a);
+                return;
+            case LogicalType.Int { IsSigned: false, BitWidth: 32 } when p == ParquetPhysicalType.Int32:
+                NestedCompare<uint>(group, column, physical, "UInt32", static b => LogicalOracle.Expected<uint>.Is(BitConverter.ToUInt32(b)),
+                    static (e, a) => e == a);
+                return;
+            case LogicalType.Int { IsSigned: false, BitWidth: 64 } when p == ParquetPhysicalType.Int64:
+                NestedCompare<ulong>(group, column, physical, "UInt64", static b => LogicalOracle.Expected<ulong>.Is(BitConverter.ToUInt64(b)),
+                    static (e, a) => e == a);
+                return;
+        }
+    }
+
+    static List<T> NestedValues<T>(RowGroup group, LeafColumn column) where T : unmanaged
+    {
+        var values = new List<T>();
+        foreach (var buffer in group.NestedColumn<T>(column))
+            foreach (var value in buffer.Values.Values)
+                values.Add(value);
+        return values;
+    }
+
+    static List<byte[]> NestedBinary(RowGroup group, LeafColumn column)
+    {
+        var values = new List<byte[]>();
+        foreach (var buffer in group.NestedColumn<byte>(column))
+        {
+            var buffers = buffer.Values;
+            for (var i = 0; i < buffers.Count; i++)
+                values.Add(buffers.GetValue(i).ToArray());
+        }
+        return values;
+    }
+
+    static void NestedCompare<T>(RowGroup group, LeafColumn column, List<byte[]> physical, string what,
+        Func<byte[], LogicalOracle.Expected<T>> expect, Func<T, T, bool> same) where T : unmanaged
+    {
+        List<T> actual;
+        try
+        {
+            actual = NestedValues<T>(group, column);
+        }
+        catch (Exception error) when (error is CorruptParquetException or NotSupportedException or InvalidOperationException)
+        {
+            return; // rejecting is always allowed
+        }
+        if (actual.Count != physical.Count)
+            throw Mismatch($"nested logical {what}: value count differs from the physical read",
+                $"column '{column.Path}': physical={physical.Count}, logical={actual.Count}");
+        for (var i = 0; i < actual.Count; i++)
+        {
+            CheckedNestedLogicalValues++;
+            var expected = expect(physical[i]);
+            if (expected.Verdict == LogicalOracle.Verdict.Unrepresentable)
+                throw Mismatch($"nested logical {what}: value outside the CLR type returned",
+                    $"column '{column.Path}', value {i}: physical={Hex(physical[i])}, Plank={actual[i]}");
+            if (expected.Verdict == LogicalOracle.Verdict.Representable && !same(expected.Value, actual[i]))
+                throw Mismatch($"nested logical {what}: value differs from the specified conversion",
+                    $"column '{column.Path}', value {i}: physical={Hex(physical[i])}, Plank={actual[i]}, expected={expected.Value}");
+        }
     }
 
     // ---- Writer-side verification ------------------------------------------
@@ -235,7 +465,8 @@ public static class FullValueOracle
                 }
             }
 
-            CompareMetadata(plank, arrow, strict: true, values);
+            CheckNestedLogical(plank);
+            CompareMetadata(plank, arrow, strict: true, values, RawFooter.TryParse(file));
             for (var g = 0; g < groupCount; g++)
                 for (var c = 0; c < leaves.Length; c++)
                     if (values[g][c] is { } column)
@@ -259,7 +490,8 @@ public static class FullValueOracle
 
     // ---- Metadata: Plank's view against Arrow's -----------------------------
 
-    static void CompareMetadata(ParquetReader plank, Ps.ParquetFileReader arrow, bool strict, ArrowColumn?[][]? values)
+    static void CompareMetadata(ParquetReader plank, Ps.ParquetFileReader arrow, bool strict, ArrowColumn?[][]? values,
+        Dictionary<short, object?>? raw)
     {
         var metadata = plank.PhysicalReader.Metadata;
         var leaves = plank.Schema.LeafColumns;
@@ -311,7 +543,13 @@ public static class FullValueOracle
                 a = null;
             }
             var p = Describe(leaf.LogicalType);
-            if (a is not null && p is not null && a != p)
+            // Known library deviation (fuzz/FINDINGS.md): Plank reads an element carrying only
+            // precision/scale, with neither converted_type nor logicalType, as DECIMAL; the
+            // specification (and Arrow) leave it unannotated.
+            var unannotatedPrecision = raw is not null && a == "None" && p?.StartsWith("Decimal(", StringComparison.Ordinal) == true
+                && RawFooter.Leaves(raw) is var rawLeaves && c < rawLeaves.Count
+                && !RawFooter.Has(rawLeaves[c], 6) && !RawFooter.Has(rawLeaves[c], 10) && RawFooter.Has(rawLeaves[c], 8);
+            if (a is not null && p is not null && a != p && !unannotatedPrecision)
                 throw Mismatch("metadata: logical type differs", $"column {c} '{leaf.Path}' ({leaf.PhysicalType}): Plank={p}, Arrow={a}");
         }
 
@@ -331,7 +569,8 @@ public static class FullValueOracle
                 if ((ulong)chunk.NumValues != plankChunk.ValueCount)
                     throw Mismatch("metadata: column chunk value count differs",
                         $"row group {g}, column {c}: Plank={plankChunk.ValueCount}, Arrow={chunk.NumValues}");
-                CompareStatistics(g, c, leaves[c], plankChunk.Statistics, chunk);
+                CompareStatistics(g, c, leaves[c], plankChunk.Statistics, chunk, strict,
+                    raw is null ? null : RawFooter.ChunkStatistics(raw, g, c), raw is not null);
                 if (plankChunk.HasBloomFilter)
                     CheckBloomProbes(plank, g, c, values?[g][c], strict);
             }
@@ -349,7 +588,10 @@ public static class FullValueOracle
                     $"row group {g}: Plank=[{string.Join(',', plankSorting.ToArray().Select(s => $"{s.ColumnOrdinal}/{s.Descending}/{s.NullsFirst}"))}], "
                     + $"Arrow=[{string.Join(',', arrowSorting.Select(s => $"{s.ColumnIndex}/{s.IsDescending}/{s.NullsFirst}"))}]");
         }
-        if (arrowMeta.NumRows != totalRows)
+        // Plank derives the row count from the row groups; a footer whose num_rows disagrees
+        // with them (fuzzed, or parquet-testing's repeated_no_annotation with num_rows = 0) is an
+        // acceptance difference, not a value one. Plank's own writer must agree, though.
+        if (strict && arrowMeta.NumRows != totalRows)
             throw Mismatch("metadata: file row count differs", $"Plank row groups sum={totalRows}, Arrow num_rows={arrowMeta.NumRows}");
 
         CompareKeyValueMetadata(metadata, arrowMeta);
@@ -429,9 +671,15 @@ public static class FullValueOracle
 
     // ---- Statistics: Plank's view against Arrow's --------------------------
 
-    static void CompareStatistics(int g, int c, LeafColumn leaf, ParquetStatistics plank, Ps.ColumnChunkMetaData chunk)
+    static void CompareStatistics(int g, int c, LeafColumn leaf, ParquetStatistics plank, Ps.ColumnChunkMetaData chunk,
+        bool strict, Dictionary<short, object?>? rawStatistics, bool rawParsed)
     {
-        if (!chunk.IsStatsSet)
+        if (rawParsed)
+            CompareStatisticsWithFooter(g, c, leaf, plank, rawStatistics);
+        // Arrow reports the deprecated min/max where a footer has both and they differ, and
+        // reads deprecated-only statistics Plank ignores: on foreign files the raw footer is
+        // the arbiter; on Plank's own files (no deprecated fields) Arrow must agree too.
+        if (!strict || !chunk.IsStatsSet)
             return;
         using var stats = chunk.Statistics;
         if (stats is null)
@@ -455,6 +703,36 @@ public static class FullValueOracle
         if (!plank.Minimum.SequenceEqual(arrowMin) || !plank.Maximum.SequenceEqual(arrowMax))
             throw Mismatch("statistics: min/max bytes differ between Plank and Arrow",
                 $"{where}: Plank min={Hex(plank.Minimum)} max={Hex(plank.Maximum)}, Arrow min={Hex(arrowMin)} max={Hex(arrowMax)}");
+    }
+
+    // Plank's statistics must be what the footer says: min_value/max_value when present,
+    // otherwise (if Plank exposes one at all) the deprecated min/max; null_count and
+    // distinct_count as written. Dropping a statistic is allowed, inventing or altering one is not.
+    static void CompareStatisticsWithFooter(int g, int c, LeafColumn leaf, ParquetStatistics plank,
+        Dictionary<short, object?>? raw)
+    {
+        var where = $"row group {g}, column {c} '{leaf.Path}' ({leaf.PhysicalType}, {Describe(leaf.LogicalType) ?? "none"})";
+        CheckedStatistics++;
+        if (plank.HasMinimum && (RawFooter.Binary(raw, 6) ?? RawFooter.Binary(raw, 2)) is var min
+            && (min is null || !plank.Minimum.SequenceEqual(min)))
+            throw Mismatch("statistics: Plank's min is not the footer's", $"{where}: Plank={Hex(plank.Minimum)}, min_value={Show(RawFooter.Binary(raw, 6))}, min={Show(RawFooter.Binary(raw, 2))}");
+        if (plank.HasMaximum && (RawFooter.Binary(raw, 5) ?? RawFooter.Binary(raw, 1)) is var max
+            && (max is null || !plank.Maximum.SequenceEqual(max)))
+            throw Mismatch("statistics: Plank's max is not the footer's", $"{where}: Plank={Hex(plank.Maximum)}, max_value={Show(RawFooter.Binary(raw, 5))}, max={Show(RawFooter.Binary(raw, 1))}");
+        if (plank.NullCount is { } nulls && RawFooter.Integer(raw, 3) != nulls)
+            throw Mismatch("statistics: Plank's null_count is not the footer's", $"{where}: Plank={nulls}, footer={RawFooter.Integer(raw, 3)?.ToString() ?? "absent"}");
+        if (plank.DistinctCount is { } distinct && RawFooter.Integer(raw, 4) != distinct)
+            throw Mismatch("statistics: Plank's distinct_count is not the footer's", $"{where}: Plank={distinct}, footer={RawFooter.Integer(raw, 4)?.ToString() ?? "absent"}");
+        // Exactness flags (7, 8): when the footer states one, Plank must report it (absent =
+        // unknown, either answer is defensible).
+        if (plank.HasMinimum && RawFooter.Binary(raw, 6) is not null && raw!.TryGetValue(8, out var minExact)
+            && minExact is bool minFlag && plank.IsMinimumExact != minFlag)
+            throw Mismatch("statistics: Plank's is_min_value_exact is not the footer's", $"{where}: Plank={plank.IsMinimumExact}, footer={minFlag}");
+        if (plank.HasMaximum && RawFooter.Binary(raw, 5) is not null && raw!.TryGetValue(7, out var maxExact)
+            && maxExact is bool maxFlag && plank.IsMaximumExact != maxFlag)
+            throw Mismatch("statistics: Plank's is_max_value_exact is not the footer's", $"{where}: Plank={plank.IsMaximumExact}, footer={maxFlag}");
+
+        static string Show(byte[]? bytes) => bytes is null ? "absent" : Hex(bytes);
     }
 
     static (byte[]? Min, byte[]? Max) ArrowMinMax(Ps.Statistics stats, Ps.PhysicalType type, LeafColumn leaf)
