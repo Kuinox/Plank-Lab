@@ -196,3 +196,5 @@ surface_marker_nested_surface="\xC1"
 rowapi_random_schema_magic="RRS1"
 
 
+writer_marker_codec="\xDB"
+writer_magic_codec="WCD1"

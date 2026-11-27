@@ -190,6 +190,10 @@ public static class PlankWriterFuzzTarget
 
     // Typed single-column matrix with independently drawn value counts, cardinalities, widths, codecs and levels.
     // Nested list / map data with fuzzer-drawn optionality, null / empty lists, page and row-group splits.
+    // Every codec Plank writes, fuzzer-chosen buffers, independent decoders (WriterCodecCases).
+    const byte CodecMarker = 0xDB;
+    static ReadOnlySpan<byte> CodecMagic => "WCD1"u8;
+
     const byte GroupShapesMarker = 0xC4;
     static ReadOnlySpan<byte> GroupShapesMagic => "WGS1"u8;
 
@@ -258,6 +262,14 @@ public static class PlankWriterFuzzTarget
             && data.Slice(1, PagePrunerSurfaceCases.Magic.Length).SequenceEqual(PagePrunerSurfaceCases.Magic))
         {
             PagePrunerSurfaceCases.Execute(data[(1 + PagePrunerSurfaceCases.Magic.Length)..]);
+            return;
+        }
+
+        if (data.Length >= 1 + CodecMagic.Length
+            && data[0] == CodecMarker
+            && data.Slice(1, CodecMagic.Length).SequenceEqual(CodecMagic))
+        {
+            WriterCodecCases.Execute(data[(1 + CodecMagic.Length)..]);
             return;
         }
 
