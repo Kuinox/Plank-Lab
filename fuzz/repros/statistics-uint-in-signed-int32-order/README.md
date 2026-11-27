@@ -20,8 +20,13 @@ cannot see it; the oracle recomputes min/max from Arrow-decoded values with the 
 
 Either the statistics must follow the column's declared order, or `CreateSerializedColumn<uint>`
 must require an unsigned INT(32) annotation (the source generator presumably adds one; the runtime
-schema API does not require it). The same probably applies to `ulong` on an unannotated INT64
-(not yet confirmed by a seed).
+schema API does not require it). The same holds for `ulong` on an unannotated INT64 (confirmed:
+values `{0, 1, ulong.MaxValue}` get `min_value = 0`, while the signed minimum is -1).
+
+Minimal repros (explicit tests, they fail until Plank is fixed):
+`Plank.Lab.Tests --treenode-filter '/*/*/FullValueOracleTests/Repro_*'`
+(`Repro_UIntInUnannotatedInt32_...`, `Repro_ULongInUnannotatedInt64_...`; `Repro_Int96_DistinctCountIsNotZero` for
+the other finding).
 
 File: `delta-int32-generic-dispatch.parquet` (column 3). Replay:
 
