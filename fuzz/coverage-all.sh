@@ -14,6 +14,21 @@ READER_IN="$F/decompressor-seeds $F/reader-corpus $F/reader-focused-seeds $F/rea
 MERGER_IN="$F/corpus $F/writer-gap-seeds $F/dataset-operational-seeds $F/dataset-options-seeds"
 # ISA tiers: default = the host's best (ovh: AVX2+BMI2, no AVX512); avx2off drops AVX2 (SSE paths);
 # scalar disables all intrinsics (portable fallbacks). AVX512 kernels need an AVX512 host (not ovh).
+# Stage the writer/merger inputs as symlinks minus fuzz/coverage-skip.txt (inputs that segfault the process).
+stage() { # name dirs...
+  local name=$1; shift; local S=$WORK/stage-$name; rm -rf "$S"; mkdir -p "$S"
+  local skip; skip=$(grep -v '^#' "$F/coverage-skip.txt" | sed '/^$/d')
+  for d in "$@"; do
+    [ -d "$d" ] || continue
+    while IFS= read -r f; do
+      rel=${f#$F/}; grep -qxF "$rel" <<<"$skip" && continue
+      ln -s "$f" "$S/$(echo "$rel" | tr '/' '_')"
+    done < <(find "$d" -type f)
+  done
+  echo "$S"
+}
+WRITER_IN=$(stage writer $WRITER_IN)
+MERGER_IN=$(stage merger $MERGER_IN)
 run() { # target inputs tier envassignment
   local t=$1 in=$2 tier=$3 e=$4 D=$WORK/all-$1-$3 suffix=""; [ "$tier" = default ] || suffix="-$tier"
   rm -rf "$D"; cp -r "$SRC" "$D"

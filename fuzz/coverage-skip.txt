@@ -1,0 +1,6 @@
+# Inputs that kill the replay process (SIGSEGV) and so zero the whole coverlet report; fuzz/coverage-all.sh
+# replays everything else. One path relative to fuzz/ per line. Remove an entry once the library bug is fixed.
+# Direct row-group writer overrun, Plank #276 (open): multi-group direct routes past slot capacity.
+corpus/rowapi-wide-direct-groups-1.bin
+corpus/rowapi-wide-nullable-direct-groups-1.bin
+corpus/rowapi-wide-nullable-direct-groups-2.bin

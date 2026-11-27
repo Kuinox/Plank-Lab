@@ -1,10 +1,10 @@
 # Plank fuzz coverage gaps
 
-- **Plank**: lines 19350/26602 (72.7%), branches 9394/13698 (68.6%) — union of writer+reader+merger replays over all ISA tiers; host-default tier only: lines 70.2%, branches 67.4%
-- **Plank.K4os.LZ4**: lines 648/3390 (19.1%), branches 271/1932 (14.0%) — union of writer+reader+merger replays over all ISA tiers; host-default tier only: lines 19.1%, branches 14.0%
+- **Plank**: lines 19719/27052 (72.9%), branches 9640/14181 (68.0%) — union of writer+reader+merger replays over all ISA tiers; host-default tier only: lines 70.4%, branches 66.8%
+- **Plank.K4os.LZ4**: lines 679/3390 (20.0%), branches 294/1932 (15.2%) — union of writer+reader+merger replays over all ISA tiers; host-default tier only: lines 20.0%, branches 15.2%
 - **Plank.Native.Zlib**: ships only `libz` native binaries (no managed code); exercised indirectly through Plank's GZIP codec, measured as part of Plank.
 
-Per-target (Plank only): writer 65.5% branch / 69.6% line; reader 24.9% branch / 27.0% line; merger 10.6% branch / 15.7% line; 
+Per-target (Plank only): writer 64.5% branch / 69.3% line; reader 25.3% branch / 27.5% line; merger 41.2% branch / 46.1% line; 
 
 ## Per namespace (directory)
 
@@ -14,28 +14,28 @@ Per-target (Plank only): writer 65.5% branch / 69.6% line; reader 24.9% branch /
 | K4os.LZ4/Engine/x32 | Plank.K4os.LZ4 | 1217 | 0.0% | 734 | 0.0% | 0.0% | 0.0% | 0.0% |
 | K4os.LZ4/Internal/x32 | Plank.K4os.LZ4 | 20 | 0.0% | 4 | 0.0% | 0.0% | 0.0% | 0.0% |
 | generated (obj/DeltaBinaryPackedIntegerGenerator) | Plank | 2291 | 10.4% | 611 | 5.9% | 4.9% | 2.0% | 0.0% |
-| K4os.LZ4/. | Plank.K4os.LZ4 | 236 | 9.3% | 122 | 6.6% | 6.6% | 0.0% | 0.0% |
-| K4os.LZ4/Internal | Plank.K4os.LZ4 | 124 | 43.5% | 56 | 17.9% | 17.9% | 0.0% | 0.0% |
-| K4os.LZ4/Engine | Plank.K4os.LZ4 | 267 | 36.0% | 136 | 25.7% | 25.7% | 0.0% | 0.0% |
-| K4os.LZ4/Engine/x64 | Plank.K4os.LZ4 | 1216 | 37.4% | 740 | 29.2% | 29.2% | 0.0% | 0.0% |
+| K4os.LZ4/. | Plank.K4os.LZ4 | 236 | 16.1% | 122 | 9.8% | 6.6% | 5.7% | 5.7% |
+| K4os.LZ4/Internal | Plank.K4os.LZ4 | 124 | 43.5% | 56 | 17.9% | 17.9% | 1.8% | 3.6% |
+| K4os.LZ4/Engine | Plank.K4os.LZ4 | 267 | 37.5% | 136 | 27.2% | 25.7% | 10.3% | 16.2% |
+| K4os.LZ4/Engine/x64 | Plank.K4os.LZ4 | 1216 | 38.3% | 740 | 31.5% | 29.2% | 11.1% | 23.2% |
 | Compression | Plank | 97 | 51.5% | 65 | 33.8% | 33.8% | 33.8% | 33.8% |
-| Reading | Plank | 739 | 63.7% | 342 | 48.5% | 41.5% | 45.0% | 30.1% |
-| K4os.LZ4/Internal/x64 | Plank.K4os.LZ4 | 30 | 70.0% | 4 | 50.0% | 50.0% | 0.0% | 0.0% |
-| Reading/Physical | Plank | 608 | 73.5% | 212 | 50.9% | 48.1% | 48.1% | 34.9% |
-| Writing/Compression | Plank | 80 | 85.0% | 23 | 60.9% | 60.9% | 0.0% | 34.8% |
-| Reading/Logical/Internal | Plank | 6719 | 66.4% | 3838 | 61.5% | 54.3% | 52.1% | 7.0% |
-| RowApi | Plank | 1264 | 81.7% | 683 | 69.3% | 66.0% | 42.6% | 0.0% |
-| Reading/Logical | Plank | 682 | 84.2% | 314 | 71.7% | 59.9% | 66.2% | 29.9% |
-| Reading/Physical/Internal | Plank | 726 | 81.3% | 407 | 72.2% | 64.1% | 67.3% | 33.4% |
-| Writing/Encoding | Plank | 5779 | 83.6% | 2977 | 77.7% | 77.7% | 0.2% | 1.3% |
-| (root) | Plank | 354 | 86.7% | 185 | 78.4% | 78.4% | 41.1% | 37.8% |
-| Writing | Plank | 4816 | 86.0% | 2908 | 78.7% | 78.7% | 0.0% | 13.1% |
-| Dataset | Plank | 570 | 81.9% | 296 | 80.7% | 80.7% | 0.0% | 0.0% |
-| Schema | Plank | 833 | 78.8% | 453 | 81.9% | 78.8% | 51.2% | 19.6% |
-| BloomFilters | Plank | 99 | 98.0% | 20 | 85.0% | 80.0% | 50.0% | 0.0% |
-| Writing/Thrift | Plank | 814 | 96.4% | 303 | 87.1% | 87.1% | 0.0% | 44.9% |
-| Writing/PageStrategy | Plank | 36 | 94.4% | 22 | 90.9% | 90.9% | 0.0% | 22.7% |
-| Reading/Internal | Plank | 95 | 97.9% | 39 | 94.9% | 87.2% | 79.5% | 64.1% |
+| K4os.LZ4/Internal/x64 | Plank.K4os.LZ4 | 30 | 70.0% | 4 | 50.0% | 50.0% | 50.0% | 50.0% |
+| Reading/Physical | Plank | 630 | 75.1% | 224 | 53.1% | 50.4% | 45.5% | 44.2% |
+| Writing/Compression | Plank | 80 | 85.0% | 23 | 60.9% | 60.9% | 0.0% | 52.2% |
+| Reading/Logical/Internal | Plank | 6626 | 67.8% | 3802 | 62.4% | 55.7% | 52.1% | 37.5% |
+| Reading | Plank | 840 | 79.9% | 434 | 65.7% | 34.3% | 63.6% | 32.3% |
+| RowApi | Plank | 1478 | 81.1% | 780 | 66.2% | 64.1% | 36.8% | 44.6% |
+| Reading/Logical | Plank | 723 | 83.8% | 376 | 71.3% | 64.1% | 63.8% | 48.7% |
+| Reading/Physical/Internal | Plank | 727 | 81.2% | 409 | 72.1% | 64.1% | 67.2% | 43.8% |
+| Writing | Plank | 5077 | 81.4% | 3117 | 73.1% | 73.1% | 0.0% | 44.2% |
+| Writing/Encoding | Plank | 5714 | 83.1% | 2961 | 77.0% | 77.0% | 0.2% | 39.8% |
+| Schema | Plank | 894 | 78.7% | 515 | 81.0% | 78.3% | 52.0% | 54.0% |
+| BloomFilters | Plank | 101 | 98.0% | 22 | 81.8% | 77.3% | 50.0% | 50.0% |
+| (root) | Plank | 361 | 89.2% | 185 | 83.8% | 83.2% | 47.0% | 57.8% |
+| Dataset | Plank | 533 | 88.9% | 288 | 84.0% | 84.0% | 0.0% | 72.6% |
+| Writing/Thrift | Plank | 773 | 97.0% | 314 | 86.3% | 86.3% | 0.0% | 71.7% |
+| Writing/PageStrategy | Plank | 36 | 94.4% | 22 | 90.9% | 90.9% | 0.0% | 77.3% |
+| Reading/Internal | Plank | 71 | 97.2% | 33 | 93.9% | 90.9% | 75.8% | 75.8% |
 
 ## Per file (Plank, lowest branch coverage first; files with ≥ 99% omitted)
 
@@ -43,8 +43,9 @@ Per-target (Plank only): writer 65.5% branch / 69.6% line; reader 24.9% branch /
 |---|---|---|---|---|---|---|
 | Plank/ParquetBufferPoolExtensions.cs | 2 | 0.0% | 0 | n/a | NONE | NEW buffer-pool/execution-options target (nobody owns) |
 | Plank/ParquetWorkerContext.cs | 1 | 0.0% | 0 | n/a | NONE | NEW buffer-pool/execution-options target (nobody owns) |
+| Plank/Reading/CompactProtocolTruncatedException.cs | 2 | 0.0% | 0 | n/a | NONE | reader |
+| Plank/Reading/Logical/Internal/InternalColumnChunkMetadata.cs | 36 | 69.4% | 6 | 0.0% | writer,reader,merger | reader |
 | Plank/Reading/Logical/RowReaderBase.cs | 14 | 0.0% | 2 | 0.0% | NONE | reader |
-| Plank/Reading/Lz4LegacyDecompressor.cs | 163 | 0.0% | 97 | 0.0% | NONE | reader |
 | Plank/Reading/Physical/ParquetGeospatialStatistics.cs | 48 | 0.0% | 24 | 0.0% | NONE | reader (+ writer round trip for the matching encoder) |
 | Plank/Schema/ParquetColumnAttribute.cs | 27 | 0.0% | 0 | n/a | NONE | writer (schema conversion/validation) + reader |
 | Plank/Schema/ParquetSchemaAttribute.cs | 1 | 0.0% | 0 | n/a | NONE | writer (schema conversion/validation) + reader |
@@ -73,23 +74,21 @@ Per-target (Plank only): writer 65.5% branch / 69.6% line; reader 24.9% branch /
 | third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/LZ4Pickler.unpickle.cs | 72 | 0.0% | 28 | 0.0% | NONE | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
 | Plank/obj/Release/net10.0/Plank.InternalGen/Plank.InternalGen.DeltaBinaryPackedIntegerGenerator/DeltaBinaryPackedDecoder.FastInteger.g.cs | 2291 | 10.4% | 611 | 5.9% | writer,reader | writer |
 | third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.high.cs | 658 | 26.3% | 348 | 12.1% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| Plank/Reading/Logical/Internal/InternalColumnChunkMetadata.cs | 43 | 72.1% | 8 | 12.5% | writer,reader,merger | reader |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/LZ4Codec.cs | 82 | 26.8% | 54 | 14.8% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LLxx.cs | 61 | 19.7% | 32 | 18.8% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
 | Plank/Reading/Logical/Internal/ColumnChunkReader.DictionaryPortable.cs | 74 | 37.8% | 26 | 19.2% | writer | reader (+ writer round trip for the matching encoder) |
 | third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LL.high.cs | 124 | 42.7% | 50 | 20.0% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/LZ4Codec.cs | 82 | 46.3% | 54 | 22.2% | writer,reader,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LLxx.cs | 61 | 26.2% | 32 | 25.0% | writer,reader,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
 | third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/PinnedMemory.cs | 47 | 53.2% | 16 | 25.0% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
 | Plank/Compression/ZlibLibraryResolver.cs | 71 | 47.9% | 55 | 30.9% | writer,reader,merger | NEW compression-codec target (PlankDecompressorFuzzTarget exists; extend) + writer compression-level options |
-| Plank/Reading/Logical/Internal/X86DecodeCapabilities.cs | 10 | 60.0% | 12 | 33.3% | writer,reader | reader |
+| Plank/Reading/Logical/Internal/X86DecodeCapabilities.cs | 10 | 60.0% | 12 | 33.3% | writer,reader,merger | reader |
 | Plank/Reading/Logical/ParquetColumnChunkMetadata.cs | 26 | 92.3% | 6 | 33.3% | writer,reader | reader |
-| Plank/Reading/StreamReadSource.cs | 28 | 57.1% | 12 | 33.3% | writer,reader,merger | reader |
-| Plank/Reading/Logical/Internal/DeltaBinaryPackedReader.cs | 45 | 60.0% | 20 | 35.0% | writer,reader | reader |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LL.tools.cs | 69 | 39.1% | 54 | 35.2% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| Plank/Writing/Encoding/ReadOnlyMemoryByteComparer.cs | 5 | 40.0% | 0 | n/a | writer | writer |
+| Plank/Reading/Logical/Internal/DeltaBinaryPackedReader.cs | 45 | 60.0% | 20 | 35.0% | writer,reader,merger | reader |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LL.tools.cs | 69 | 39.1% | 54 | 35.2% | writer,reader,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| Plank/Writing/Encoding/ReadOnlyMemoryByteComparer.cs | 5 | 40.0% | 0 | n/a | writer,merger | writer |
 | Plank/Writing/ParquetSourceIdentity.cs | 8 | 62.5% | 10 | 40.0% | writer,merger | writer |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.fast.cs | 298 | 49.7% | 188 | 40.4% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.fast.cs | 298 | 49.7% | 188 | 40.4% | writer,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| Plank/Reading/CompactStructLength.cs | 98 | 57.1% | 86 | 41.9% | reader | reader |
 | Plank/Reading/Logical/ParquetFileMetadata.cs | 16 | 43.8% | 0 | n/a | writer,reader,merger | reader |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.dec.cs | 206 | 52.4% | 168 | 45.8% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
 | Plank/Compression/ZlibNative.cs | 26 | 61.5% | 10 | 50.0% | writer,reader,merger | NEW compression-codec target (PlankDecompressorFuzzTarget exists; extend) + writer compression-level options |
 | Plank/CorruptParquetException.cs | 4 | 50.0% | 0 | n/a | writer,reader | writer |
 | Plank/ParquetExecutionOptions.cs | 6 | 66.7% | 2 | 50.0% | writer,reader,merger | NEW buffer-pool/execution-options target (nobody owns) |
@@ -98,128 +97,136 @@ Per-target (Plank only): writer 65.5% branch / 69.6% line; reader 24.9% branch /
 | Plank/Reading/Logical/Internal/PageMetadataEntry.cs | 10 | 100.0% | 10 | 50.0% | writer,reader,merger | reader |
 | Plank/Reading/Logical/NestedColumnBuffer.cs | 21 | 95.2% | 6 | 50.0% | writer,reader | reader |
 | Plank/Reading/MemoryReadSource.cs | 18 | 77.8% | 10 | 50.0% | writer,reader,merger | reader |
-| Plank/Reading/Physical/ParquetBloomFilter.cs | 26 | 69.2% | 4 | 50.0% | writer,reader | reader (+ writer round trip for the matching encoder) |
-| Plank/RowApi/RowApiColumnReadState.cs | 53 | 71.7% | 10 | 50.0% | writer,reader | rowapi |
-| Plank/RowApi/RowReaderOptions.cs | 15 | 73.3% | 4 | 50.0% | writer,reader | rowapi |
-| Plank/Writing/BufferWriterFactory.cs | 27 | 66.7% | 10 | 50.0% | writer,merger | writer |
-| Plank/Writing/Compression/BrotliCompression.cs | 7 | 85.7% | 2 | 50.0% | writer | writer |
-| Plank/Writing/Compression/Lz4Compression.cs | 8 | 87.5% | 2 | 50.0% | writer | writer |
+| Plank/Reading/StreamReadSource.cs | 28 | 75.0% | 12 | 50.0% | writer,reader,merger | reader |
+| Plank/RowApi/RowApiNestedColumnWriteState.cs | 22 | 90.9% | 8 | 50.0% | writer | rowapi |
+| Plank/RowApi/RowReaderOptions.cs | 15 | 73.3% | 4 | 50.0% | writer,reader,merger | rowapi |
+| Plank/Writing/Compression/BrotliCompression.cs | 7 | 85.7% | 2 | 50.0% | writer,merger | writer |
+| Plank/Writing/Compression/Lz4Compression.cs | 8 | 87.5% | 2 | 50.0% | writer,merger | writer |
 | Plank/Writing/Compression/ZstdCompression.cs | 11 | 90.9% | 2 | 50.0% | writer,merger | writer |
 | Plank/Writing/Encoding/ByteArrayComparer.cs | 11 | 45.5% | 8 | 50.0% | writer | writer |
 | Plank/Writing/Encoding/RleEncoding.cs | 13 | 69.2% | 4 | 50.0% | writer | writer |
 | Plank/Writing/PageIndex.cs | 10 | 100.0% | 6 | 50.0% | writer,merger | writer |
 | third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/BufferPool.cs | 9 | 100.0% | 8 | 50.0% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/Mem.cs | 37 | 54.1% | 4 | 50.0% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/x64/Mem64.cs | 30 | 70.0% | 4 | 50.0% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| Plank/Reading/Logical/Internal/AlpDecoder.cs | 213 | 64.8% | 106 | 52.8% | writer,reader | reader (+ writer round trip for the matching encoder) |
-| Plank/Reading/Physical/ParquetPageCursor.cs | 219 | 62.6% | 134 | 53.0% | writer,reader,merger | reader |
-| Plank/Writing/TimestampConversion.cs | 117 | 70.1% | 58 | 55.2% | writer | writer |
-| Plank/Reading/Logical/Internal/DeltaBinaryPackedDecoder.cs | 867 | 57.9% | 388 | 57.5% | writer,reader | reader (+ writer round trip for the matching encoder) |
-| Plank/Reading/Logical/Internal/ColumnChunkReader.cs | 2958 | 59.7% | 1922 | 58.0% | writer,reader,merger | reader |
-| Plank/Reading/GzipInflater.cs | 33 | 87.9% | 12 | 58.3% | writer,reader,merger | reader |
-| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.tools.cs | 54 | 48.1% | 36 | 58.3% | writer | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
-| Plank/Reading/ParquetDecompressor.cs | 41 | 58.5% | 17 | 58.8% | writer,reader,merger | reader |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/Mem.cs | 37 | 54.1% | 4 | 50.0% | writer,reader,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/x64/Mem64.cs | 30 | 70.0% | 4 | 50.0% | writer,reader,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| Plank/RowApi/RowValueSizeEstimator.cs | 80 | 61.2% | 91 | 53.8% | writer,merger | rowapi |
+| Plank/Reading/Logical/Internal/AlpDecoder.cs | 212 | 66.5% | 112 | 54.5% | writer,reader,merger | reader (+ writer round trip for the matching encoder) |
+| Plank/Reading/Physical/ParquetPageCursor.cs | 228 | 64.9% | 140 | 55.0% | writer,reader,merger | reader |
+| Plank/Writing/TimestampConversion.cs | 117 | 70.1% | 58 | 55.2% | writer,merger | writer |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.dec.cs | 206 | 57.8% | 168 | 56.0% | writer,reader,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| Plank/PooledByteMemory.cs | 7 | 57.1% | 0 | n/a | writer,merger | writer |
+| Plank/RowApi/RowApiNestedLeafBuffer.cs | 152 | 63.2% | 62 | 58.1% | writer | rowapi |
+| Plank/Writing/BufferWriterFactory.cs | 35 | 74.3% | 12 | 58.3% | writer,merger | writer |
+| third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.tools.cs | 54 | 48.1% | 36 | 58.3% | writer,merger | NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise |
+| Plank/Reading/Logical/Internal/DeltaBinaryPackedDecoder.cs | 835 | 60.0% | 380 | 58.9% | writer,reader,merger | reader (+ writer round trip for the matching encoder) |
+| Plank/Writing/StreamParquetSource.cs | 47 | 78.7% | 22 | 59.1% | writer,merger | writer |
+| Plank/Reading/CompactProtocolReader.cs | 207 | 72.0% | 98 | 59.2% | writer,reader,merger | reader |
+| Plank/Reading/Logical/Internal/ColumnChunkReader.cs | 2895 | 61.6% | 1886 | 59.5% | writer,reader,merger | reader |
 | Plank/Reading/Physical/Internal/BloomFilterReader.cs | 111 | 68.5% | 47 | 59.6% | writer,reader | reader (+ writer round trip for the matching encoder) |
 | Plank/Writing/MinMaxScan.cs | 198 | 54.0% | 72 | 59.7% | writer,merger | writer |
-| Plank/RowApi/RowReaderCore.cs | 431 | 76.1% | 266 | 59.8% | writer,reader | rowapi |
-| Plank/Reading/Logical/Internal/BinaryValueDescriptor.cs | 13 | 76.9% | 10 | 60.0% | writer,reader | reader |
+| Plank/Reading/Logical/Internal/BinaryValueDescriptor.cs | 13 | 76.9% | 10 | 60.0% | writer,reader,merger | reader |
 | Plank/Reading/Physical/ParquetPage.cs | 5 | 60.0% | 0 | n/a | reader | reader |
 | Plank/Writing/Compression/GzipDeflater.cs | 28 | 85.7% | 10 | 60.0% | writer,merger | writer |
-| Plank/Writing/StreamParquetSource.cs | 37 | 83.8% | 20 | 60.0% | writer,merger | writer |
-| Plank/Reading/Physical/ParquetFileReader.cs | 103 | 83.5% | 28 | 60.7% | writer,reader,merger | reader |
-| Plank/RowApi/RowBufferSlot.cs | 131 | 78.6% | 70 | 61.4% | writer | rowapi |
-| Plank/Reading/Logical/RowGroup.cs | 154 | 78.6% | 92 | 62.0% | writer,reader,merger | reader |
+| Plank/Writing/ColumnStatistics.cs | 1091 | 66.9% | 780 | 60.5% | writer,merger | writer |
+| Plank/Reading/Physical/ParquetFileReader.cs | 105 | 83.8% | 28 | 60.7% | writer,reader,merger | reader |
+| Plank/RowApi/RowBufferSlot.cs | 138 | 77.5% | 74 | 60.8% | writer,merger | rowapi |
+| Plank/Reading/Logical/Internal/PageMetadataReader.cs | 357 | 75.1% | 236 | 61.0% | writer,reader,merger | reader |
+| Plank/Writing/BloomFilterBuilder.cs | 166 | 77.7% | 160 | 61.2% | writer,merger | writer |
 | Plank/Reading/FileReadSource.cs | 17 | 88.2% | 8 | 62.5% | reader | reader |
 | Plank/Reading/Logical/ParquetDataPageMetadataCollection.cs | 25 | 88.0% | 8 | 62.5% | writer,reader | reader |
-| Plank/RowApi/PipelineRowWriterBase.cs | 84 | 85.7% | 32 | 62.5% | writer | rowapi |
-| Plank/RowApi/RowApiColumnReadStateOfT.cs | 60 | 93.3% | 16 | 62.5% | writer,reader | rowapi |
-| Plank/Writing/Encoding/ByteArrayRow.cs | 36 | 58.3% | 16 | 62.5% | writer | writer |
+| Plank/RowApi/PipelineRowWriterBase.cs | 91 | 80.2% | 32 | 62.5% | writer,merger | rowapi |
+| Plank/Writing/Encoding/ByteArrayRow.cs | 36 | 58.3% | 16 | 62.5% | writer,merger | writer |
+| Plank/Reading/Logical/Internal/ColumnChunkReader.Timestamps.cs | 72 | 72.2% | 44 | 63.6% | writer,reader,merger | reader |
+| Plank/RowApi/RowReaderCore.cs | 464 | 84.1% | 308 | 63.6% | writer,reader,merger | rowapi |
 | Plank/Schema/LogicalType.cs | 31 | 90.3% | 22 | 63.6% | writer,reader,merger | writer (schema conversion/validation) + reader |
-| Plank/Reading/CompactProtocolReader.cs | 207 | 74.4% | 98 | 64.3% | writer,reader,merger | reader |
-| Plank/Reading/Logical/Internal/PageMetadataReader.cs | 344 | 77.0% | 220 | 64.5% | writer,reader,merger | reader |
+| Plank/Reading/Logical/RowGroup.cs | 185 | 78.4% | 148 | 64.2% | writer,reader,merger | reader |
 | Plank/Reading/ParquetThriftConversions.cs | 14 | 85.7% | 17 | 64.7% | writer,reader,merger | reader |
-| Plank/Writing/Encoding/PlainEncoding.cs | 807 | 71.9% | 443 | 65.9% | writer,merger | writer |
-| Plank/Writing/Encoding/RleBitPackingHybridEncoding.cs | 351 | 78.3% | 203 | 66.5% | writer | writer |
+| Plank/BloomFilters/SplitBlockBloomFilter.cs | 42 | 95.2% | 12 | 66.7% | writer,reader,merger | writer (bloom options) + reader (bloom probe) |
 | Plank/Schema/Column.cs | 24 | 87.5% | 6 | 66.7% | writer,reader,merger | writer (schema conversion/validation) + reader |
 | Plank/Schema/EncodingCompatibility.cs | 25 | 84.0% | 30 | 66.7% | writer,reader,merger | writer (schema conversion/validation) + reader |
-| Plank/Writing/Encoding/ValueEncodingDispatcher.cs | 29 | 75.9% | 18 | 66.7% | writer | writer |
-| Plank/DefaultParquetBufferPool.cs | 199 | 83.9% | 94 | 67.0% | writer,reader,merger | NEW buffer-pool/execution-options target (nobody owns) |
-| Plank/Writing/Encoding/DeltaBinaryPackedEncoding.cs | 634 | 81.4% | 235 | 68.5% | writer | writer |
+| Plank/Schema/ParquetDecimalConverter.cs | 111 | 70.3% | 60 | 66.7% | writer,reader,merger | writer (schema conversion/validation) + reader |
+| Plank/Writing/Encoding/ValueEncodingDispatcher.cs | 29 | 75.9% | 18 | 66.7% | writer,merger | writer |
+| Plank/Writing/Encoding/RleBitPackingHybridEncoding.cs | 351 | 78.6% | 203 | 67.0% | writer,merger | writer |
+| Plank/Writing/Encoding/PlainEncoding.cs | 821 | 70.8% | 447 | 67.1% | writer,merger | writer |
+| Plank/Reading/Logical/Internal/PhysicalSchemaBinder.cs | 277 | 79.4% | 176 | 68.2% | writer,reader,merger | reader |
+| Plank/Writing/Encoding/DeltaBinaryPackedEncoding.cs | 634 | 81.4% | 235 | 68.5% | writer,merger | writer |
 | Plank/Reading/Logical/ColumnBuffer.cs | 145 | 84.8% | 74 | 68.9% | writer,reader,merger | reader |
-| Plank/Reading/Logical/Internal/PhysicalSchemaBinder.cs | 282 | 79.1% | 184 | 69.0% | writer,reader,merger | reader |
-| Plank/Schema/ParquetDecimalConverter.cs | 103 | 73.8% | 56 | 69.6% | writer,reader | writer (schema conversion/validation) + reader |
-| Plank/Writing/BloomFilterBuilder.cs | 232 | 80.6% | 234 | 69.7% | writer,merger | writer |
-| Plank/BloomFilters/SplitBlockBloomFilter.cs | 36 | 94.4% | 10 | 70.0% | writer,reader | writer (bloom options) + reader (bloom probe) |
-| Plank/Reading/Logical/Internal/ColumnChunkReader.Timestamps.cs | 63 | 82.5% | 40 | 70.0% | writer,reader | reader |
+| Plank/Writing/Encoding/RepeatedPageValues.cs | 110 | 86.4% | 88 | 69.3% | writer | writer |
+| Plank/Reading/Logical/Internal/ColumnReadBuffers.cs | 96 | 89.6% | 70 | 70.0% | writer,reader,merger | reader |
+| Plank/Reading/Logical/Internal/NestedColumnBufferEnumerable.cs | 62 | 87.1% | 20 | 70.0% | writer,reader | reader |
+| Plank/Reading/Physical/ParquetBloomFilter.cs | 37 | 83.8% | 10 | 70.0% | writer,reader | reader (+ writer round trip for the matching encoder) |
 | Plank/RowApi/RowGroupWriterCore.cs | 22 | 95.5% | 10 | 70.0% | writer | rowapi |
-| Plank/Reading/Logical/Internal/ColumnReadBuffers.cs | 90 | 87.8% | 64 | 70.3% | writer,reader,merger | reader |
-| Plank/Reading/Logical/Internal/ColumnChunkReader.EncodedBatching.cs | 1358 | 74.7% | 730 | 71.0% | writer,reader,merger | reader |
+| Plank/Writing/AppendSortingOrder.cs | 97 | 86.6% | 184 | 71.2% | writer | writer |
 | Plank/Writing/Compression/Compression.cs | 16 | 68.8% | 7 | 71.4% | writer,merger | writer |
+| Plank/Writing/LatestRowGroupValues.cs | 153 | 78.4% | 133 | 71.4% | writer | writer |
 | Plank/Writing/PageList.cs | 31 | 87.1% | 14 | 71.4% | writer,merger | writer |
-| Plank/RowApi/RowReaderWorkers.cs | 76 | 71.1% | 18 | 72.2% | writer,reader | rowapi |
-| Plank/Writing/RowWriterBase.cs | 374 | 82.4% | 142 | 72.5% | writer | writer |
-| Plank/RowApi/RowValueSizeEstimator.cs | 80 | 81.2% | 91 | 73.6% | writer | rowapi |
-| Plank/Writing/AppendSortingOrder.cs | 94 | 89.4% | 176 | 73.9% | writer | writer |
-| Plank/Reading/Physical/Internal/PhysicalMetadataThriftReader.cs | 615 | 83.6% | 360 | 73.9% | writer,reader,merger | reader |
-| Plank/Writing/LatestRowGroupValues.cs | 133 | 81.2% | 107 | 74.8% | writer | writer |
-| Plank/Dataset/DatasetWriterBase.cs | 457 | 78.1% | 228 | 75.0% | writer | rowapi-dataset-merger (dataset targets) |
-| Plank/Reading/Logical/Internal/NestedColumnBufferEnumerable.cs | 55 | 89.1% | 12 | 75.0% | writer,reader | reader |
+| Plank/Writing/ParquetFileMerger.cs | 69 | 91.3% | 14 | 71.4% | writer,merger | writer |
+| Plank/RowApi/RowApiColumnReadStateOfT.cs | 61 | 95.1% | 18 | 72.2% | writer,reader,merger | rowapi |
+| Plank/RowApi/RowReaderWorkers.cs | 76 | 72.4% | 18 | 72.2% | writer,reader,merger | rowapi |
+| Plank/Reading/Logical/Internal/ColumnChunkReader.EncodedBatching.cs | 1338 | 76.1% | 708 | 72.3% | writer,reader,merger | reader |
+| Plank/Writing/RowWriterBase.cs | 374 | 82.4% | 142 | 72.5% | writer,merger | writer |
+| Plank/Reading/Physical/Internal/PhysicalMetadataThriftReader.cs | 616 | 83.4% | 362 | 73.8% | writer,reader,merger | reader |
+| Plank/Reading/GzipInflater.cs | 33 | 90.9% | 12 | 75.0% | writer,reader,merger | reader |
 | Plank/Reading/Logical/Internal/PageMetadataHandle.cs | 31 | 87.1% | 12 | 75.0% | writer,reader,merger | reader |
 | Plank/Reading/Logical/RowGroupCollection.cs | 26 | 84.6% | 4 | 75.0% | writer,reader,merger | reader |
 | Plank/Reading/Physical/ParquetColumnChunkEncodings.cs | 11 | 81.8% | 4 | 75.0% | writer,reader,merger | reader (+ writer round trip for the matching encoder) |
 | Plank/Reading/Physical/ParquetFileMetadata.cs | 93 | 100.0% | 12 | 75.0% | writer,reader,merger | reader |
-| Plank/RowApi/RowApiColumnWriteStateOfT.cs | 35 | 94.3% | 12 | 75.0% | writer | rowapi |
-| Plank/Schema/ParquetValueConverterOfT.cs | 55 | 80.0% | 32 | 75.0% | writer,reader | writer (schema conversion/validation) + reader |
-| Plank/Writing/Encoding/DictionaryIndexEncodingDispatcher.cs | 6 | 66.7% | 4 | 75.0% | writer | writer |
-| Plank/Writing/ColumnStatistics.cs | 1063 | 81.5% | 730 | 75.1% | writer,merger | writer |
+| Plank/RowApi/RowApiColumnWriteStateOfT.cs | 35 | 94.3% | 12 | 75.0% | writer,merger | rowapi |
+| Plank/Schema/ParquetValueConverterOfT.cs | 55 | 80.0% | 32 | 75.0% | writer,reader,merger | writer (schema conversion/validation) + reader |
+| Plank/Writing/Encoding/DictionaryIndexEncodingDispatcher.cs | 6 | 66.7% | 4 | 75.0% | writer,merger | writer |
 | Plank/Writing/BufferWriter.cs | 189 | 87.3% | 118 | 75.4% | writer,merger | writer |
-| Plank/Writing/Encoding/EncodingPrimitives.cs | 149 | 83.2% | 82 | 75.6% | writer,reader | writer |
-| Plank/Writing/Encoding/ByteStreamSplitEncoding.cs | 417 | 84.7% | 146 | 76.7% | writer | writer |
-| Plank/Writing/Encoding/OptionalRow.cs | 9 | 77.8% | 0 | n/a | writer | writer |
-| Plank/Writing/ParquetFileMerger.cs | 79 | 92.4% | 18 | 77.8% | writer,merger | writer |
+| Plank/Reading/Lz4LegacyDecompressor.cs | 163 | 85.3% | 97 | 76.3% | reader | reader |
+| Plank/Writing/Encoding/ByteStreamSplitEncoding.cs | 431 | 84.2% | 154 | 76.6% | writer,merger | writer |
+| Plank/DefaultParquetBufferPool.cs | 199 | 88.9% | 94 | 77.7% | writer,reader,merger | NEW buffer-pool/execution-options target (nobody owns) |
+| Plank/Writing/Encoding/EncodingPrimitives.cs | 159 | 84.9% | 90 | 78.9% | writer,reader,merger | writer |
+| Plank/Dataset/DatasetWriterBase.cs | 435 | 86.4% | 230 | 80.0% | writer,merger | rowapi-dataset-merger (dataset targets) |
 | Plank/Reading/RequiredFields.cs | 33 | 97.0% | 10 | 80.0% | writer,reader,merger | reader |
-| Plank/Writing/Encoding/DeltaByteArrayEncoding.cs | 165 | 89.1% | 58 | 81.0% | writer | writer |
-| Plank/RowApi/RowApiBinaryColumnReadState.cs | 45 | 97.8% | 16 | 81.2% | writer,reader | rowapi |
-| Plank/Reading/Logical/ParquetReader.cs | 151 | 88.7% | 86 | 82.6% | writer,reader,merger | reader |
-| Plank/Writing/Encoding/Encoding.cs | 2574 | 87.0% | 1512 | 82.6% | writer,merger | writer |
-| Plank/Reading/Logical/Internal/BooleanBitUnpacker.cs | 70 | 78.6% | 30 | 83.3% | writer,reader | reader |
+| Plank/RowApi/RowApiColumnReadState.cs | 53 | 88.7% | 10 | 80.0% | writer,reader,merger | rowapi |
+| Plank/RowApi/RowApiNestedColumnReadState.cs | 110 | 82.7% | 58 | 81.0% | writer,reader | rowapi |
+| Plank/Writing/Encoding/DeltaByteArrayEncoding.cs | 165 | 89.1% | 58 | 81.0% | writer,merger | writer |
+| Plank/RowApi/RowApiBinaryColumnReadState.cs | 45 | 97.8% | 16 | 81.2% | writer,reader,merger | rowapi |
+| Plank/Writing/Encoding/Encoding.cs | 2361 | 86.0% | 1388 | 81.4% | writer,merger | writer |
+| Plank/RowApi/RowApiNestedColumnDescriptor.cs | 49 | 79.6% | 27 | 81.5% | writer,reader | rowapi |
+| Plank/Writing/ParquetWriter.cs | 545 | 88.8% | 268 | 81.7% | writer,merger | writer |
+| Plank/Writing/SerializedColumn.cs | 1436 | 87.8% | 844 | 82.1% | writer,merger | writer |
+| Plank/Reading/Logical/ParquetReader.cs | 161 | 88.2% | 92 | 82.6% | writer,reader,merger | reader |
+| Plank/Reading/Logical/Internal/BooleanBitUnpacker.cs | 70 | 78.6% | 30 | 83.3% | writer,reader,merger | reader |
 | Plank/Reading/ParquetSchemaEvolutionOptions.cs | 6 | 83.3% | 0 | n/a | reader | reader |
 | Plank/Writing/PageStrategy/ForceDictionaryPageStrategy.cs | 6 | 83.3% | 0 | n/a | writer | writer |
 | Plank/Writing/Encoding/ReusableDictionaryState.cs | 158 | 81.0% | 64 | 84.4% | writer,merger | writer |
 | Plank/Writing/MutationSchemaValidator.cs | 55 | 89.1% | 58 | 84.5% | writer,merger | writer |
-| Plank/RowApi/RowApiNestedColumnReadState.cs | 143 | 83.9% | 84 | 84.5% | writer,reader | rowapi |
+| Plank/Reading/Internal/StatisticsThriftReader.cs | 43 | 95.3% | 13 | 84.6% | writer,reader,merger | reader (+ writer round trip for the matching encoder) |
 | Plank/ParquetBuffer.cs | 77 | 92.2% | 46 | 84.8% | writer,reader,merger | NEW buffer-pool/execution-options target (nobody owns) |
 | Plank/Reading/Logical/NestedRowGroupColumn.cs | 33 | 97.0% | 14 | 85.7% | writer,reader | reader |
-| Plank/Reading/PageHeaderReader.cs | 136 | 94.1% | 51 | 86.3% | writer,reader,merger | reader |
-| Plank/Writing/ParquetWriter.cs | 474 | 91.4% | 224 | 86.6% | writer,merger | writer |
+| Plank/Reading/PageHeaderReader.cs | 136 | 91.2% | 51 | 86.3% | writer,reader,merger | reader |
+| Plank/Writing/Thrift/ParquetMetadataThriftWriter.cs | 773 | 97.0% | 314 | 86.3% | writer,merger | writer |
+| Plank/Schema/ColumnDefinition.cs | 218 | 81.7% | 156 | 86.5% | writer,reader,merger | writer (schema conversion/validation) + reader |
 | Plank/Schema/LeafColumn.cs | 15 | 86.7% | 0 | n/a | writer,reader,merger | writer (schema conversion/validation) + reader |
-| Plank/Writing/Thrift/ParquetMetadataThriftWriter.cs | 814 | 96.4% | 303 | 87.1% | writer,merger | writer |
 | Plank/Reading/Logical/Internal/StatisticsBufferBuilder.cs | 35 | 97.1% | 8 | 87.5% | writer,reader | reader (+ writer round trip for the matching encoder) |
 | Plank/Reading/Logical/ParquetStatistics.cs | 13 | 92.3% | 8 | 87.5% | writer,reader | reader (+ writer round trip for the matching encoder) |
+| Plank/Reading/PageHeaderProbe.cs | 24 | 95.8% | 16 | 87.5% | writer,reader,merger | reader |
 | Plank/Schema/ParquetTypeMap.cs | 57 | 80.7% | 40 | 87.5% | writer,reader,merger | writer (schema conversion/validation) + reader |
-| Plank/Writing/Encoding/WyHashing.cs | 44 | 100.0% | 24 | 87.5% | writer | writer |
-| Plank/Writing/SerializedColumn.cs | 1283 | 92.4% | 717 | 87.7% | writer,merger | writer |
-| Plank/Schema/ColumnDefinition.cs | 204 | 81.9% | 128 | 88.3% | writer,reader,merger | writer (schema conversion/validation) + reader |
-| Plank/Reading/Internal/StatisticsThriftReader.cs | 67 | 97.0% | 19 | 89.5% | writer,reader,merger | reader (+ writer round trip for the matching encoder) |
+| Plank/Writing/Encoding/WyHashing.cs | 44 | 100.0% | 24 | 87.5% | writer,merger | writer |
+| Plank/Reading/ParquetDecompressor.cs | 41 | 75.6% | 17 | 88.2% | writer,reader,merger | reader |
+| Plank/Schema/ParquetSchema.cs | 198 | 93.9% | 103 | 88.3% | writer,reader,merger | writer (schema conversion/validation) + reader |
 | Plank/Reading/Logical/Internal/ColumnBufferEnumerable.cs | 107 | 97.2% | 30 | 90.0% | writer,reader,merger | reader |
-| Plank/Reading/PageHeaderProbe.cs | 21 | 95.2% | 10 | 90.0% | writer,reader,merger | reader |
-| Plank/Writing/RowGroupWriter.cs | 231 | 96.5% | 128 | 90.6% | writer,merger | writer |
+| Plank/Writing/StringWriteScratch.cs | 41 | 97.6% | 20 | 90.0% | writer,merger | writer |
 | Plank/Writing/PageStrategy/DefaultStrategy.cs | 26 | 96.2% | 22 | 90.9% | writer,merger | writer |
-| Plank/Writing/Encoding/DeltaLengthByteArrayEncoding.cs | 130 | 94.6% | 56 | 91.1% | writer | writer |
-| Plank/Writing/Encoding/AlpEncoding.cs | 221 | 98.2% | 86 | 91.9% | writer | writer |
-| Plank/Schema/ParquetBloomFilterOptions.cs | 27 | 100.0% | 28 | 92.9% | writer | writer (schema conversion/validation) + reader |
-| Plank/Schema/ParquetSchema.cs | 162 | 95.1% | 75 | 93.3% | writer,reader,merger | writer (schema conversion/validation) + reader |
+| Plank/Writing/RowGroupWriter.cs | 233 | 96.6% | 136 | 91.2% | writer,merger | writer |
+| Plank/Schema/ParquetBloomFilterOptions.cs | 27 | 100.0% | 28 | 92.9% | writer,merger | writer (schema conversion/validation) + reader |
+| Plank/Writing/Encoding/DeltaLengthByteArrayEncoding.cs | 130 | 95.4% | 56 | 92.9% | writer,merger | writer |
+| Plank/Writing/Encoding/AlpEncoding.cs | 221 | 98.2% | 86 | 93.0% | writer,merger | writer |
 | Plank/Reading/Physical/ParquetColumnSchemaInfo.cs | 16 | 93.8% | 0 | n/a | writer,reader,merger | reader |
 | Plank/Reading/Physical/ParquetRowGroupInfo.cs | 16 | 93.8% | 0 | n/a | writer,reader,merger | reader |
 | Plank/Reading/Logical/ParquetDataPageMetadata.cs | 17 | 94.1% | 0 | n/a | reader | reader |
-| Plank/ParquetCrc32.cs | 27 | 92.6% | 19 | 94.7% | writer | writer |
+| Plank/ParquetCrc32.cs | 27 | 96.3% | 19 | 94.7% | writer,merger | writer |
 
 ## Whole files with zero covered lines
 
 - `Plank/ParquetBufferPoolExtensions.cs` (2 lines) — owner: NEW buffer-pool/execution-options target (nobody owns)
 - `Plank/ParquetWorkerContext.cs` (1 lines) — owner: NEW buffer-pool/execution-options target (nobody owns)
+- `Plank/Reading/CompactProtocolTruncatedException.cs` (2 lines) — owner: reader
 - `Plank/Reading/Logical/RowReaderBase.cs` (14 lines) — owner: reader
-- `Plank/Reading/Lz4LegacyDecompressor.cs` (163 lines) — owner: reader
 - `Plank/Reading/Physical/ParquetGeospatialStatistics.cs` (48 lines) — owner: reader (+ writer round trip for the matching encoder)
 - `Plank/Schema/ParquetColumnAttribute.cs` (27 lines) — owner: writer (schema conversion/validation) + reader
 - `Plank/Schema/ParquetSchemaAttribute.cs` (1 lines) — owner: writer (schema conversion/validation) + reader
@@ -251,7 +258,7 @@ Per-target (Plank only): writer 65.5% branch / 69.6% line; reader 24.9% branch /
 
 Compiler-generated (lambda/state machine/local-function) bodies are folded out; accessibility is read from the source declaration line (`?` = could not tell).
 
-639 methods, 288 declared `public`.
+636 methods, 278 declared `public`.
 
 ### `Plank/obj/Release/net10.0/Plank.InternalGen/Plank.InternalGen.DeltaBinaryPackedIntegerGenerator/DeltaBinaryPackedDecoder.FastInteger.g.cs` — 72 zero-hit methods, 2012 lines — owner: writer
 
@@ -339,39 +346,37 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L1367 `LL32.LZ4_compress_HC_extStateHC` (public, 4 lines)
 - L1377 `LL32.LZ4_compress_HC` (public, 7 lines)
 
-### `Plank/Reading/Logical/Internal/ColumnChunkReader.cs` — 31 zero-hit methods, 484 lines — owner: reader
+### `Plank/Reading/Logical/Internal/ColumnChunkReader.cs` — 29 zero-hit methods, 462 lines — owner: reader
 
 - L267 `ColumnChunkReader.FormatLevelEncoding` (?, 1 lines)
 - L351 `ColumnChunkReader.TryStartFixedWidthPageBatches` (internal, 2 lines)
-- L644 `ColumnChunkReader.ValidateEmptyTimestampProjection` (?, 8 lines)
-- L914 `ColumnChunkReader.DecodeAllPresentPlainInt32BatchForTesting` (internal, 2 lines)
-- L970 `ColumnChunkReader.ExpandAllPresentDateTimeBatch` (?, 26 lines)
-- L1125 `ColumnChunkReader.ScatterNullableDoubleBatchForTesting` (internal, 1 lines)
-- L1129 `ColumnChunkReader.ScatterNullableInt64BatchForTesting` (internal, 1 lines)
-- L1323 `ColumnChunkReader.TryDecodeNullablePageIntoNative` (internal, 2 lines)
-- L1470 `ColumnChunkReader.ExpandAllPresentInt64BatchForTesting` (internal, 1 lines)
-- L1702 `ColumnChunkReader.TryDecodeRequiredPageIntoNative` (internal, 2 lines)
-- L1809 `ColumnChunkReader.TryDecodeConvertedRequiredByPhysicalType` (?, 44 lines)
-- L1861 `ColumnChunkReader.TryDecodeConvertedRequired` (?, 15 lines)
-- L2165 `ColumnChunkReader.DecodeBorrowedPlainBinaryValues` (?, 5 lines)
-- L2175 `ColumnChunkReader.FillBorrowedPlainByteArrayDescriptors` (?, 21 lines)
-- L2204 `ColumnChunkReader.DecodeByteStreamSplitBinaryValues` (?, 16 lines)
-- L2228 `ColumnChunkReader.DecodeDeltaLengthBinaryValues` (?, 29 lines)
-- L2268 `ColumnChunkReader.DecodeDeltaBinaryValues` (?, 54 lines)
-- L2551 `ColumnChunkReader.TryDecodeDeltaByteArrayIntoNative` (?, 37 lines)
-- L2934 `ColumnChunkReader.TryDecodeDeltaBinaryPackedIntoNative` (?, 70 lines)
-- L3210 `ColumnChunkReader.DecodeByteStreamSplitInt32` (?, 1 lines)
-- L3720 `ColumnChunkReader.LoadLowerUInt32` (?, 1 lines)
-- L3724 `ColumnChunkReader.DecodeByteStreamSplitFloat` (?, 3 lines)
-- L3730 `ColumnChunkReader.DecodeByteStreamSplitDouble` (?, 3 lines)
-- L4084 `ColumnChunkReader.DecodeDictionaryLiteralInt64Indexes11Bit` (?, 18 lines)
-- L4113 `ColumnChunkReader.GetRepeatedDictionaryBlockCount` (?, 11 lines)
-- L4130 `ColumnChunkReader.RepeatDictionaryValues` (?, 7 lines)
-- L4144 `ColumnChunkReader.DecodeDictionaryLiteralInt64Indexes11BitCore` (?, 27 lines)
-- L4182 `ColumnChunkReader.DecodeDictionaryLiteralInt64IndexesWide` (?, 31 lines)
-- L4228 `ColumnChunkReader.DecodeDictionaryLiteralInt64IndexesWideScalar` (?, 31 lines)
-- L4274 `ColumnChunkReader.GatherDictionaryInt64` (?, 8 lines)
-- L4289 `ColumnChunkReader.GatherDictionaryInt64Scalar` (?, 6 lines)
+- L646 `ColumnChunkReader.ValidateEmptyTimestampProjection` (?, 8 lines)
+- L917 `ColumnChunkReader.DecodeAllPresentPlainInt32BatchForTesting` (internal, 2 lines)
+- L973 `ColumnChunkReader.ExpandAllPresentDateTimeBatch` (?, 26 lines)
+- L1128 `ColumnChunkReader.ScatterNullableDoubleBatchForTesting` (internal, 1 lines)
+- L1132 `ColumnChunkReader.ScatterNullableInt64BatchForTesting` (internal, 1 lines)
+- L1326 `ColumnChunkReader.TryDecodeNullablePageIntoNative` (internal, 2 lines)
+- L1473 `ColumnChunkReader.ExpandAllPresentInt64BatchForTesting` (internal, 1 lines)
+- L1705 `ColumnChunkReader.TryDecodeRequiredPageIntoNative` (internal, 2 lines)
+- L1812 `ColumnChunkReader.TryDecodeConvertedRequiredByPhysicalType` (?, 44 lines)
+- L1864 `ColumnChunkReader.TryDecodeConvertedRequired` (?, 15 lines)
+- L2074 `ColumnChunkReader.DecodeBorrowedPlainBinaryValues` (?, 5 lines)
+- L2110 `ColumnChunkReader.DecodeByteStreamSplitBinaryValues` (?, 16 lines)
+- L2134 `ColumnChunkReader.DecodeDeltaLengthBinaryValues` (?, 29 lines)
+- L2174 `ColumnChunkReader.DecodeDeltaBinaryValues` (?, 54 lines)
+- L2457 `ColumnChunkReader.TryDecodeDeltaByteArrayIntoNative` (?, 37 lines)
+- L2854 `ColumnChunkReader.TryDecodeDeltaBinaryPackedIntoNative` (?, 70 lines)
+- L3130 `ColumnChunkReader.DecodeByteStreamSplitInt32` (?, 1 lines)
+- L3640 `ColumnChunkReader.DecodeByteStreamSplitFloat` (?, 3 lines)
+- L3646 `ColumnChunkReader.DecodeByteStreamSplitDouble` (?, 3 lines)
+- L4000 `ColumnChunkReader.DecodeDictionaryLiteralInt64Indexes11Bit` (?, 18 lines)
+- L4029 `ColumnChunkReader.GetRepeatedDictionaryBlockCount` (?, 11 lines)
+- L4046 `ColumnChunkReader.RepeatDictionaryValues` (?, 7 lines)
+- L4060 `ColumnChunkReader.DecodeDictionaryLiteralInt64Indexes11BitCore` (?, 27 lines)
+- L4098 `ColumnChunkReader.DecodeDictionaryLiteralInt64IndexesWide` (?, 31 lines)
+- L4144 `ColumnChunkReader.DecodeDictionaryLiteralInt64IndexesWideScalar` (?, 31 lines)
+- L4190 `ColumnChunkReader.GatherDictionaryInt64` (?, 8 lines)
+- L4205 `ColumnChunkReader.GatherDictionaryInt64Scalar` (?, 6 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x32/LL32.fast.cs` — 5 zero-hit methods, 298 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -381,39 +386,64 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L587 `LL32.LZ4_compress_default` (public, 1 lines)
 - L596 `LL32.LZ4_compress_fast_continue` (public, 46 lines)
 
-### `Plank/Reading/Logical/Internal/DeltaBinaryPackedDecoder.cs` — 31 zero-hit methods, 280 lines — owner: reader (+ writer round trip for the matching encoder)
+### `Plank/Writing/ColumnStatistics.cs` — 26 zero-hit methods, 285 lines — owner: writer
 
+- L240 `ColumnStatistics.CreateRepeated` (?, 4 lines)
+- L631 `ColumnStatistics.CreateDecimal` (?, 7 lines)
+- L769 `ColumnStatistics.CreateFloat16` (?, 4 lines)
+- L777 `ColumnStatistics.CreateFloat16` (?, 7 lines)
+- L823 `ColumnStatistics.CreateByteArray` (?, 13 lines)
+- L911 `ColumnStatistics.CreateMemory` (?, 13 lines)
+- L1447 `ColumnStatistics.CompareTimestamp96` (internal, 4 lines)
+- L1530 `ColumnStatistics.CountNulls` (?, 5 lines)
+- L1598 `ColumnStatistics..ctor` (internal, 21 lines)
+- L1622 `ColumnStatistics.AddNode` (internal, 12 lines)
+- L1644 `ColumnStatistics.ToStatistics` (internal, 22 lines)
+- L1672 `ColumnStatistics.AddLeaf` (?, 16 lines)
+- L1702 `ColumnStatistics.AddBoolean` (?, 8 lines)
+- L1716 `ColumnStatistics.AddInt32Leaf` (?, 20 lines)
+- L1742 `ColumnStatistics.AddInt64Leaf` (?, 18 lines)
+- L1766 `ColumnStatistics.AddInt32` (?, 10 lines)
+- L1782 `ColumnStatistics.AddUInt32` (?, 10 lines)
+- L1798 `ColumnStatistics.AddInt64` (?, 10 lines)
+- L1814 `ColumnStatistics.AddUInt64` (?, 10 lines)
+- L1830 `ColumnStatistics.AddFloat` (?, 13 lines)
+- L1852 `ColumnStatistics.AddDouble` (?, 13 lines)
+- L1874 `ColumnStatistics.AddBinaryLeaf` (?, 17 lines)
+- L1898 `ColumnStatistics.ToUnixTimeForStatistics` (?, 7 lines)
+- L1910 `ColumnStatistics.ToUnixTimeForStatistics` (?, 9 lines)
+- L1923 `ColumnStatistics.ToUnixTimeOffsetForStatistics` (?, 4 lines)
+- L1932 `ColumnStatistics.ToTimeValueForStatistics` (?, 8 lines)
+
+### `Plank/Reading/Logical/Internal/DeltaBinaryPackedDecoder.cs` — 27 zero-hit methods, 249 lines — owner: reader (+ writer round trip for the matching encoder)
+
+- L40 `DeltaBinaryPackedDecoder.get_Active` (internal, 1 lines)
 - L44 `DeltaBinaryPackedDecoder.NextBatchCount` (internal, 7 lines)
 - L269 `DeltaBinaryPackedDecoder.ReadInt32` (internal, 2 lines)
-- L275 `DeltaBinaryPackedDecoder.ReadInt64` (internal, 2 lines)
-- L280 `DeltaBinaryPackedDecoder.ReadInt32` (internal, 1 lines)
-- L284 `DeltaBinaryPackedDecoder.ReadNullableInt32` (internal, 1 lines)
-- L288 `DeltaBinaryPackedDecoder.ReadNarrowInt32` (internal, 1 lines)
-- L291 `DeltaBinaryPackedDecoder.ReadInt64` (internal, 1 lines)
-- L295 `DeltaBinaryPackedDecoder.ReadNonNegativeInt32WithConsumedBytes` (internal, 5 lines)
-- L304 `DeltaBinaryPackedDecoder.ReadUInt32WithConsumedBytes` (internal, 8 lines)
-- L318 `DeltaBinaryPackedDecoder.ReadInt32Core` (?, 13 lines)
-- L341 `DeltaBinaryPackedDecoder.ReadInt32Core` (?, 11 lines)
-- L362 `DeltaBinaryPackedDecoder.ReadNullableInt32Core` (?, 11 lines)
-- L386 `DeltaBinaryPackedDecoder.ReadInt32Values` (?, 4 lines)
-- L454 `DeltaBinaryPackedDecoder.ReadNullableInt32Values` (?, 5 lines)
-- L518 `DeltaBinaryPackedDecoder..cctor` (?, 1 lines)
-- L522 `DeltaBinaryPackedDecoder.Create` (internal, 12 lines)
-- L545 `DeltaBinaryPackedDecoder.UnpackEightAvx2` (?, 4 lines)
-- L557 `DeltaBinaryPackedDecoder.DecodeInt32MiniBlockAvx2` (internal, 9 lines)
-- L573 `DeltaBinaryPackedDecoder.DecodeNullableInt32MiniBlockAvx2` (internal, 9 lines)
-- L589 `DeltaBinaryPackedDecoder.DecodeInt64MiniBlockAvx2` (internal, 22 lines)
-- L660 `DeltaBinaryPackedDecoder.DecodeNullableInt32MiniBlockBmi2` (?, 22 lines)
-- L705 `DeltaBinaryPackedDecoder.ReconstructEightNullableInt32` (?, 11 lines)
-- L722 `DeltaBinaryPackedDecoder.ReconstructEightNullableInt32` (?, 9 lines)
-- L1029 `DeltaBinaryPackedDecoder.ReadPackedWordBmi2` (?, 7 lines)
-- L1044 `DeltaBinaryPackedDecoder.ReadNarrowInt32Core` (?, 32 lines)
-- L1096 `DeltaBinaryPackedDecoder.ReadInt64Core` (?, 13 lines)
-- L1119 `DeltaBinaryPackedDecoder.ReadInt64Core` (?, 11 lines)
-- L1140 `DeltaBinaryPackedDecoder.ReadInt64Values` (?, 4 lines)
-- L1299 `DeltaBinaryPackedDecoder.ReconstructEightInt64` (?, 8 lines)
-- L1321 `DeltaBinaryPackedDecoder.DecodeConstantInt64DeltaBlock` (?, 29 lines)
-- L1486 `DeltaBinaryPackedDecoder.StoreNarrowInt32` (?, 5 lines)
+- L274 `DeltaBinaryPackedDecoder.ReadInt32` (internal, 1 lines)
+- L278 `DeltaBinaryPackedDecoder.ReadNarrowInt32` (internal, 1 lines)
+- L281 `DeltaBinaryPackedDecoder.ReadInt64` (internal, 1 lines)
+- L285 `DeltaBinaryPackedDecoder.ReadNonNegativeInt32WithConsumedBytes` (internal, 5 lines)
+- L294 `DeltaBinaryPackedDecoder.ReadUInt32WithConsumedBytes` (internal, 8 lines)
+- L308 `DeltaBinaryPackedDecoder.ReadInt32Core` (?, 13 lines)
+- L331 `DeltaBinaryPackedDecoder.ReadInt32Core` (?, 11 lines)
+- L356 `DeltaBinaryPackedDecoder.ReadInt32Values` (?, 4 lines)
+- L478 `DeltaBinaryPackedDecoder..cctor` (?, 1 lines)
+- L482 `DeltaBinaryPackedDecoder.Create` (internal, 12 lines)
+- L505 `DeltaBinaryPackedDecoder.UnpackEightAvx2` (?, 4 lines)
+- L517 `DeltaBinaryPackedDecoder.DecodeInt32MiniBlockAvx2` (internal, 9 lines)
+- L533 `DeltaBinaryPackedDecoder.DecodeNullableInt32MiniBlockAvx2` (internal, 9 lines)
+- L549 `DeltaBinaryPackedDecoder.DecodeInt64MiniBlockAvx2` (internal, 22 lines)
+- L620 `DeltaBinaryPackedDecoder.DecodeNullableInt32MiniBlockBmi2` (?, 22 lines)
+- L665 `DeltaBinaryPackedDecoder.ReconstructEightNullableInt32` (?, 11 lines)
+- L682 `DeltaBinaryPackedDecoder.ReconstructEightNullableInt32` (?, 9 lines)
+- L989 `DeltaBinaryPackedDecoder.ReadPackedWordBmi2` (?, 7 lines)
+- L1004 `DeltaBinaryPackedDecoder.ReadNarrowInt32Core` (?, 32 lines)
+- L1056 `DeltaBinaryPackedDecoder.ReadInt64Core` (?, 11 lines)
+- L1077 `DeltaBinaryPackedDecoder.ReadInt64Values` (?, 4 lines)
+- L1236 `DeltaBinaryPackedDecoder.ReconstructEightInt64` (?, 8 lines)
+- L1258 `DeltaBinaryPackedDecoder.DecodeConstantInt64DeltaBlock` (?, 29 lines)
+- L1423 `DeltaBinaryPackedDecoder.StoreNarrowInt32` (?, 5 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x32/LL32.dec.cs` — 10 zero-hit methods, 206 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -428,42 +458,16 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L560 `LL32.LZ4_decompress_safe_partial` (public, 5 lines)
 - L571 `LL32.LZ4_decompress_safe_continue` (public, 28 lines)
 
-### `Plank/Reading/Lz4LegacyDecompressor.cs` — 9 zero-hit methods, 163 lines — owner: reader
+### `Plank/Writing/Encoding/PlainEncoding.cs` — 8 zero-hit methods, 120 lines — owner: writer
 
-- L16 `Lz4LegacyDecompressor.Decompress` (internal, 5 lines)
-- L25 `Lz4LegacyDecompressor.DecompressFrames` (?, 14 lines)
-- L49 `Lz4LegacyDecompressor.DecompressFrame` (?, 84 lines)
-- L160 `Lz4LegacyDecompressor.TryDecompressHadoop` (?, 19 lines)
-- L188 `Lz4LegacyDecompressor.TryReadHadoopBlock` (?, 21 lines)
-- L223 `Lz4LegacyDecompressor.DecodeBlock` (?, 6 lines)
-- L235 `Lz4LegacyDecompressor.StartsWithFrame` (?, 4 lines)
-- L243 `Lz4LegacyDecompressor.SkipFrame` (?, 7 lines)
-- L253 `Lz4LegacyDecompressor.EnsureAvailable` (?, 3 lines)
-
-### `Plank/Writing/ColumnStatistics.cs` — 12 zero-hit methods, 106 lines — owner: writer
-
-- L247 `ColumnStatistics.CreateOptional` (internal, 3 lines)
-- L619 `ColumnStatistics.CreateDecimal` (?, 7 lines)
-- L646 `ColumnStatistics.CreateNullableDecimal` (?, 7 lines)
-- L756 `ColumnStatistics.CreateByteArray` (?, 11 lines)
-- L797 `ColumnStatistics.CreateOptionalByteArray` (?, 17 lines)
-- L865 `ColumnStatistics.CreateMemory` (?, 11 lines)
-- L906 `ColumnStatistics.CreateNullableMemory` (?, 17 lines)
-- L1478 `ColumnStatistics.CountNulls` (?, 5 lines)
-- L1837 `ColumnStatistics.ToUnixTimeForStatistics` (?, 7 lines)
-- L1849 `ColumnStatistics.ToUnixTimeForStatistics` (?, 9 lines)
-- L1862 `ColumnStatistics.ToUnixTimeOffsetForStatistics` (?, 4 lines)
-- L1871 `ColumnStatistics.ToTimeValueForStatistics` (?, 8 lines)
-
-### `Plank/Writing/Encoding/PlainEncoding.cs` — 7 zero-hit methods, 106 lines — owner: writer
-
-- L167 `PlainEncoding.WriteByteValuesAsUInt32` (?, 34 lines)
-- L215 `PlainEncoding.WriteUInt16ValuesAsUInt32` (?, 34 lines)
-- L553 `PlainEncoding.ExtractOptionalDoubleValuesAdvSimd` (?, 12 lines)
-- L1336 `PlainEncoding.WriteInt32PageWithVector128Statistics` (internal, 12 lines)
-- L1362 `PlainEncoding.WriteInt64PageWithVector128Statistics` (internal, 12 lines)
-- L1387 `PlainEncoding.CanUseInt32Vector128` (internal, 1 lines)
-- L1391 `PlainEncoding.CanUseInt64Vector128` (internal, 1 lines)
+- L168 `PlainEncoding.WriteByteValuesAsUInt32` (?, 34 lines)
+- L216 `PlainEncoding.WriteUInt16ValuesAsUInt32` (?, 34 lines)
+- L536 `PlainEncoding.ExtractOptionalDoubleValuesAdvSimd` (?, 12 lines)
+- L1333 `PlainEncoding.WriteFixedMemoryValues` (?, 14 lines)
+- L1356 `PlainEncoding.WriteInt32PageWithVector128Statistics` (internal, 12 lines)
+- L1382 `PlainEncoding.WriteInt64PageWithVector128Statistics` (internal, 12 lines)
+- L1407 `PlainEncoding.CanUseInt32Vector128` (internal, 1 lines)
+- L1411 `PlainEncoding.CanUseInt64Vector128` (internal, 1 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.high.cs` — 7 zero-hit methods, 95 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -579,28 +583,6 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L143 `LZ4ChainDecoder.DecodeBlock` (private, 1 lines)
 - L148 `LZ4ChainDecoder.ReleaseUnmanaged` (protected, 4 lines)
 
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.dec.cs` — 7 zero-hit methods, 63 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
-
-- L484 `LL64.LZ4_decompress_safe_withPrefix64k` (public, 5 lines)
-- L495 `LL64.LZ4_decompress_safe_withSmallPrefix` (public, 5 lines)
-- L506 `LL64.LZ4_decompress_safe_doubleDict` (public, 5 lines)
-- L518 `LL64.LZ4_decompress_safe_forceExtDict` (public, 5 lines)
-- L529 `LL64.LZ4_decompress_safe_usingDict` (public, 10 lines)
-- L553 `LL64.LZ4_decompress_safe_partial` (public, 5 lines)
-- L564 `LL64.LZ4_decompress_safe_continue` (public, 28 lines)
-
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/LZ4Codec.cs` — 9 zero-hit methods, 56 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
-
-- L23 `LZ4Codec.get_Enforce32` (public, 1 lines)
-- L24 `LZ4Codec.set_Enforce32` (public, 1 lines)
-- L87 `LZ4Codec.Encode` (public, 8 lines)
-- L127 `LZ4Codec.PartialDecode` (public, 5 lines)
-- L149 `LZ4Codec.Decode` (public, 6 lines)
-- L166 `LZ4Codec.PartialDecode` (public, 6 lines)
-- L201 `LZ4Codec.Decode` (public, 12 lines)
-- L229 `LZ4Codec.Decode` (public, 7 lines)
-- L255 `LZ4Codec.Decode` (public, 10 lines)
-
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x32/LL32.tools.cs` — 8 zero-hit methods, 56 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
 - L44 `LL32..cctor` (?, 7 lines)
@@ -629,17 +611,41 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L62 `ParquetBoundingBox.get_MMax` (public, 1 lines)
 - L66 `ParquetBoundingBox.Read` (internal, 12 lines)
 
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.dec.cs` — 5 zero-hit methods, 48 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+
+- L484 `LL64.LZ4_decompress_safe_withPrefix64k` (public, 5 lines)
+- L506 `LL64.LZ4_decompress_safe_doubleDict` (public, 5 lines)
+- L518 `LL64.LZ4_decompress_safe_forceExtDict` (public, 5 lines)
+- L553 `LL64.LZ4_decompress_safe_partial` (public, 5 lines)
+- L564 `LL64.LZ4_decompress_safe_continue` (public, 28 lines)
+
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.fast.cs` — 2 zero-hit methods, 47 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
 - L580 `LL64.LZ4_compress_default` (public, 1 lines)
 - L589 `LL64.LZ4_compress_fast_continue` (public, 46 lines)
 
-### `Plank/Reading/Physical/ParquetPageCursor.cs` — 4 zero-hit methods, 47 lines — owner: reader
+### `Plank/Reading/Physical/ParquetPageCursor.cs` — 3 zero-hit methods, 46 lines — owner: reader
 
-- L56 `ParquetPageCursor..ctor` (internal, 6 lines)
-- L90 `ParquetPageCursor.GetEnumerator` (public, 1 lines)
-- L112 `ParquetPageCursor.MoveNextPruned` (?, 35 lines)
-- L330 `ParquetPageCursor.VerifyPageCrc` (?, 5 lines)
+- L56 `ParquetPageCursor..ctor` (internal, 5 lines)
+- L93 `ParquetPageCursor.GetEnumerator` (public, 1 lines)
+- L115 `ParquetPageCursor.MoveNextPruned` (?, 40 lines)
+
+### `Plank/RowApi/RowApiNestedLeafBuffer.cs` — 4 zero-hit methods, 43 lines — owner: rowapi
+
+- L99 `RowApiNestedLeafBuffer`1.GetRow` (public, 4 lines)
+- L187 `RowApiNestedLeafBuffer`1.Compact` (?, 35 lines)
+- L264 `RowApiNestedLeafBuffer`1.ThrowRepetitionLevel` (?, 2 lines)
+- L268 `RowApiNestedLeafBuffer`1.ThrowDefinitionLevel` (?, 2 lines)
+
+### `Plank/Reading/Logical/Internal/ColumnChunkReader.DictionaryPortable.cs` — 1 zero-hit methods, 43 lines — owner: reader (+ writer round trip for the matching encoder)
+
+- L16 `ColumnChunkReader.DecodeNullableInt32DictionaryNineBitPortable` (?, 43 lines)
+
+### `Plank/Reading/Logical/Internal/PageMetadataReader.cs` — 3 zero-hit methods, 43 lines — owner: reader
+
+- L340 `PageMetadataReader.PopulateHeaderStatistics` (?, 15 lines)
+- L406 `PageMetadataReader.IsIndexedEmptyDataPage` (?, 11 lines)
+- L425 `PageMetadataReader.ValidateLocationGap` (?, 17 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4EncoderBase.cs` — 8 zero-hit methods, 43 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -651,10 +657,6 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L67 `LZ4EncoderBase.Encode` (public, 13 lines)
 - L92 `LZ4EncoderBase.Commit` (private, 5 lines)
 - L117 `LZ4EncoderBase.ReleaseUnmanaged` (protected, 3 lines)
-
-### `Plank/Reading/Logical/Internal/ColumnChunkReader.DictionaryPortable.cs` — 1 zero-hit methods, 43 lines — owner: reader (+ writer round trip for the matching encoder)
-
-- L16 `ColumnChunkReader.DecodeNullableInt32DictionaryNineBitPortable` (?, 43 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4BlockDecoder.cs` — 9 zero-hit methods, 42 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -668,32 +670,38 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L88 `LZ4BlockDecoder.Peek` (public, 5 lines)
 - L100 `LZ4BlockDecoder.ReleaseUnmanaged` (protected, 3 lines)
 
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LLxx.cs` — 6 zero-hit methods, 40 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+### `Plank/Writing/SerializedColumn.cs` — 4 zero-hit methods, 38 lines — owner: writer
 
-- L15 `LLxx.AlgorithmNotImplemented` (private, 1 lines)
-- L33 `LLxx.LZ4_decompress_safe_partial` (public, 7 lines)
-- L45 `LLxx.LZ4_decompress_safe_usingDict` (public, 7 lines)
-- L57 `LLxx.LZ4_decompress_safe_continue` (public, 7 lines)
-- L82 `LLxx.LZ4_compress_fast_continue` (public, 11 lines)
-- L109 `LLxx.LZ4_compress_HC_continue` (public, 7 lines)
-
-### `Plank/RowApi/RowReaderCore.cs` — 3 zero-hit methods, 39 lines — owner: rowapi
-
-- L168 `RowReaderCore.Reset` (public, 15 lines)
-- L196 `RowReaderCore.Reset` (public, 6 lines)
-- L206 `RowReaderCore.ResetCore` (?, 18 lines)
-
-### `Plank/Dataset/DatasetWriterBase.cs` — 3 zero-hit methods, 39 lines — owner: rowapi-dataset-merger (dataset targets)
-
-- L670 `DatasetWriterBase`1.TryReleaseAfterFailure` (?, 6 lines)
-- L680 `DatasetWriterBase`1.ReleaseAfterFailure` (?, 16 lines)
-- L706 `DatasetWriterBase`1.DiscardPendingPartition` (?, 17 lines)
+- L409 `SerializedColumn`1.ToOptionalNanoseconds` (?, 7 lines)
+- L1209 `SerializedColumn`1.CaptureRepeatedShape` (?, 11 lines)
+- L1227 `SerializedColumn`1.CountShapeTokens` (?, 10 lines)
+- L1242 `SerializedColumn`1.WriteShapeTokens` (?, 10 lines)
 
 ### `Plank/Reading/Logical/Internal/ColumnChunkReader.EncodedBatching.cs` — 3 zero-hit methods, 38 lines — owner: reader
 
 - L1260 `ColumnChunkReader.StoreNullableInt64Values` (?, 7 lines)
 - L1294 `ColumnChunkReader.DecodeNullableInt32DictionaryNineBit` (?, 18 lines)
 - L1321 `ColumnChunkReader.DecodeNullableInt32DictionaryBytes` (?, 13 lines)
+
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/LZ4Codec.cs` — 7 zero-hit methods, 38 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+
+- L23 `LZ4Codec.get_Enforce32` (public, 1 lines)
+- L24 `LZ4Codec.set_Enforce32` (public, 1 lines)
+- L87 `LZ4Codec.Encode` (public, 8 lines)
+- L127 `LZ4Codec.PartialDecode` (public, 5 lines)
+- L166 `LZ4Codec.PartialDecode` (public, 6 lines)
+- L229 `LZ4Codec.Decode` (public, 7 lines)
+- L255 `LZ4Codec.Decode` (public, 10 lines)
+
+### `Plank/Writing/Encoding/Encoding.cs` — 7 zero-hit methods, 36 lines — owner: writer
+
+- L1010 `Encoding.EncodeAllPresentOptional` (?, 16 lines)
+- L3455 `Encoding.MeasureByteArrayPageRows` (?, 7 lines)
+- L3836 `Encoding.WriteBooleanDictionaryPage` (?, 9 lines)
+- L3977 `Encoding.GetHashCode` (public, 1 lines)
+- L3987 `Encoding.GetHashCode` (public, 1 lines)
+- L4065 `Encoding.Write` (public, 1 lines)
+- L4071 `Encoding.Write` (public, 1 lines)
 
 ### `Plank/Writing/Encoding/DeltaBinaryPackedEncoding.cs` — 4 zero-hit methods, 33 lines — owner: writer
 
@@ -717,6 +725,14 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L54 `RowSchemaColumn.get_FieldId` (public, 1 lines)
 - L57 `RowSchemaColumn.ToDefinition` (internal, 4 lines)
 
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LLxx.cs` — 5 zero-hit methods, 33 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+
+- L15 `LLxx.AlgorithmNotImplemented` (private, 1 lines)
+- L33 `LLxx.LZ4_decompress_safe_partial` (public, 7 lines)
+- L57 `LLxx.LZ4_decompress_safe_continue` (public, 7 lines)
+- L82 `LLxx.LZ4_compress_fast_continue` (public, 11 lines)
+- L109 `LLxx.LZ4_compress_HC_continue` (public, 7 lines)
+
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/LL.tools.cs` — 11 zero-hit methods, 32 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
 - L27 `LL.Assert` (public, 1 lines)
@@ -730,17 +746,6 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L163 `LL.MIN` (public, 1 lines)
 - L197 `LL.LZ4_saveDict` (public, 9 lines)
 - L244 `LL.LZ4_setStreamDecode` (public, 6 lines)
-
-### `Plank/Reading/Logical/Internal/PageMetadataReader.cs` — 2 zero-hit methods, 32 lines — owner: reader
-
-- L335 `PageMetadataReader.PopulateHeaderStatistics` (?, 15 lines)
-- L397 `PageMetadataReader.ValidateLocationGap` (?, 17 lines)
-
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.tools.cs` — 3 zero-hit methods, 27 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
-
-- L153 `LL64.LZ4_getPosition` (protected, 1 lines)
-- L160 `LL64.LZ4_renormDictT` (protected, 10 lines)
-- L178 `LL64.LZ4_loadDict` (public, 16 lines)
 
 ### `Plank/Schema/ParquetColumnAttribute.cs` — 19 zero-hit methods, 27 lines — owner: writer (schema conversion/validation) + reader
 
@@ -764,11 +769,23 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L56 `ParquetColumnAttribute.get_BloomFilterExpectedDistinctValueCount` (public, 1 lines)
 - L59 `ParquetColumnAttribute.get_BloomFilterMaximumBytes` (public, 1 lines)
 
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Engine/x64/LL64.tools.cs` — 3 zero-hit methods, 27 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+
+- L153 `LL64.LZ4_getPosition` (protected, 1 lines)
+- L160 `LL64.LZ4_renormDictT` (protected, 10 lines)
+- L178 `LL64.LZ4_loadDict` (public, 16 lines)
+
 ### `Plank/Writing/Encoding/RleBitPackingHybridEncoding.cs` — 3 zero-hit methods, 25 lines — owner: writer
 
 - L18 `RleBitPackingHybridEncoding.WriteWithBitWidthPrefix` (internal, 3 lines)
 - L25 `RleBitPackingHybridEncoding.Write` (internal, 3 lines)
 - L36 `RleBitPackingHybridEncoding.ValidateValues` (?, 19 lines)
+
+### `Plank/RowApi/RowValueSizeEstimator.cs` — 3 zero-hit methods, 23 lines — owner: rowapi
+
+- L73 `RowValueSizeEstimator.Estimate` (?, 1 lines)
+- L77 `RowValueSizeEstimator.EstimateArray` (?, 12 lines)
+- L94 `RowValueSizeEstimator.EstimateObject` (?, 10 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/x32/Mem32.cs` — 6 zero-hit methods, 20 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -778,15 +795,6 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L134 `Mem32.Copy18` (public, 4 lines)
 - L152 `Mem32.WildCopy8` (public, 5 lines)
 - L174 `Mem32.WildCopy32` (public, 6 lines)
-
-### `Plank/Writing/Encoding/Encoding.cs` — 6 zero-hit methods, 20 lines — owner: writer
-
-- L3398 `Encoding.MeasureByteArrayPageRows` (?, 7 lines)
-- L3768 `Encoding.WriteBooleanDictionaryPage` (?, 9 lines)
-- L4324 `Encoding.GetHashCode` (public, 1 lines)
-- L4334 `Encoding.GetHashCode` (public, 1 lines)
-- L4412 `Encoding.Write` (public, 1 lines)
-- L4418 `Encoding.Write` (public, 1 lines)
 
 ### `Plank/Writing/Encoding/ReusableDictionaryState.cs` — 1 zero-hit methods, 19 lines — owner: writer
 
@@ -838,6 +846,10 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L50 `UnmanagedResources.Dispose` (public, 3 lines)
 - L55 `UnmanagedResources.Finalize` (?, 1 lines)
 
+### `Plank/Reading/Logical/Internal/DeltaBinaryPackedReader.cs` — 1 zero-hit methods, 15 lines — owner: reader
+
+- L71 `DeltaBinaryPackedReader.ReadPackedUnsigned` (internal, 15 lines)
+
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/Extensions.cs` — 5 zero-hit methods, 15 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
 - L16 `Extensions.Required` (internal, 1 lines)
@@ -845,10 +857,6 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L30 `Extensions.ThrowAssertionFailed` (private, 1 lines)
 - L35 `Extensions.ThrowArgumentNullException` (private, 1 lines)
 - L41 `Extensions.Validate` (internal, 10 lines)
-
-### `Plank/Reading/Logical/Internal/DeltaBinaryPackedReader.cs` — 1 zero-hit methods, 15 lines — owner: reader
-
-- L71 `DeltaBinaryPackedReader.ReadPackedUnsigned` (internal, 15 lines)
 
 ### `Plank/Reading/Physical/Internal/BloomFilterReader.cs` — 1 zero-hit methods, 14 lines — owner: reader (+ writer round trip for the matching encoder)
 
@@ -862,6 +870,18 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L25 `RowReaderBase`1.get_RowGroups` (public, 1 lines)
 - L29 `RowReaderBase`1.Dispose` (public, 5 lines)
 
+### `Plank/RowApi/RowBufferSlot.cs` — 4 zero-hit methods, 13 lines — owner: rowapi
+
+- L142 `RowBufferSlot.GetRowSize` (internal, 6 lines)
+- L170 `RowBufferSlot.OnBuffersResized` (protected, 1 lines)
+- L176 `RowBufferSlot.RegisterOwner` (public, 3 lines)
+- L241 `RowBufferSlot.EnsureRowAvailable` (protected, 3 lines)
+
+### `Plank/Reading/Logical/Internal/PhysicalSchemaBinder.cs` — 2 zero-hit methods, 13 lines — owner: reader
+
+- L208 `PhysicalSchemaBinder.IsNestedRepeatedListElement` (?, 6 lines)
+- L220 `PhysicalSchemaBinder.BuildRepeatedGroupElement` (?, 7 lines)
+
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4HighChainEncoder.cs` — 5 zero-hit methods, 13 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
 - L16 `LZ4HighChainEncoder.get_Context` (private, 1 lines)
@@ -870,53 +890,45 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L42 `LZ4HighChainEncoder.EncodeBlock` (protected, 1 lines)
 - L46 `LZ4HighChainEncoder.CopyDict` (protected, 1 lines)
 
-### `Plank/RowApi/RowBufferSlot.cs` — 4 zero-hit methods, 13 lines — owner: rowapi
-
-- L123 `RowBufferSlot.GetRowSize` (internal, 6 lines)
-- L151 `RowBufferSlot.OnBuffersResized` (protected, 1 lines)
-- L157 `RowBufferSlot.RegisterOwner` (public, 3 lines)
-- L222 `RowBufferSlot.EnsureRowAvailable` (protected, 3 lines)
-
-### `Plank/Reading/Logical/Internal/PhysicalSchemaBinder.cs` — 2 zero-hit methods, 13 lines — owner: reader
-
-- L214 `PhysicalSchemaBinder.IsNestedRepeatedListElement` (?, 6 lines)
-- L226 `PhysicalSchemaBinder.BuildRepeatedGroupElement` (?, 7 lines)
-
 ### `Plank/Writing/TimestampConversion.cs` — 2 zero-hit methods, 12 lines — owner: writer
 
 - L208 `TimestampConversion.ConvertNanos` (?, 4 lines)
 - L218 `TimestampConversion.ConvertNullableNanos` (?, 8 lines)
-
-### `Plank/Reading/Logical/Internal/InternalColumnChunkMetadata.cs` — 10 zero-hit methods, 12 lines — owner: reader
-
-- L44 `InternalColumnChunkMetadata.get_Path` (internal, 1 lines)
-- L46 `InternalColumnChunkMetadata.get_PhysicalType` (internal, 1 lines)
-- L50 `InternalColumnChunkMetadata.get_DataPageOffset` (internal, 1 lines)
-- L52 `InternalColumnChunkMetadata.get_DictionaryPageOffset` (internal, 1 lines)
-- L54 `InternalColumnChunkMetadata.get_TotalCompressedSize` (internal, 1 lines)
-- L56 `InternalColumnChunkMetadata.get_TotalUncompressedSize` (internal, 1 lines)
-- L64 `InternalColumnChunkMetadata.get_ColumnIndexOffset` (internal, 1 lines)
-- L68 `InternalColumnChunkMetadata.get_OffsetIndexOffset` (internal, 1 lines)
-- L74 `InternalColumnChunkMetadata.get_BloomFilterLength` (internal, 1 lines)
-- L79 `InternalColumnChunkMetadata.get_ChunkOffset` (internal, 3 lines)
 
 ### `Plank/Compression/ZlibLibraryResolver.cs` — 2 zero-hit methods, 12 lines — owner: NEW compression-codec target (PlankDecompressorFuzzTarget exists; extend) + writer compression-level options
 
 - L117 `ZlibLibraryResolver.GetSystemLibraryCandidates` (internal, 9 lines)
 - L136 `ZlibLibraryResolver.CreateFailureMessage` (?, 3 lines)
 
-### `Plank/DefaultParquetBufferPool.cs` — 4 zero-hit methods, 11 lines — owner: NEW buffer-pool/execution-options target (nobody owns)
+### `Plank/Writing/ParquetWriter.cs` — 3 zero-hit methods, 11 lines — owner: writer
 
-- L74 `DefaultParquetBufferPool.Finalize` (?, 1 lines)
-- L87 `DefaultParquetBufferPool.get_NativeAllocationCount` (internal, 1 lines)
-- L230 `DefaultParquetBufferPool.IsProcessUnderMemoryPressure` (?, 3 lines)
-- L290 `DefaultParquetBufferPool.CancelRent` (internal, 6 lines)
+- L39 `ParquetWriter.HasRetainedInt96TimestampOrder` (internal, 1 lines)
+- L171 `ParquetWriter.get_RowApiMaxParallelism` (public, 2 lines)
+- L595 `ParquetWriter.RestoreRetainedFooter` (?, 8 lines)
 
 ### `Plank/Writing/RowWriterBase.cs` — 3 zero-hit methods, 11 lines — owner: writer
 
 - L176 `RowWriterBase`1.get_WorkerThreadNamePrefix` (protected, 1 lines)
 - L182 `RowWriterBase`1.OnSlotWritten` (protected, 1 lines)
 - L601 `RowWriterBase`1.RecordFault` (?, 9 lines)
+
+### `Plank/Reading/Logical/Internal/ColumnChunkReader.Timestamps.cs` — 3 zero-hit methods, 11 lines — owner: reader
+
+- L56 `ColumnChunkReader.DecodeInt96Ticks` (?, 7 lines)
+- L67 `ColumnChunkReader.ThrowInt96TimestampOutOfRange` (?, 2 lines)
+- L72 `ColumnChunkReader.ThrowTimestampOutOfRange` (?, 2 lines)
+
+### `Plank/Reading/Logical/Internal/InternalColumnChunkMetadata.cs` — 9 zero-hit methods, 11 lines — owner: reader
+
+- L29 `InternalColumnChunkMetadata.get_PhysicalType` (internal, 1 lines)
+- L33 `InternalColumnChunkMetadata.get_DataPageOffset` (internal, 1 lines)
+- L35 `InternalColumnChunkMetadata.get_DictionaryPageOffset` (internal, 1 lines)
+- L37 `InternalColumnChunkMetadata.get_TotalCompressedSize` (internal, 1 lines)
+- L39 `InternalColumnChunkMetadata.get_TotalUncompressedSize` (internal, 1 lines)
+- L47 `InternalColumnChunkMetadata.get_ColumnIndexOffset` (internal, 1 lines)
+- L51 `InternalColumnChunkMetadata.get_OffsetIndexOffset` (internal, 1 lines)
+- L57 `InternalColumnChunkMetadata.get_BloomFilterLength` (internal, 1 lines)
+- L62 `InternalColumnChunkMetadata.get_ChunkOffset` (internal, 3 lines)
 
 ### `Plank/Schema/RowSchema.cs` — 7 zero-hit methods, 10 lines — owner: writer (schema conversion/validation) + reader
 
@@ -928,13 +940,30 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L26 `RowSchema.Column` (public, 1 lines)
 - L31 `RowSchema.Column` (public, 1 lines)
 
-### `Plank/RowApi/RowReaderWorkers.cs` — 5 zero-hit methods, 10 lines — owner: rowapi
+### `Plank/RowApi/RowReaderCore.cs` — 1 zero-hit methods, 9 lines — owner: rowapi
 
-- L54 `RowReaderWorkers.get_Count` (internal, 1 lines)
+- L515 `RowReaderCore.ValidateCollectionDefaults` (?, 9 lines)
+
+### `Plank/RowApi/RowReaderWorkers.cs` — 4 zero-hit methods, 9 lines — owner: rowapi
+
 - L130 `RowReaderSynchronizedSource..ctor` (public, 2 lines)
 - L137 `RowReaderSynchronizedSource.get_Length` (public, 3 lines)
 - L143 `RowReaderSynchronizedSource.ReadExactly` (public, 3 lines)
 - L146 `RowReaderSynchronizedSource.Dispose` (public, 1 lines)
+
+### `Plank/Reading/CompactProtocolReader.cs` — 4 zero-hit methods, 9 lines — owner: reader
+
+- L33 `CompactProtocolReader.ReadI16` (internal, 2 lines)
+- L57 `CompactProtocolReader.ReadDouble` (internal, 2 lines)
+- L111 `CompactProtocolReader.ReadDouble` (?, 4 lines)
+- L253 `CompactProtocolReader.ThrowInvalidCompactType` (?, 1 lines)
+
+### `Plank/Reading/Logical/ParquetFileMetadata.cs` — 4 zero-hit methods, 9 lines — owner: reader
+
+- L9 `ParquetFileMetadata..ctor` (public, 6 lines)
+- L29 `ParquetFileMetadata.get_FooterOffset` (public, 1 lines)
+- L31 `ParquetFileMetadata.get_FooterLength` (public, 1 lines)
+- L33 `ParquetFileMetadata.get_Version` (public, 1 lines)
 
 ### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Internal/x64/Mem64.cs` — 4 zero-hit methods, 9 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
@@ -958,31 +987,15 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L37 `LZ4FastChainEncoder.EncodeBlock` (protected, 1 lines)
 - L41 `LZ4FastChainEncoder.CopyDict` (protected, 1 lines)
 
-### `Plank/Reading/CompactProtocolReader.cs` — 4 zero-hit methods, 9 lines — owner: reader
+### `Plank/DefaultParquetBufferPool.cs` — 3 zero-hit methods, 8 lines — owner: NEW buffer-pool/execution-options target (nobody owns)
 
-- L33 `CompactProtocolReader.ReadI16` (internal, 2 lines)
-- L57 `CompactProtocolReader.ReadDouble` (internal, 2 lines)
-- L111 `CompactProtocolReader.ReadDouble` (?, 4 lines)
-- L253 `CompactProtocolReader.ThrowInvalidCompactType` (?, 1 lines)
+- L74 `DefaultParquetBufferPool.Finalize` (?, 1 lines)
+- L87 `DefaultParquetBufferPool.get_NativeAllocationCount` (internal, 1 lines)
+- L290 `DefaultParquetBufferPool.CancelRent` (internal, 6 lines)
 
-### `Plank/Reading/Logical/ParquetFileMetadata.cs` — 4 zero-hit methods, 9 lines — owner: reader
+### `Plank/Reading/CompactStructLength.cs` — 1 zero-hit methods, 8 lines — owner: reader
 
-- L9 `ParquetFileMetadata..ctor` (public, 6 lines)
-- L29 `ParquetFileMetadata.get_FooterOffset` (public, 1 lines)
-- L31 `ParquetFileMetadata.get_FooterLength` (public, 1 lines)
-- L33 `ParquetFileMetadata.get_Version` (public, 1 lines)
-
-### `Plank/Reading/StreamReadSource.cs` — 2 zero-hit methods, 8 lines — owner: reader
-
-- L8 `StreamReadSource.get_Stream` (internal, 1 lines)
-- L23 `StreamReadSource.Reset` (public, 7 lines)
-
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4Encoder.cs` — 4 zero-hit methods, 7 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
-
-- L16 `LZ4Encoder.Create` (public, 4 lines)
-- L22 `LZ4Encoder.CreateBlockEncoder` (private, 1 lines)
-- L25 `LZ4Encoder.CreateFastEncoder` (private, 1 lines)
-- L29 `LZ4Encoder.CreateHighEncoder` (private, 1 lines)
+- L150 `CompactStructLength.SkipElements` (?, 8 lines)
 
 ### `Plank/Writing/Encoding/ByteArrayRow.cs` — 7 zero-hit methods, 7 lines — owner: writer
 
@@ -999,11 +1012,12 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L30 `ParquetTypeMap.TryGetPhysicalType` (public, 3 lines)
 - L37 `ParquetTypeMap.GetPhysicalType` (public, 4 lines)
 
-### `Plank/RowApi/RowApiColumnReadState.cs` — 3 zero-hit methods, 7 lines — owner: rowapi
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4Encoder.cs` — 4 zero-hit methods, 7 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
-- L61 `RowApiColumnReadState.ResetForMissingUnprojected` (internal, 5 lines)
-- L79 `RowApiColumnReadState.PrepareBatch` (internal, 1 lines)
-- L127 `RowApiColumnReadState.Dispose` (public, 1 lines)
+- L16 `LZ4Encoder.Create` (public, 4 lines)
+- L22 `LZ4Encoder.CreateBlockEncoder` (private, 1 lines)
+- L25 `LZ4Encoder.CreateFastEncoder` (private, 1 lines)
+- L29 `LZ4Encoder.CreateHighEncoder` (private, 1 lines)
 
 ### `Plank/Schema/ColumnDefinition.cs` — 5 zero-hit methods, 6 lines — owner: writer (schema conversion/validation) + reader
 
@@ -1015,14 +1029,7 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 
 ### `Plank/RowApi/RowApiNestedColumnReadState.cs` — 1 zero-hit methods, 6 lines — owner: rowapi
 
-- L43 `RowApiNestedColumnReadState`2.SetMissingValue` (internal, 6 lines)
-
-### `Plank/Reading/Physical/ParquetBloomFilter.cs` — 4 zero-hit methods, 6 lines — owner: reader (+ writer round trip for the matching encoder)
-
-- L20 `ParquetBloomFilter.get_BitsetSizeBytes` (public, 2 lines)
-- L30 `ParquetBloomFilter.get_Bitset` (public, 2 lines)
-- L45 `ParquetBloomFilter.MightContain` (public, 1 lines)
-- L49 `ParquetBloomFilter.MightContain` (public, 1 lines)
+- L49 `RowApiNestedColumnReadState`1.SetMissingValue` (internal, 6 lines)
 
 ### `Plank/Reading/Logical/Internal/InternalParquetFooter.cs` — 5 zero-hit methods, 6 lines — owner: reader
 
@@ -1032,21 +1039,19 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L35 `InternalParquetFooter.get_RowGroupsOffset` (internal, 1 lines)
 - L37 `InternalParquetFooter.get_RowGroupsEndOffset` (internal, 1 lines)
 
-### `Plank/Writing/Thrift/ParquetMetadataThriftWriter.cs` — 3 zero-hit methods, 5 lines — owner: writer
-
-- L251 `ParquetMetadataThriftWriter.WriteRowGroup` (internal, 1 lines)
-- L1026 `ParquetMetadataThriftWriter.GetPathSegments` (?, 3 lines)
-- L1273 `ParquetMetadataThriftWriter.WriteRaw` (internal, 1 lines)
-
 ### `Plank/Writing/Encoding/ByteArrayComparer.cs` — 1 zero-hit methods, 5 lines — owner: writer
 
 - L19 `ByteArrayComparer.GetHashCode` (public, 5 lines)
 
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4BlockEncoder.cs` — 3 zero-hit methods, 4 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+### `Plank/RowApi/RowApiNestedColumnDescriptor.cs` — 1 zero-hit methods, 4 lines — owner: rowapi
 
-- L14 `LZ4BlockEncoder..ctor` (public, 2 lines)
-- L20 `LZ4BlockEncoder.EncodeBlock` (protected, 1 lines)
-- L23 `LZ4BlockEncoder.CopyDict` (protected, 1 lines)
+- L63 `RowApiNestedColumnDescriptor`1.CreateWriteState` (internal, 4 lines)
+
+### `Plank/Reading/Physical/ParquetBloomFilter.cs` — 3 zero-hit methods, 4 lines — owner: reader (+ writer round trip for the matching encoder)
+
+- L25 `ParquetBloomFilter.get_BitsetSizeBytes` (public, 2 lines)
+- L50 `ParquetBloomFilter.MightContain` (public, 1 lines)
+- L54 `ParquetBloomFilter.MightContain` (public, 1 lines)
 
 ### `Plank/Reading/Physical/ParquetFileReader.cs` — 1 zero-hit methods, 4 lines — owner: reader
 
@@ -1059,17 +1064,27 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L51 `RowGroupCollection.System.Collections.IEnumerator.get_Current` (?, 1 lines)
 - L68 `RowGroupCollection.System.Collections.IEnumerator.Reset` (?, 1 lines)
 
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4Decoder.cs` — 3 zero-hit methods, 3 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+### `Plank/Dataset/DatasetWriterBase.cs` — 1 zero-hit methods, 4 lines — owner: rowapi-dataset-merger (dataset targets)
 
-- L15 `LZ4Decoder.Create` (public, 1 lines)
-- L18 `LZ4Decoder.CreateChainDecoder` (private, 1 lines)
-- L21 `LZ4Decoder.CreateBlockDecoder` (private, 1 lines)
+- L396 `DatasetWriterBase`1.PromoteLatestParkedPartition` (?, 4 lines)
+
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4BlockEncoder.cs` — 3 zero-hit methods, 4 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+
+- L14 `LZ4BlockEncoder..ctor` (public, 2 lines)
+- L20 `LZ4BlockEncoder.EncodeBlock` (protected, 1 lines)
+- L23 `LZ4BlockEncoder.CopyDict` (protected, 1 lines)
+
+### `Plank/PooledByteMemory.cs` — 3 zero-hit methods, 3 lines — owner: writer
+
+- L19 `PooledByteMemory.Pin` (public, 1 lines)
+- L20 `PooledByteMemory.Unpin` (public, 1 lines)
+- L21 `PooledByteMemory.Dispose` (protected, 1 lines)
 
 ### `Plank/Writing/Encoding/ByteStreamSplitEncoding.cs` — 3 zero-hit methods, 3 lines — owner: writer
 
-- L717 `ByteStreamSplitEncoding.NarrowToByte` (?, 1 lines)
-- L721 `ByteStreamSplitEncoding.NarrowToByte` (?, 1 lines)
-- L725 `ByteStreamSplitEncoding.StoreLowerUInt64` (?, 1 lines)
+- L739 `ByteStreamSplitEncoding.NarrowToByte` (?, 1 lines)
+- L743 `ByteStreamSplitEncoding.NarrowToByte` (?, 1 lines)
+- L747 `ByteStreamSplitEncoding.StoreLowerUInt64` (?, 1 lines)
 
 ### `Plank/Writing/Encoding/ReadOnlyMemoryByteComparer.cs` — 1 zero-hit methods, 3 lines — owner: writer
 
@@ -1085,11 +1100,11 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 - L30 `RowGroup.get_ColumnChunkOffset` (public, 1 lines)
 - L36 `RowGroup.get_PreviousColumns` (internal, 1 lines)
 
-### `Plank/Dataset/DatasetBufferSlot.cs` — 3 zero-hit methods, 3 lines — owner: rowapi-dataset-merger (dataset targets)
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/Encoders/LZ4Decoder.cs` — 3 zero-hit methods, 3 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
 
-- L198 `DatasetBufferSlot.Pin` (public, 1 lines)
-- L200 `DatasetBufferSlot.Unpin` (public, 1 lines)
-- L202 `DatasetBufferSlot.Dispose` (protected, 1 lines)
+- L15 `LZ4Decoder.Create` (public, 1 lines)
+- L18 `LZ4Decoder.CreateChainDecoder` (private, 1 lines)
+- L21 `LZ4Decoder.CreateBlockDecoder` (private, 1 lines)
 
 ### `Plank/CorruptParquetException.cs` — 1 zero-hit methods, 2 lines — owner: writer
 
@@ -1099,28 +1114,29 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 
 - L10 `ParquetBufferPoolExtensions.Rent` (public, 2 lines)
 
-### `Plank/Writing/ParquetWriter.cs` — 1 zero-hit methods, 2 lines — owner: writer
-
-- L163 `ParquetWriter.get_RowApiMaxParallelism` (public, 2 lines)
-
 ### `Plank/Writing/StreamParquetSource.cs` — 2 zero-hit methods, 2 lines — owner: writer
 
-- L24 `StreamParquetSource.Open` (public, 1 lines)
-- L67 `StreamParquetSource.Dispose` (public, 1 lines)
+- L26 `StreamParquetSource.Open` (public, 1 lines)
+- L87 `StreamParquetSource.Dispose` (public, 1 lines)
 
 ### `Plank/Writing/Encoding/BitPackedEncoding.cs` — 1 zero-hit methods, 2 lines — owner: writer
 
 - L9 `BitPackedEncoding.WriteValues` (internal, 2 lines)
 
-### `Plank/Writing/Encoding/OptionalRow.cs` — 2 zero-hit methods, 2 lines — owner: writer
-
-- L55 `RequiredRow`1.IsPresent` (public, 1 lines)
-- L58 `RequiredRow`1.GetValue` (public, 1 lines)
-
 ### `Plank/Schema/LeafColumn.cs` — 2 zero-hit methods, 2 lines — owner: writer (schema conversion/validation) + reader
 
 - L55 `LeafColumn.get_FieldId` (public, 1 lines)
 - L59 `LeafColumn.get_PageStrategy` (public, 1 lines)
+
+### `Plank/RowApi/RowApiColumnReadState.cs` — 2 zero-hit methods, 2 lines — owner: rowapi
+
+- L81 `RowApiColumnReadState.PrepareBatch` (internal, 1 lines)
+- L129 `RowApiColumnReadState.Dispose` (public, 1 lines)
+
+### `Plank/Reading/CompactProtocolTruncatedException.cs` — 2 zero-hit methods, 2 lines — owner: reader
+
+- L25 `CompactProtocolTruncatedException..ctor` (?, 1 lines)
+- L27 `CompactProtocolTruncatedException.get_MissingBytes` (internal, 1 lines)
 
 ### `Plank/Reading/Physical/ParquetPage.cs` — 2 zero-hit methods, 2 lines — owner: reader
 
@@ -1135,22 +1151,10 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 
 - L26 `ParquetDataPageMetadataCollection.get_BoundaryOrder` (public, 2 lines)
 
-### `Plank/Reading/Logical/Internal/ColumnChunkReader.Timestamps.cs` — 1 zero-hit methods, 2 lines — owner: reader
-
-- L55 `ColumnChunkReader.ThrowTimestampOutOfRange` (?, 2 lines)
-
 ### `Plank/Reading/Logical/Internal/InternalRowGroupMetadata.cs` — 2 zero-hit methods, 2 lines — owner: reader
 
 - L18 `InternalRowGroupMetadata.get_MetadataOffset` (internal, 1 lines)
 - L20 `InternalRowGroupMetadata.get_ColumnChunkOffset` (internal, 1 lines)
-
-### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/AssemblyHook.cs` — 1 zero-hit methods, 1 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
-
-- L5 `AssemblyHook..ctor` (private, 1 lines)
-
-### `Plank/ParquetCrc32.cs` — 1 zero-hit methods, 1 lines — owner: writer
-
-- L23 `ParquetCrc32.Compute` (internal, 1 lines)
 
 ### `Plank/ParquetWorkerContext.cs` — 1 zero-hit methods, 1 lines — owner: NEW buffer-pool/execution-options target (nobody owns)
 
@@ -1158,7 +1162,11 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 
 ### `Plank/Writing/LatestRowGroupValues.cs` — 1 zero-hit methods, 1 lines — owner: writer
 
-- L201 `LatestRowGroupValues.Unsupported` (?, 1 lines)
+- L232 `LatestRowGroupValues.Unsupported` (?, 1 lines)
+
+### `Plank/Writing/Thrift/ParquetMetadataThriftWriter.cs` — 1 zero-hit methods, 1 lines — owner: writer
+
+- L1222 `ParquetMetadataThriftWriter.WriteRaw` (internal, 1 lines)
 
 ### `Plank/Writing/PageStrategy/ForceDictionaryPageStrategy.cs` — 1 zero-hit methods, 1 lines — owner: writer
 
@@ -1172,14 +1180,6 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 
 - L6 `ParquetSchemaAttribute.get_AllowAllocatingValues` (public, 1 lines)
 
-### `Plank/RowApi/RowApiNestedColumnDescriptor.cs` — 1 zero-hit methods, 1 lines — owner: rowapi
-
-- L65 `RowApiNestedColumnDescriptor`2.CreateWriteState` (internal, 1 lines)
-
-### `Plank/RowApi/RowValueSizeEstimator.cs` — 1 zero-hit methods, 1 lines — owner: rowapi
-
-- L73 `RowValueSizeEstimator.Estimate` (?, 1 lines)
-
 ### `Plank/Reading/PageHeaderReader.cs` — 1 zero-hit methods, 1 lines — owner: reader
 
 - L9 `PageHeaderReader.Read` (internal, 1 lines)
@@ -1187,6 +1187,10 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 ### `Plank/Reading/ParquetSchemaEvolutionOptions.cs` — 1 zero-hit methods, 1 lines — owner: reader
 
 - L11 `ParquetSchemaEvolutionOptions.get_Default` (public, 1 lines)
+
+### `Plank/Reading/StreamReadSource.cs` — 1 zero-hit methods, 1 lines — owner: reader
+
+- L8 `StreamReadSource.get_Stream` (internal, 1 lines)
 
 ### `Plank/Reading/Physical/ParquetColumnSchemaInfo.cs` — 1 zero-hit methods, 1 lines — owner: reader
 
@@ -1212,10 +1216,10 @@ Compiler-generated (lambda/state machine/local-function) bodies are folded out; 
 
 - L29 `BinaryValueDescriptor.get_Offset` (internal, 1 lines)
 
-### `Plank/Reading/Logical/Internal/ColumnReadBuffers.cs` — 1 zero-hit methods, 1 lines — owner: reader
-
-- L78 `ColumnReadBuffers`1.SetBorrowedBinaryDictionaryPayload` (internal, 1 lines)
-
 ### `Plank/Reading/Logical/Internal/PageMetadataHandle.cs` — 1 zero-hit methods, 1 lines — owner: reader
 
 - L27 `PageMetadataHandle.get_BoundaryOrder` (internal, 1 lines)
+
+### `third_party/K4os.Compression.LZ4/src/K4os.Compression.LZ4/AssemblyHook.cs` — 1 zero-hit methods, 1 lines — owner: NEW compression-codec target (LZ4 raw/frame/block via Parquet LZ4_RAW + LZ4 pages); mostly unreachable library surface otherwise
+
+- L5 `AssemblyHook..ctor` (private, 1 lines)

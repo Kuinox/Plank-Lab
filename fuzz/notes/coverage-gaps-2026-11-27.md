@@ -1,9 +1,7 @@
 # What the fuzzers do not reach in Plank — coverage gap map (2026-11-27)
 
-Measured on Plank-Lab master `4d66b21` with the submodule still at its pin **`library/Plank` 127b567** (library master `3a6a28a` is
-37 commits ahead and does not compile against the current harness — API breaks in `RowApiNestedColumnDescriptor<T>`,
-`MemoryReadSource` ctor etc.; agent `bump` owns that). **Re-run `fuzz/coverage-all.sh` + `fuzz/coverage-gaps.py` after the bump**;
-the file/method names below are from the pin. Machine: ovh (AVX2+BMI2, **no AVX512**).
+**Re-measured on Plank master `3a6a28a`** (Plank-Lab `876a3f5` + rowapi `5a96ba3`, i.e. after the bump). The first version of this report was
+on the old pin 127b567 (branch 68.6 %); master numbers below. Machine: ovh (AVX2+BMI2, **no AVX512**).
 
 ## Method
 `fuzz/coverage-all.sh` replays every committed seed dir (writer: `corpus`, `writer-gap-seeds`, `nested-gap-seeds`, `*-seeds`, `repros`,
@@ -12,29 +10,39 @@ the file/method names below are from the pin. Machine: ovh (AVX2+BMI2, **no AVX5
 assemblies `Plank` and the vendored `Plank.K4os.LZ4` (`Plank.Native.Zlib` is only a package of native `libz` binaries — no managed
 code, covered via Plank's Gzip path). Each target is replayed in three ISA tiers (host default, AVX2 off, all intrinsics off) and
 unioned. `fuzz/coverage-gaps.py` merges the cobertura reports. Full generated detail (every namespace/file, every zero-hit method with
-accessibility and owner): [coverage-gaps-detail-pin-127b567.md](coverage-gaps-detail-pin-127b567.md) (this directory).
+accessibility and owner): [coverage-gaps-detail-master-3a6a28a.md](coverage-gaps-detail-master-3a6a28a.md) (this directory).
 Note: only corpora were replayed, not AFL queues (`*-findings` dirs are not committed); AFL-found paths are not in these numbers.
 
-## Headline (union of writer+reader+merger, three ISA tiers)
+## Headline (master 3a6a28a; union of writer+reader+merger, three ISA tiers)
 | assembly | lines | branches |
 |---|---|---|
-| Plank | 72.7 % (19350/26602) | **68.6 %** (9394/13698) — host-default tier alone 67.4 % |
-| Plank.K4os.LZ4 | 19.1 % | 14.0 % (see below: most of the rest is unreachable on x64 / not used by Plank) |
+| Plank | 72.9 % (19719/27052) | **68.0 %** (9640/14181) — host-default tier alone 66.8 % (pin: 68.6 % / 67.4 %) |
+| Plank.K4os.LZ4 | 20.0 % | 15.2 % (most of the rest is x32-only / unused by Plank, see gap 8) |
 
-Per target, Plank branch coverage: writer 65.5 %, reader 24.9 %, merger 10.6 %. The reader replay (84 inputs) is thin: the reader
-harness is the main way to cover everything under `Reading/`, which sits at 48–62 %.
+Per target, Plank branch coverage: writer 64.5 %, reader 25.3 %, merger 41.2 % (merger was 10.6 % on the pin: the row-API dataset/merge routes help).
+Namespaces (branch %): Reading/Physical 53 · Reading/Logical/Internal (decoders) 62 · RowApi 66 · Reading 66 · Writing 73 · Writing/Encoding 77 ·
+Schema 81 · Dataset 84 · Writing/Thrift 86 · Compression (zlib glue) 34 · generated DeltaBinaryPacked kernels 6. Reader target on Reading/Physical: 45 %.
+Whole files still at zero lines (non-K4os): ParquetBufferPoolExtensions, ParquetWorkerContext, CompactProtocolTruncatedException, RowReaderBase,
+ParquetGeospatialStatistics, ParquetColumnAttribute/ParquetSchemaAttribute/RowSchema/RowSchemaColumn (see correction in gap 5), BitPackedEncoding. 636 zero-hit methods, 278 `public`.
 
-Per namespace (branch %): Reading 48.5 · Reading/Physical 50.9 · Reading/Logical/Internal (the decoders, 6.7 k lines) 61.5 ·
-Writing/Compression 60.9 · RowApi 69.3 · Reading/Logical 71.7 · Reading/Physical/Internal 72.2 · Writing/Encoding 77.7 · Writing 78.7 ·
-Dataset 80.7 · Schema 81.9 · BloomFilters 85.0 · Writing/Thrift 87.1 · Compression (zlib glue) 33.8. Full table in the detail file.
-Reader share of Writing/*: the reader target reaches ~0 % of the writer (expected); the merger reaches only 1–13 % of Writing and 0 % of RowApi.
+### New on master (replay of committed seeds)
+- **SIGSEGV**: `corpus/rowapi-wide-direct-groups-1.bin`, `rowapi-wide-nullable-direct-groups-1.bin`, `-2.bin` (rowapi's new multi-group direct routes) kill the
+  replay process with a segmentation fault (exit 139, no managed exception). This is the row-group row writer writing past native buffers — almost certainly
+  Plank #276 now reached through growth, but it *is* memory corruption, so check it is #276 and not something else. They zero the whole coverlet report, so
+  `fuzz/coverage-skip.txt` quarantines them (remove once #276 is fixed).
+- Writer replay FAULTs (18 vs 3 on the pin; 2 are the known #219 repros, 1 is #276's `rowapi-direct-rowgroup.bin`). New: `writer-gap-seeds/fixed-bss/read-only-memory-rejected.bin`
+  ("Expected the fixed BSS ReadOnlyMemory rejection, got ''" — master no longer rejects), `repeated-accumulator/time-only.bin` ("Array type TimeOnly[] is incompatible with column"),
+  `encode-optional/public-empty-optional-columns.bin`, `repeated-rows-coverage/{unknown-flat,unknown-nested,memory-optional,memory}.bin` (message/behaviour changes: "Unsupported repeated physical type '255'",
+  "…use a nullable row element type", "Repeated ReadOnlyMemory rows were not rejected"), `dataset-operational-promotion-open-retry.bin` (IOException "Injected dataset Open failure" now escapes). Reader: 8 nested-map
+  RowApi seeds fault with InvalidOperationException "Empty/null collection marker at position 1." (reader harness now lets non-binding InvalidOperationException through, 4d66b21). Each is either a library
+  behaviour change on master that the writer-target expectations have not caught up with, or a real master regression — **triage needed** (owner: writer / reader agents).
 
 ## Top gaps (code that does real work, ranked), with owner
 1. **`decompressor` route had no seed at all** — `Reading/Lz4LegacyDecompressor.cs` (163 lines: Hadoop framing, LZ4 frame parser with
    block/content checksums, dependent blocks, skippable frames) was **0 %**; the bit-7 route of the reader target
    (`PlankDecompressorFuzzTarget`) had no seed in `reader-corpus`. **Fixed here**: `fuzz/decompressor-seeds/` (27 seeds, generated by
    `fuzz/decompressor-seeds.py`; Lz4Legacy now 85 % lines / 76 % branches, 0 FAULTs). Raw Snappy/Gzip/Zstd/Brotli payload seeds are
-   still thin (only snappy/gzip/lz4 hand-made; zstd/brotli seeds need a compressor). Owner: reader (add the dir to the reader corpus / `parquet.dict`
+   now also zstd (10), brotli (7) and gzip (6) seeds: `ParquetDecompressor` 44 % → 76 % lines, `GzipInflater` 91 %; 50 seeds total, 0 FAULTs. Owner: reader (add the dir to the reader corpus / `parquet.dict`
    has no entry for the 0x80 selector). Also flaw class 2: that target swallows every `InvalidOperationException` from a valid decompress call.
 2. **Reader-side decoding of DELTA_BYTE_ARRAY / DELTA_LENGTH_BYTE_ARRAY / BYTE_STREAM_SPLIT binary and DELTA_BINARY_PACKED "into native"**:
    `ColumnChunkReader.DecodeDeltaBinaryValues` (54 lines), `DecodeDeltaLengthBinaryValues` (29), `TryDecodeDeltaByteArrayIntoNative` (37),
@@ -50,10 +58,10 @@ Reader share of Writing/*: the reader target reaches ~0 % of the writer (expecte
    `ColumnChunkReader.DictionaryPortable.cs` (portable 9-bit dictionary path, 74 lines) and `DecodeDictionaryLiteralInt64Indexes11Bit*/Wide*` are only reachable
    on other hardware or with `DOTNET_Enable*=0`. Owner: campaign infra — run the fuzz fleet/replays per tier (already how `coverage-tiers.sh` works); AFL
    campaigns should include a scalar worker (`DOTNET_EnableHWIntrinsic=0`) and an AVX512 host.
-5. **Source-generated POCO/attribute schema API is never driven**: `Schema/ParquetColumnAttribute.cs` (all 19 members), `ParquetSchemaAttribute`,
-   `RowSchema` (`Create`, `Column`, `Columns`), `RowSchemaColumn`, `ParquetTypeMap.GetPhysicalType/TryGetPhysicalType` — 0 lines. Plank.SourceGen generates code from these
-   attributes, so the generated writers/readers (and their converters) are unfuzzed. Owner: **new target** (nobody owns): a type with `[ParquetColumn]`
-   members compiled into Plank.Fuzzing, round-tripped with fuzzer-chosen values/options.
+5. **(Corrected) attribute/POCO schema API** — `ParquetColumnAttribute`, `ParquetSchemaAttribute` show 0 lines only because attributes are compile-time metadata read by Plank.SourceGen
+   (they never execute at runtime; coverage of the *generated* code is in Plank.Fuzzing, outside the `[Plank]*` filter). rowapi already drives `[ParquetSchema]`/`[ParquetColumn]` through
+   `RowFuzzSchemas.cs` and the generated `RowFuzzWide.g.cs`, so this is **not a gap**. What remains genuinely unreached is the *runtime* schema builder: `RowSchema.Create/Column/Columns`,
+   `RowSchemaColumn` (33 lines), `ParquetTypeMap.GetPhysicalType/TryGetPhysicalType`. Owner: rowapi (small).
 6. **Geospatial statistics** `Reading/Physical/ParquetGeospatialStatistics.cs` (48 lines, 14 public members), `ParquetColumnChunkMetadata.ReadGeospatialStatistics`:
    0 %. Thrift GeospatialStatistics/bbox parse is untouched; also `ParquetDataPageMetadataCollection.BoundaryOrder` getter. Owner: reader (needs footer seeds
    with column-chunk geospatial stats + the bounding-box/z/m variants; the writer cannot produce them).
@@ -98,7 +106,7 @@ Other facts
   never asserted by the round trips (flaw class 3: written metadata is not compared with read metadata). Owner: reader/writer.
 - The `rowapi-direct-rowgroup.bin` seed FAULTs (Plank #276, expected).
 
-## What this commit changes
+## What these commits change
 - `fuzz/coverage-all.sh` (all seed dirs × 3 targets × 3 ISA tiers, both runtime assemblies), `fuzz/coverage-gaps.py` (merge + gap/owner report),
-  `fuzz/decompressor-seeds.py` + `fuzz/decompressor-seeds/` (27 seeds for the 0x80 decompressor route), this report and the detail file.
+  `fuzz/decompressor-seeds.py` + `fuzz/decompressor-seeds/` (50 seeds for the 0x80 decompressor route), `fuzz/coverage-skip.txt` (quarantine for segfaulting seeds), this report and the detail file.
 - Verified: decompressor-seeds replay under the reader target with 0 FAULTs; Lz4LegacyDecompressor 0 % → 85.3 % lines.
