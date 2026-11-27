@@ -97,8 +97,37 @@ public static class PlankReaderFuzzTarget
         {
             Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : data[1..].ToArray(), bufferPool);
         }
-        catch (Exception ex) when (ex is CorruptParquetException or NotSupportedException or InvalidOperationException) { }
+        catch (Exception ex) when (IsExpectedRejection(ex))
+        {
+            // PLANK_FUZZ_TRACE_INVALID_OPERATION=1 lists every swallowed InvalidOperationException
+            // so each message can be classified as API misuse or as a leaked internal assertion.
+            if (ex is InvalidOperationException && TraceInvalidOperation)
+                Console.Error.WriteLine($"INVALIDOP\t{ex.GetType().Name}\t{ex.Message.Replace('\n', ' ')}\t{ex.StackTrace?.Split('\n').FirstOrDefault()?.Trim()}");
+        }
     }
+
+    // An InvalidOperationException is only expected for caller-vs-file binding
+    // diagnostics: the target deliberately requests schemas and CLR types that
+    // the fuzzed file may not satisfy. Any other one (decoder assertions such as
+    // "Plain decoding declined ...", length mismatches) escaping on malformed
+    // bytes is a library bug that must be CorruptParquetException, so it is let
+    // through to be reported instead of silently swallowed.
+    static readonly string[] BindingDiagnostics =
+    [
+        "Requested schema column ", "cannot be read as", "must be read as", "does not have a Bloom filter",
+        "Row API column "
+    ];
+
+    internal static bool IsExpectedRejection(Exception ex) => ex switch
+    {
+        CorruptParquetException or NotSupportedException => true,
+        InvalidOperationException => ex.GetType() == typeof(InvalidOperationException)
+            && BindingDiagnostics.Any(d => ex.Message.Contains(d, StringComparison.Ordinal)),
+        _ => false
+    };
+
+    static readonly bool TraceInvalidOperation =
+        Environment.GetEnvironmentVariable("PLANK_FUZZ_TRACE_INVALID_OPERATION") == "1";
 
     public static Exception? GetHandledException(byte[] data)
     {
@@ -109,7 +138,7 @@ public static class PlankReaderFuzzTarget
                 DefaultParquetBufferPool.Shared);
             return null;
         }
-        catch (Exception ex) when (ex is CorruptParquetException or NotSupportedException or InvalidOperationException)
+        catch (Exception ex) when (IsExpectedRejection(ex))
         {
             return ex;
         }
@@ -514,18 +543,21 @@ public static class PlankReaderFuzzTarget
                 return;
 
             DateOnly?[] expected = [new DateOnly(2020, 1, 2), null, new DateOnly(2020, 1, 4)];
+            // Only the shipped fixture has these values; mutants are decoded but not compared.
+            var exact = Convert.ToHexStringLower(SHA256.HashData(parquetBytes))
+                == "079565ce4f442a28e6917861552ab997366151a5e511970510bf1cf02ff86767";
             var row = 0;
             foreach (var buffer in group.Column<DateOnly?>(0))
             {
                 foreach (var value in buffer.Values)
                 {
-                    if (row >= expected.Length || value != expected[row])
+                    if (exact && (row >= expected.Length || value != expected[row]))
                         throw new InvalidDataException(
                             $"The nullable DATE type-probe value {row} was {value?.ToString() ?? "null"}.");
                     row++;
                 }
             }
-            if (row != expected.Length)
+            if (exact && row != expected.Length)
                 throw new InvalidDataException("The nullable DATE type-probe row count changed.");
 
             var rejected = false;
