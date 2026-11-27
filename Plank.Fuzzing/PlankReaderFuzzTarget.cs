@@ -629,6 +629,8 @@ public static class PlankReaderFuzzTarget
         // See IsaDifferential.
         if ((selector & 1) == 0 && (borrowBits & 2) == 0)
             IsaDifferential.Check(fileBytes, options);
+        if ((selector & 1) == 0)
+            IsaDifferential.AppendDigest(fileBytes, fileBytes, options);
 
         // Bit 3 (file-schema route) reads the file again through a page pruner.
         // See CrossCheckPrunedReads.

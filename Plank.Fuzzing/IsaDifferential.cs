@@ -54,6 +54,32 @@ internal static class IsaDifferential
         }
     }
 
+    // Cross-process differential: PLANK_FUZZ_DIGEST_FILE=<path> appends "<input hash>\t<digest of every decoded value>" for each
+    // file-schema input. Run the same corpus under different ISA environments (AVX-512, AVX2, scalar) and compare the files:
+    // identical inputs must give identical digests (`join` on the first column; see fuzz/tools-reader-coverage/digest-compare.sh).
+    static readonly string? DigestFile = Environment.GetEnvironmentVariable("PLANK_FUZZ_DIGEST_FILE");
+
+    internal static void AppendDigest(ReadOnlySpan<byte> input, byte[] fileBytes, ParquetReaderOptions options)
+    {
+        if (string.IsNullOrEmpty(DigestFile))
+            return;
+        var text = new System.Text.StringBuilder();
+        foreach (var (label, (values, error)) in Snapshot(fileBytes, options))
+        {
+            text.Append(label).Append('=');
+            if (error is not null)
+                text.Append("ERR:").Append(error.GetType().Name);
+            else if (values is not null)
+                foreach (var v in values)
+                    text.Append(v is IFormattable f ? f.ToString(null, System.Globalization.CultureInfo.InvariantCulture) : v?.ToString() ?? "null").Append(',');
+            text.Append('\n');
+        }
+        var digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text.ToString())))[..16];
+        var key = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(input))[..16];
+        lock (DigestFile)
+            File.AppendAllText(DigestFile, $"{key}\t{digest}\n");
+    }
+
     static string Describe(Exception? error) => error is null ? "read it" : $"threw {error.GetType().Name}";
 
     // Reads every flat column of every row group as T and T? (where T is the column's natural CLR type), the
