@@ -95,3 +95,18 @@ Coverage runs must replay the generated corpus too: the committed `reader-*` dir
 - `fuzz/reader-pqt-seeds/`: `import-parquet-testing-seeds.sh` output (≤ 8 KB files of the pinned parquet-testing submodule), committed here so coverage runs include it.
 - `fuzz/reader-converter-seeds/`: inputs for the `CVRT` route (`ConverterDeclineProbe`): each flat leaf read through value converters of every plausible physical type.
 - Coverage summarising helpers: `fuzz/tools-reader-coverage/` (`covunion.py PATTERN cobertura...`).
+
+### Writer AFL and threads (`PLANK_FUZZ_SINGLE_THREAD`, `PLANK_FUZZ_SURVIVE_CRASH`)
+
+SharpFuzz keeps the previous-location state in a static, so any code running on another thread scribbles
+on the coverage map and the same input maps different edges on every run. Symptoms in `fuzzer_stats`:
+`stability` of a few percent, `var_byte_count` near 65k, `edges_found == total_edges`, and a corpus that
+grows with junk. The row-API pipeline always starts worker threads, so set `PLANK_FUZZ_SINGLE_THREAD=1`
+for AFL runs (row routes then draw `MaxParallelism`/`ExplicitParallelism`/`ReaderWorkers` as usual but pin
+them to 1). That is not sufficient on its own: the RowApi (`0xFF`) and dataset (`0xFE`) routes were still
+nondeterministic, so campaigns used a filtered corpus/dictionary without them.
+Check `afl-showmap` twice on a seed before trusting a route under AFL.
+
+`PLANK_FUZZ_SURVIVE_CRASH=1` makes the harness report a managed exception to AFL as a crash (wait status
+11) and keep serving instead of FailFast-ing, so AFL records crashes and does not re-dry-run the queue on
+restart. Native crashes still kill the worker; run workers in a restart loop (see `jobworker` pattern).
