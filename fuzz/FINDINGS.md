@@ -202,6 +202,15 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
   where `CorruptParquetException` is required. Repro: `fuzz/repros/page-metadata-scan-overflow/`. The other ~1,900 declared-huge-size/count/list-length/binary-length/page-header seeds
   (`fuzz/reader-resource-seeds/`, made by `fuzz/resource-seeds.py`) were all rejected cleanly within the allocation/time budget (`ResourceBudget`), and every prefix of 86 valid files through
   four source flavours (`fuzz/reader-truncation-seeds/`, route `TRNC`) was rejected with `CorruptParquetException`.
+- Route `LIF1` (0xC0, `LifetimeSurfaceCases`) found no library defect in 5,500 inputs: `ColumnBuffer.Retain` / `NestedColumnBuffer.RetainLevels`
+  (also on borrowed and variable-length buffers) stay intact across enumerator advance, early enumerator Dispose, reader `Reset`, reader
+  `Dispose` and pool churn, over a pool that poisons returned payloads with 0xDD, with every allocation returned exactly once and
+  `DangerousGetAddress` stable; 2–4 threads sharing one pool and one schema (plain writer/reader, row API, dataset writer; the dataset writer is not
+  documented thread-safe, so each thread owns its writer) read back exactly their own rows; `TargetFileSizeBytes` rollover (1 B … 512 MB)
+  and 2–5-source mergers with per-file options preserve all rows in order; Geometry/Geography CRS, Geography algorithm and Variant version
+  survive the logical and physical metadata; custom `IPageStrategy` implementations (page size 0/1/huge/varying, row counts 0/1/huge/varying,
+  dictionary decisions changing per call) either fail with a defined `InvalidOperationException` ("Page strategy returned N rows for a page with M rows remaining")
+  or write exact data, never hang (30 s watchdog).
 
 ## Fuzz-harness defects (fixed)
 
