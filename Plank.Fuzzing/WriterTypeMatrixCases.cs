@@ -51,7 +51,7 @@ internal static class WriterTypeMatrixCases
     internal static void Execute(ReadOnlySpan<byte> data)
     {
         var c = new Cur(data);
-        var kind = c.Int(0, 13);
+        var kind = c.Int(0, 14);
         var p = DrawParams(c);
         switch (kind)
         {
@@ -67,6 +67,7 @@ internal static class WriterTypeMatrixCases
             case 10: Unsigned(c, p); break;
             case 11: Temporal(c, p); break;
             case 12: Converted(c, p); break;
+            case 13: ConvertedBinary(c, p); break;
             default: SchemaFactories(c, p); break;
         }
     }
@@ -234,6 +235,7 @@ internal static class WriterTypeMatrixCases
                     // Appending into the latest row group has to read the retained values back as their CLR
                     // type, which a value-converted column does not allow (same limitation the append-sorting
                     // route asserts). Appending a new row group and merging work for such columns.
+                    RouteEvidence.Hit($"variant2.{typeof(T).Name}.converter-rejected");
                     return;
                 }
 
@@ -259,6 +261,7 @@ internal static class WriterTypeMatrixCases
         }
 
         VerifyFile(what, schema, p, result, all, resultBounds, read, equal, bloom, key);
+        RouteEvidence.Hit($"variant{variant}.{typeof(T).Name}.verified");
     }
 
     // Min/max/null_count of a binary column against what was written. Statistics may be truncated for long
@@ -509,11 +512,13 @@ internal static class WriterTypeMatrixCases
             catch (InvalidOperationException error) when (mode == 6
                 && error.Message.Contains("more fractional digits than scale", StringComparison.Ordinal))
             {
+                RouteEvidence.Hit("decimal.mode6.lossy-fraction.rejected");
                 return;
             }
             catch (OverflowException error) when (mode == 7
                 && error.Message.Contains("exceeds precision", StringComparison.Ordinal))
             {
+                RouteEvidence.Hit("decimal.mode7.overflow.rejected");
                 return;
             }
 
@@ -522,6 +527,7 @@ internal static class WriterTypeMatrixCases
         }
 
         Run();
+        RouteEvidence.Hit($"decimal.mode{mode}.{physical}.roundtrip");
     }
 
     // ---- 8/16-bit narrowing ------------------------------------------------------------------------------
@@ -975,10 +981,16 @@ internal static class WriterTypeMatrixCases
         var strategy = Strategy(c);
         var adjusted = c.Int(0, 2) == 0;
         bool Null() => c.Int(0, 5) == 0;
+        var tag = "temporal";
 
+        // Every completed round trip (and every asserted rejection) is counted under its form, unit, adjusted flag
+        // and nullability: PLANK_ORACLE_COUNTERS=1 prints them, so a branch that never ran is visible.
         void Go<T>(string label, PlankSchema schema, T[] values)
-            => RoundTrip(label, schema, p, values, g => Target.ReadAllBuffers(g.Column<T>(schema.LeafColumns[0])),
+        {
+            RoundTrip(label, schema, p, values, g => Target.ReadAllBuffers(g.Column<T>(schema.LeafColumns[0])),
                 static (a, b) => EqualityComparer<T>.Default.Equals(a, b), c);
+            RouteEvidence.Hit(tag + ".roundtrip");
+        }
 
         T[] Fill<T>(Func<T> make) where T : struct
         {
@@ -1000,6 +1012,7 @@ internal static class WriterTypeMatrixCases
         {
             case 0:
             {
+                tag = $"temporal.date.opt={optional}";
                 var def = ColumnDefinition.Leaf("d", ParquetPhysicalType.Int32, Opts(repetition, encoding), new LogicalType.Date(), strategy);
                 var schema = new PlankSchema([def]);
                 var label = $"date {encoding} optional={optional} rows={rows}";
@@ -1018,6 +1031,7 @@ internal static class WriterTypeMatrixCases
             }
             case 1:
             {
+                tag = $"temporal.time.{unit}.adj={adjusted}.opt={optional}";
                 var physical = unit == TimeUnit.Millis ? ParquetPhysicalType.Int32 : ParquetPhysicalType.Int64;
                 var def = ColumnDefinition.Leaf("t", physical, Opts(repetition, encoding), new LogicalType.Time(unit, adjusted), strategy);
                 var schema = new PlankSchema([def]);
@@ -1044,6 +1058,7 @@ internal static class WriterTypeMatrixCases
                 var def = ColumnDefinition.Leaf("ts", ParquetPhysicalType.Int64, Opts(repetition, encoding), new LogicalType.Timestamp(unit, adjusted), strategy);
                 var schema = new PlankSchema([def]);
                 var rightKind = adjusted ? DateTimeKind.Utc : DateTimeKind.Unspecified;
+                tag = $"temporal.timestamp{(form == 4 ? "-wrongkind" : "")}.{unit}.adj={adjusted}.opt={optional}";
                 var label = $"timestamp adjusted={adjusted} {unit} {encoding} optional={optional} rows={rows}";
                 if (form == 4)
                 {
@@ -1057,6 +1072,7 @@ internal static class WriterTypeMatrixCases
                     }
                     catch (InvalidOperationException error) when (error.Message.Contains("DateTime values must have kind", StringComparison.Ordinal))
                     {
+                        RouteEvidence.Hit(tag + ".rejected");
                         return;
                     }
 
@@ -1076,6 +1092,7 @@ internal static class WriterTypeMatrixCases
                     new LogicalType.Timestamp(unit, form == 3 || adjusted), strategy);
                 var schema = new PlankSchema([def]);
                 var useAdjusted = form == 3 || adjusted;
+                tag = $"temporal.offset.{unit}.adj={useAdjusted}.opt={optional}";
                 var label = $"timestamp-offset adjusted={useAdjusted} {unit} {encoding} optional={optional} rows={rows}";
                 DateTimeOffset Offset()
                 {
@@ -1083,6 +1100,8 @@ internal static class WriterTypeMatrixCases
                     var minutes = c.Int(-14 * 4, 14 * 4 + 1) * 15; // quarter-hour offsets up to +-14h
                     try
                     {
+                        if (minutes != 0)
+                            RouteEvidence.Hit("temporal.offset.nonzero-offset-values");
                         return new DateTimeOffset(utc).ToOffset(TimeSpan.FromMinutes(minutes));
                     }
                     catch (ArgumentOutOfRangeException)
@@ -1098,6 +1117,7 @@ internal static class WriterTypeMatrixCases
                 catch (InvalidOperationException error) when (!useAdjusted
                     && error.Message.Contains("adjusted-to-UTC", StringComparison.Ordinal))
                 {
+                    RouteEvidence.Hit(tag + ".rejected");
                     return;
                 }
 
@@ -1126,8 +1146,65 @@ internal static class WriterTypeMatrixCases
         public override NotLong ConvertFromPhysical(long value) => new(~value);
     }
 
+    readonly record struct NotUInt(uint Value);
+
+    readonly record struct NotULong(ulong Value);
+
+    sealed class NotUIntConverter : ParquetValueConverter<NotUInt, uint>
+    {
+        public override uint ConvertToPhysical(NotUInt value) => ~value.Value;
+        public override NotUInt ConvertFromPhysical(uint value) => new(~value);
+    }
+
+    sealed class NotULongConverter : ParquetValueConverter<NotULong, ulong>
+    {
+        public override ulong ConvertToPhysical(NotULong value) => ~value.Value;
+        public override NotULong ConvertFromPhysical(ulong value) => new(~value);
+    }
+
+    // Converter whose PHYSICAL CLR type is unsigned (uint / ulong): the column's own order still decides the
+    // statistics, so an unannotated INT32 / INT64 column orders the stored bit patterns as signed.
+    static void ConvertedUnsignedPhysical(Cur c, Params p)
+    {
+        var is64 = c.Int(0, 2) == 0;
+        var optional = c.Int(0, 2) == 0;
+        var annotated = c.Int(0, 2) == 0;
+        var encoding = c.Pick(EncodingKind.Plain, EncodingKind.DeltaBinaryPacked, EncodingKind.RleDictionary);
+        var rows = c.Pick(1, 5, 70, 900);
+        var def = ColumnDefinition.Leaf("convu", is64 ? ParquetPhysicalType.Int64 : ParquetPhysicalType.Int32,
+            Opts(optional ? ParquetRepetition.Optional : ParquetRepetition.Required, encoding),
+            annotated ? new LogicalType.Int((byte)(is64 ? 64 : 32), false) : null, Strategy(c),
+            is64 ? new NotULongConverter() : new NotUIntConverter());
+        var schema = new PlankSchema([def]);
+        var column = schema.LeafColumns[0];
+        var what = $"converter-unsigned-physical {(is64 ? "NotULong" : "NotUInt")} annotated={annotated} {encoding} optional={optional} rows={rows}";
+        bool Null() => c.Int(0, 5) == 0;
+        ulong Draw() => c.Int(0, 3) == 0 ? ulong.MaxValue - (ulong)c.Int(0, 5) : ((ulong)(uint)c.Int(0, int.MaxValue) << 32) | (uint)c.Int(0, int.MaxValue);
+        IComparable? KeyU(NotUInt v) => WriterStatisticsOracle.OrderByColumn(column, unchecked((int)~v.Value));
+        IComparable? KeyL(NotULong v) => WriterStatisticsOracle.OrderByColumn(column, unchecked((long)~v.Value));
+        if (is64 && optional)
+            RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => Null() ? (NotULong?)null : new NotULong(Draw())).ToArray(),
+                g => Target.ReadAllBuffers(g.Column<NotULong?>(column)), static (a, b) => a == b, c, false, v => v is { } x ? KeyL(x) : null);
+        else if (is64)
+            RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => new NotULong(Draw())).ToArray(),
+                g => Target.ReadAllBuffers(g.Column<NotULong>(column)), static (a, b) => a == b, c, false, KeyL);
+        else if (optional)
+            RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => Null() ? (NotUInt?)null : new NotUInt((uint)Draw())).ToArray(),
+                g => Target.ReadAllBuffers(g.Column<NotUInt?>(column)), static (a, b) => a == b, c, false, v => v is { } x ? KeyU(x) : null);
+        else
+            RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => new NotUInt((uint)Draw())).ToArray(),
+                g => Target.ReadAllBuffers(g.Column<NotUInt>(column)), static (a, b) => a == b, c, false, KeyU);
+        RouteEvidence.Hit($"converter-unsigned-physical.{(is64 ? "ulong" : "uint")}.annotated={annotated}.{(optional ? "optional" : "required")}.roundtrip");
+    }
+
     static void Converted(Cur c, Params p)
     {
+        if (c.Int(0, 3) == 0)
+        {
+            ConvertedUnsignedPhysical(c, p);
+            return;
+        }
+
         var is64 = c.Int(0, 2) == 0;
         var optional = c.Int(0, 2) == 0;
         var annotated = c.Int(0, 3) == 0; // unsigned column order on top of the converter
@@ -1172,6 +1249,65 @@ internal static class WriterTypeMatrixCases
         catch (ArgumentException error) when (annotated && error.ParamName == "converter")
         {
             // A converter on an annotated column may be refused at schema construction.
+            RouteEvidence.Hit("converter.annotated-rejected");
+            return;
         }
+
+        RouteEvidence.Hit($"converter.{(is64 ? "NotLong" : "NotInt")}.unsigned={annotated}.{(optional ? "optional" : "required")}.roundtrip");
+    }
+
+    // ---- converters over binary physical types ----------------------------------------------------------------
+
+    // Byte reversal and bit complement both change the lexicographic order of the stored bytes relative to the
+    // CLR wrapper, so statistics that follow the wrapper (or the unconverted value) instead of the stored bytes
+    // are wrong. Physical CLR types: byte[] and string -> BYTE_ARRAY, Guid -> FIXED_LEN_BYTE_ARRAY(16).
+    readonly record struct FlipGuid(Guid Value);
+
+    sealed class FlipGuidConverter : ParquetValueConverter<FlipGuid, Guid>
+    {
+        public static Guid Flip(Guid value)
+        {
+            var bytes = value.ToByteArray(bigEndian: true);
+            for (var i = 0; i < bytes.Length; i++)
+                bytes[i] ^= 0xFF;
+            return new Guid(bytes, bigEndian: true);
+        }
+
+        public override Guid ConvertToPhysical(FlipGuid value) => Flip(value.Value);
+        public override FlipGuid ConvertFromPhysical(Guid value) => new(Flip(value));
+    }
+
+    static void ConvertedBinary(Cur c, Params p)
+    {
+        // Converter physical types must be unmanaged (byte[] / string are not allowed), so the only binary-physical
+        // one is Guid -> FIXED_LEN_BYTE_ARRAY(16). Bit complement reverses the unsigned lexicographic order.
+        var optional = c.Int(0, 2) == 0;
+        var encoding = c.Pick(EncodingKind.Plain, EncodingKind.PlainDictionary, EncodingKind.RleDictionary);
+        var rows = c.Pick(1, 4, 70, 900);
+        var distinct = c.Pick(1, 3, 20, rows);
+        var def = ColumnDefinition.Leaf("convbin", ParquetPhysicalType.FixedLenByteArray,
+            Opts(optional ? ParquetRepetition.Optional : ParquetRepetition.Required, encoding, 16u), new LogicalType.Uuid(),
+            Strategy(c), new FlipGuidConverter());
+        var schema = new PlankSchema([def]);
+        var column = schema.LeafColumns[0];
+        var what = $"converter-guid {encoding} optional={optional} rows={rows}";
+        bool Null() => c.Int(0, 5) == 0;
+        var pool = Enumerable.Range(0, distinct).Select(_ =>
+        {
+            var b = new byte[16];
+            for (var i = 0; i < 16; i++)
+                b[i] = c.Int(0, 3) == 0 ? (byte)0x80 : c.Byte();
+            return new Guid(b, bigEndian: true);
+        }).ToArray();
+        // Statistics are over the STORED bytes: the flipped guid, big-endian, compared as unsigned bytes.
+        IComparable? Key(FlipGuid v) => WriterStatisticsOracle.BytesKey(FlipGuidConverter.Flip(v.Value).ToByteArray(bigEndian: true));
+        RouteEvidence.Hit($"converter-guid.{(optional ? "optional" : "required")}.attempt");
+        if (optional)
+            RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => Null() ? (FlipGuid?)null : new FlipGuid(pool[c.Int(0, distinct)])).ToArray(),
+                g => Target.ReadAllBuffers(g.Column<FlipGuid?>(column)), static (a, b) => a == b, c, false, v => v is { } x ? Key(x) : null);
+        else
+            RoundTrip(what, schema, p, Enumerable.Range(0, rows).Select(_ => new FlipGuid(pool[c.Int(0, distinct)])).ToArray(),
+                g => Target.ReadAllBuffers(g.Column<FlipGuid>(column)), static (a, b) => a == b, c, false, Key);
+        RouteEvidence.Hit($"converter-guid.{(optional ? "optional" : "required")}.roundtrip");
     }
 }

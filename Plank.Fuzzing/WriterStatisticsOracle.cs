@@ -388,6 +388,8 @@ internal static class WriterStatisticsOracle
             _ => null
         };
 
+    internal static IComparable BytesKey(byte[] bytes) => new ByteKey(bytes);
+
     static IComparable Ticks(long ticks, TimeUnit unit)
         => unit switch
         {

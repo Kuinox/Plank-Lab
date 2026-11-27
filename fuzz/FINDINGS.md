@@ -158,7 +158,7 @@ unsorted rows is not a defect; the oracle checks declared orders only on the app
 - **`ulong` written to an unannotated (signed) INT64 column gets statistics in unsigned order** (64-bit sibling of the
   `uint` / INT32 finding above): min/max follow the CLR type, so min > max in the column's order for values above
   `long.MaxValue`. All encodings, required and optional. The 32-bit `uint` form (oracle agent's finding) also reproduces through `WTM1` (PLAIN, PLAIN_DICTIONARY, ...). Repro: [`repros/statistics-ulong-in-signed-int64-order/`](repros/statistics-ulong-in-signed-int64-order/).
-  The earlier oracle keyed min/max by CLR type, which is why it could not see either bug; it now keys by the column's
+  The same defect shows through value converters whose PHYSICAL CLR type is `uint`/`ulong` on an unannotated column (`WTM1` converter-unsigned-physical, all encodings). The earlier oracle keyed min/max by CLR type, which is why it could not see either bug; it now keys by the column's
   physical + logical type.
 
 ## Writer-route observations (writer agent, 2026-11-27) - limitations, not defects
