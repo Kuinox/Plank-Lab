@@ -189,6 +189,10 @@ internal static class WriterStatisticsOracle
         if (nextRow != (ulong)keys.Length)
             throw Fail(what, group, $"pages cover {nextRow} rows, the chunk has {keys.Length}");
         var order = pages.BoundaryOrder;
+        // boundary_order is a required field of the ColumnIndex: when the index exists it must say something
+        // (Unordered is always a valid answer, and is what the writer currently writes for every column).
+        if (chunk.HasColumnIndex && order == ParquetBoundaryOrder.Unknown)
+            throw Fail(what, group, "the column index has no boundary order");
         if (order is ParquetBoundaryOrder.Ascending or ParquetBoundaryOrder.Descending)
             _boundaryOrders++;
         if (order == ParquetBoundaryOrder.Ascending && !ascending)

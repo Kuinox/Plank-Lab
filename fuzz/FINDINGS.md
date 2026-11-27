@@ -116,6 +116,18 @@ unsorted rows is not a defect; the oracle checks declared orders only on the app
   flagged by the full-value oracle's metadata comparison). Low severity (leniency, no memory unsafety).
 - Also surfaced by the full-value oracle on an existing seed: `fuzz/reader-corpus/file-schema-nested-maps-dictionary-snappy.bin` — "statistics: Plank lost a min/max Arrow reads" for the nested map key column
   (`a.key_value.value.key_value.key`, Int32); owner: oracle agent.
+## Writer-route observations (writer agent, 2026-11-27) - limitations, not defects
+
+Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that found it, so a change in behaviour
+(either way) shows up as a fault.
+
+| Observation | Where |
+|---|---|
+| The writer always writes `boundary_order = UNORDERED` in the column index, even for monotonic page bounds. Valid, but readers cannot use the ordering. The oracle (`WriterStatisticsOracle`) fails if the field is missing, and fails if the writer ever claims ASCENDING/DESCENDING for bounds that are not ordered. | `Writing/Thrift/ParquetMetadataThriftWriter.cs:113` |
+| A CLR `decimal` column inside a repeated structure (list, map) cannot be written: `Array type 'System.Decimal[]' is incompatible with column ...` (`InvalidOperationException`). The same decimal is fine in a flat column or in a non-repeated group. | `Writing/Encoding/RepeatedPageValues.cs:44`; asserted in `WriterGroupCases` |
+| `NestedColumn<decimal>` cannot be read (`NotSupportedException: ... cannot be decoded into pooled values of type 'System.Decimal'`) even for non-repeated nested columns; decimals are compared through their physical form (`int`/`long`/bytes). | `Reading/Logical/Internal/NestedColumnBufferEnumerable.cs` |
+| Optional BYTE_STREAM_SPLIT binary and FLBA DELTA_BYTE_ARRAY are rejected with explicit `NotSupportedException`s. | asserted in `WriterTypeMatrixCases.Binary` |
+| `InitialColumnBufferBytes > int.MaxValue` is accepted by `ParquetWriterOptions.Validate`; it is only rejected when a column buffer is first rented. | `BufferWriterCapacityCases` |
 
 ## Fuzz-harness defects (fixed)
 

@@ -162,6 +162,15 @@ internal static class WriterTypeMatrixCases
     {
         var bounds = Boundaries(c, values.Length, p.Groups);
         var file = WriteColumn(schema, p, values, bounds);
+        VerifyFile(what, schema, p, file, values, bounds, read, equal, bloom);
+        AppendMergeVariant(what, schema, p, file, values, bounds, read, equal, c, bloom);
+        return (file, bounds);
+    }
+
+    // Reads `file` back and checks the values, the group shapes, and the statistics / page index / bloom oracle.
+    static void VerifyFile<T>(string what, PlankSchema schema, Params p, byte[] file, T[] values, int[] bounds,
+        Func<RowGroup, T[]> read, Func<T, T, bool> equal, bool bloom)
+    {
         CheckGroups(file, schema, bounds, what);
         using var reader = schema.CreateReader(new MemoryStream(file, writable: false));
         for (var g = 0; g < reader.RowGroups.Count; g++)
@@ -177,7 +186,69 @@ internal static class WriterTypeMatrixCases
         }
 
         WriterStatisticsOracle.Check(what, schema, file, bounds, values, p.PageIndexes, bloom);
-        return (file, bounds);
+    }
+
+    // After the first file is verified, a second batch is added in one of three ways and the WHOLE result is
+    // verified again, statistics / page indexes / bloom filters included: they must describe the union of the
+    // retained and the new values, not just one of them.
+    //   1 append a new row group      2 append into the latest row group      3 merge a second file
+    static void AppendMergeVariant<T>(string what, PlankSchema schema, Params p, byte[] file, T[] values, int[] bounds,
+        Func<RowGroup, T[]> read, Func<T, T, bool> equal, Cur c, bool bloom)
+    {
+        var variant = c.Int(0, 6);
+        if (variant is 0 or 4 or 5)
+            return;
+        var rotate = c.Int(0, values.Length);
+        var extra = values.Skip(rotate).Concat(values.Take(rotate)).Take(c.Pick(1, 3, 40, 500, int.MaxValue)).ToArray();
+        var all = values.Concat(extra).ToArray();
+        what = $"{what} +variant{variant}";
+        using var pool = WriterFuzzPool.Create(p.Pool);
+        var options = Options(p, p.Pool, pool);
+        byte[] result;
+        int[] resultBounds;
+        switch (variant)
+        {
+            case 1 or 2:
+            {
+                var latest = variant == 2;
+                using var stream = new MemoryStream();
+                stream.Write(file);
+                stream.Position = 0;
+                using (var writer = schema.CreateAppender(stream, new ParquetAppendOptions
+                       {
+                           AppendToLatestRowGroup = latest,
+                           WriterOptions = options
+                       }))
+                {
+                    var group = writer.StartRowGroup();
+                    var column = group.CreateSerializedColumn<T>(schema.LeafColumns[0]);
+                    column.Serialize(extra);
+                    group.Write(column);
+                    writer.CloseFile();
+                }
+
+                result = stream.ToArray();
+                resultBounds = latest
+                    ? bounds[..^1].Append(all.Length).ToArray()
+                    : bounds.Append(all.Length).ToArray();
+                break;
+            }
+            default:
+            {
+                var secondBounds = new[] { 0, extra.Length };
+                var second = WriteColumn(schema, p, extra, secondBounds);
+                var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
+                var merger = schema.CreateMerger(new MemoryReadSource(file), destination,
+                    new ParquetMergeOptions { WriterOptions = options });
+                merger.AppendFile(new MemoryReadSource(second));
+                merger.CloseFile();
+                result = destination.ToArray();
+                resultBounds = bounds.Append(all.Length).ToArray();
+                break;
+            }
+        }
+
+        VerifyFile(what, schema, p, result, all, resultBounds, read, equal, bloom);
     }
 
     // Min/max/null_count of a binary column against what was written. Statistics may be truncated for long
