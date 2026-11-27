@@ -46,6 +46,9 @@ internal sealed class RowRouteSettings
     internal int ProjectionSeed;
     internal int Groups;
 
+    internal static readonly bool SingleThread =
+        Environment.GetEnvironmentVariable("PLANK_FUZZ_SINGLE_THREAD") == "1";
+
     internal static RowRouteSettings Draw(ref PlankRowApiFuzzTarget.Cursor c)
     {
         var s = new RowRouteSettings();
@@ -113,6 +116,16 @@ internal sealed class RowRouteSettings
         s.ProjectionMode = c.NextInt(0, 4);
         s.ProjectionSeed = c.NextInt32();
         s.Groups = c.NextInt(1, 4);
+        // AFL runs: SharpFuzz keeps the previous-location state in a static, so real worker threads
+        // make the coverage bitmap nondeterministic (seeds with map size 40k+, stability < 1%, the
+        // whole 64k map "found"). PLANK_FUZZ_SINGLE_THREAD=1 draws everything above unchanged (seeds
+        // decode identically) and then pins every worker count to 1.
+        if (SingleThread)
+        {
+            s.MaxParallelism = 1;
+            s.ExplicitParallelism = 1;
+            s.ReaderWorkers = 1;
+        }
         return s;
     }
 
