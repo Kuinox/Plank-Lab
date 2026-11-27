@@ -268,7 +268,7 @@ internal static class EncodingCoverageWriterCases
 
         if (caseId == 52)
         {
-            ProbeFixedByteStreamSplitReadOnlyMemoryRejection();
+            WriteFixedByteStreamSplitReadOnlyMemory();
             return;
         }
 
@@ -2280,7 +2280,9 @@ internal static class EncodingCoverageWriterCases
         {
             var repeated = repeatedWriter.CreateSerializedColumn<int?>(repeatedSchema.LeafColumns[0]);
             AssertExpectedWriterException(() => repeated.Serialize(new int?[] { 1, null }),
-                typeof(InvalidOperationException), "expects rows of 'Int32[]'");
+                // Message from Plank 80578da (#224), which rewrote repeated-row flattening.
+                typeof(InvalidOperationException),
+                "Array type 'System.Nullable`1[System.Int32]' is incompatible with column 'items.list.element'");
         }
     }
 
@@ -2543,35 +2545,40 @@ internal static class EncodingCoverageWriterCases
             throw new InvalidOperationException("Fixed-binary BSS changed UUID or Decimal values.");
     }
 
-    static void ProbeFixedByteStreamSplitReadOnlyMemoryRejection()
+    // Plank 2ecda7b (#229, "Support fixed-width binary memory values in all encodings") made
+    // ReadOnlyMemory<byte> a supported carrier for FIXED_LEN_BYTE_ARRAY under every encoding; this
+    // used to expect the BYTE_STREAM_SPLIT rejection. Now the values must round-trip, including a
+    // slice that does not start at offset 0 of its array.
+    static void WriteFixedByteStreamSplitReadOnlyMemory()
     {
         var schema = new ParquetSchema([
             ColumnDefinition.RequiredLeaf("fixed-bss-memory", ParquetPhysicalType.FixedLenByteArray,
                 new ColumnOptions(typeLength: 3, encodings: ImmutableArray.Create(EncodingKind.ByteStreamSplit)))
         ]);
-        var stream = new MemoryStream();
+        var backing = new byte[] { 9, 1, 2, 3, 4, 5, 6, 9 };
+        ReadOnlyMemory<byte>[] values = [backing.AsMemory(1, 3), backing.AsMemory(4, 3), new byte[] { 0xff, 0, 0x80 }];
+        using var stream = new MemoryStream();
         var writer = schema.CreateWriter(stream, new ParquetWriterOptions
         {
             Compression = CompressionKind.None
         });
         var column = writer.CreateSerializedColumn<ReadOnlyMemory<byte>>(schema.LeafColumns[0]);
+        column.Serialize(values);
+        writer.StartRowGroup().Write(column);
+        writer.CloseFile();
 
-        Exception? observed = null;
-        try
-        {
-            column.Serialize([new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 }]);
-            writer.StartRowGroup().Write(column);
-        }
-        catch (InvalidOperationException error)
-        {
-            observed = error;
-        }
-
-        const string message = "expects 'FixedLenByteArray' values as byte[] payloads, but got " +
-            "'System.ReadOnlyMemory`1[System.Byte]'";
-        if (observed is null || !observed.Message.Contains(message, StringComparison.Ordinal))
-            throw new InvalidOperationException(
-                $"Expected the fixed BSS ReadOnlyMemory rejection, got '{observed?.Message}'.");
+        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)values.Length)
+            throw new InvalidOperationException("Fixed BSS ReadOnlyMemory changed the row-group shape.");
+        var actual = new List<byte[]>();
+        foreach (var buffer in reader.RowGroups[0].Column<byte>(schema.LeafColumns[0]))
+            for (var i = 0; i < buffer.Count; i++)
+                actual.Add(buffer.GetValue(i).ToArray());
+        if (actual.Count != values.Length)
+            throw new InvalidOperationException("Fixed BSS ReadOnlyMemory changed the value count.");
+        for (var i = 0; i < values.Length; i++)
+            if (!actual[i].AsSpan().SequenceEqual(values[i].Span))
+                throw new InvalidOperationException($"Fixed BSS ReadOnlyMemory changed value {i}.");
     }
 
     static void WriteRequiredReadOnlyMemoryDictionary()

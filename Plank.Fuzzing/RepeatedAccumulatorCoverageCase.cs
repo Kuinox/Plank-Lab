@@ -95,7 +95,9 @@ internal static class RepeatedAccumulatorCoverageCase
             WritePageCrc = (selector & 2) != 0
         });
         var serialized = writer.CreateSerializedColumn<TimeOnly[]>(schema.LeafColumns[0]);
-        var expectedMessage = $"Repeated column '{name}' with physical type '{physicalType}' expects rows of '{physicalType}[]'.";
+        // Message from Plank 80578da (#224), which rewrote repeated-row flattening
+        // (RepeatedPageValues.Flatten); the rejection itself is unchanged.
+        var expectedMessage = $"Array type 'System.TimeOnly[]' is incompatible with column '{name}'.";
         try
         {
             serialized.Serialize(rows);

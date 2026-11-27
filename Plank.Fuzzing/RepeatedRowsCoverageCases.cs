@@ -101,17 +101,61 @@ internal static class RepeatedRowsCoverageCases
 
     static void ExerciseReadOnlyMemoryRepeatedRows(byte selector)
     {
+        // Plank 80578da (#224) added ReadOnlyMemory<byte>[] rows for single-level repeated binary
+        // columns (SerializedColumn.SerializeRepeated); they used to be rejected. They must now
+        // encode exactly what the same rows as byte[][] encode: same levels, same values.
+        var backing = "xalphaomegay"u8.ToArray();
         ReadOnlyMemory<byte>[][] rows =
         [
-            ["alpha"u8.ToArray(), ReadOnlyMemory<byte>.Empty],
+            [backing.AsMemory(1, 5), ReadOnlyMemory<byte>.Empty],
             [],
-            ["omega"u8.ToArray()]
+            [backing.AsMemory(6, 5)]
         ];
         var schema = new ParquetSchema([
             ColumnDefinition.List("required-memory",
                 ColumnDefinition.RequiredLeaf("element", ParquetPhysicalType.ByteArray))
         ]);
-        ExpectReadOnlyMemoryRepeatedRowsRejected(schema, rows, selector);
+        var memoryTrace = WriteAndReadNestedBinary(schema, rows, selector);
+        var arrayTrace = WriteAndReadNestedBinary(schema,
+            rows.Select(static row => row.Select(static value => value.ToArray()).ToArray()).ToArray(), selector);
+        if (!memoryTrace.Definitions.SequenceEqual(arrayTrace.Definitions)
+            || !memoryTrace.Repetitions.SequenceEqual(arrayTrace.Repetitions)
+            || memoryTrace.Values.Count != arrayTrace.Values.Count
+            || memoryTrace.Values.Zip(arrayTrace.Values).Any(static pair => !pair.First.AsSpan().SequenceEqual(pair.Second)))
+            throw new InvalidOperationException("Repeated ReadOnlyMemory rows encoded differently from the same byte[] rows.");
+        if (arrayTrace.Values.Count != 3 || !arrayTrace.Values[0].AsSpan().SequenceEqual("alpha"u8)
+            || arrayTrace.Values[1].Length != 0 || !arrayTrace.Values[2].AsSpan().SequenceEqual("omega"u8))
+            throw new InvalidOperationException("Repeated binary rows did not round-trip their values.");
+    }
+
+    static (List<int> Definitions, List<int> Repetitions, List<byte[]> Values) WriteAndReadNestedBinary<T>(
+        ParquetSchema schema, T[] rows, byte selector)
+    {
+        using var stream = new MemoryStream();
+        var writer = schema.CreateWriter(stream, new ParquetWriterOptions
+        {
+            Compression = CompressionKind.None,
+            DataPageVersion = (selector & 2) == 0 ? ParquetDataPageVersion.V1 : ParquetDataPageVersion.V2
+        });
+        var serialized = writer.CreateSerializedColumn<T>(schema.LeafColumns[0]);
+        serialized.Serialize(rows);
+        writer.StartRowGroup().Write(serialized);
+        writer.CloseFile();
+
+        using var reader = schema.CreateReader(new MemoryReadSource(stream.ToArray()));
+        if (reader.RowGroups.Count != 1 || reader.RowGroups[0].RowCount != (ulong)rows.Length)
+            throw new InvalidOperationException("Repeated binary rows changed the row-group shape.");
+        var definitions = new List<int>();
+        var repetitions = new List<int>();
+        var values = new List<byte[]>();
+        foreach (var page in reader.RowGroups[0].NestedColumn<byte>(schema.LeafColumns[0]))
+        {
+            definitions.AddRange(page.DefinitionLevels.ToArray());
+            repetitions.AddRange(page.RepetitionLevels.ToArray());
+            for (var i = 0; i < page.Values.Count; i++)
+                values.Add(page.Values.GetValue(i).ToArray());
+        }
+        return (definitions, repetitions, values);
     }
 
     static void ExerciseOptionalReadOnlyMemoryRejection()
@@ -121,7 +165,8 @@ internal static class RepeatedRowsCoverageCases
             ColumnDefinition.List("optional-memory",
                 ColumnDefinition.OptionalLeaf("element", ParquetPhysicalType.ByteArray))
         ]);
-        ExpectReadOnlyMemoryRepeatedRowsRejected(schema, rows, 0);
+        // ReadOnlyMemory<byte> cannot carry a null element; message from Plank 80578da (#224).
+        ExpectEncodingFailure(schema, rows, "has optional list elements; use a nullable row element type");
     }
 
     static void ExerciseUnknownFlatPhysicalType()
@@ -132,7 +177,7 @@ internal static class RepeatedRowsCoverageCases
                 ColumnDefinition.RequiredLeaf("element", unknownType))
         ]);
         ExpectEncodingFailure(schema, new[] { new[] { 1, 2 }, Array.Empty<int>() },
-            "expects rows of '255[]'");
+            "Unsupported repeated physical type '255'");
     }
 
     static void ExerciseUnknownNestedPhysicalType()
@@ -143,7 +188,8 @@ internal static class RepeatedRowsCoverageCases
                 ColumnDefinition.List("inner", ColumnDefinition.RequiredLeaf("element", unknownType)))
         ]);
         int[][][] rows = [[[1, 2], []], [], [[3]]];
-        ExpectEncodingFailure(schema, rows, "is not supported for repetition level 2");
+        // Since Plank 80578da (#224) the physical-type switch rejects it before any nesting check.
+        ExpectEncodingFailure(schema, rows, "Unsupported repeated physical type '255'");
     }
 
     static void ExpectEncodingFailure<T>(ParquetSchema schema, T[] rows, string expectedMessage)
@@ -161,28 +207,6 @@ internal static class RepeatedRowsCoverageCases
         }
 
         throw new InvalidOperationException($"Repeated writer did not reject the expected input: {expectedMessage}");
-    }
-
-    static void ExpectReadOnlyMemoryRepeatedRowsRejected<T>(ParquetSchema schema, T[] rows, byte selector)
-    {
-        try
-        {
-            using var stream = new MemoryStream();
-            var writer = schema.CreateWriter(stream, new ParquetWriterOptions
-            {
-                Compression = CompressionKind.None,
-                DataPageVersion = (selector & 2) == 0 ? ParquetDataPageVersion.V1 : ParquetDataPageVersion.V2
-            });
-            var serialized = writer.CreateSerializedColumn<T>(schema.LeafColumns[0]);
-            serialized.Serialize(rows);
-        }
-        catch (InvalidOperationException error) when (error.Message.Contains(
-            "expects rows of 'ByteArray[]'", StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        throw new InvalidOperationException("Repeated ReadOnlyMemory rows were not rejected by the writer.");
     }
 
     static void WriteAndCheck<T>(ColumnDefinition definition, T[] rows, byte selector)
