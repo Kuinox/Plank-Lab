@@ -51,9 +51,12 @@ internal static partial class WriterCodecCases
         var c = new Cur(input);
         // The first four bytes pin what the input does, so a seed can ask for an LZ4 sweep or a frame directly:
         // 0-2 general rounds, 3 every LZ4 level on one boundary-size buffer, 4 LZ4 levels 10-12 on a large repetitive
-        // buffer, 5 LZ4 frame / Hadoop / raw inputs for the decoder.
-        switch (c.Int(0, 6))
+        // buffer, 5 LZ4 frame / Hadoop / raw inputs for the decoder, 6 a payload produced by an external LZ4 library.
+        switch (c.Int(0, 7))
         {
+            case 6:
+                Lz4ExternalPayload(input.Length > 4 ? input[4..] : default);
+                return;
             case 3:
                 Lz4LevelSweep(c);
                 return;

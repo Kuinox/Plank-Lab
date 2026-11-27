@@ -29,6 +29,60 @@ internal static partial class WriterCodecCases
             Direct(c, CompressionKind.Lz4, level, data, $"Lz4/L{level} large {label}");
     }
 
+    // A payload written by an EXTERNAL LZ4 implementation (python `lz4`: frames with every option, Hadoop records,
+    // bare blocks, concatenations; see fuzz/tools/gen-lz4-external-seeds.py). Layout after the mode bytes:
+    //   u32 original length | u32 payload length | u32 CRC-32 of the payload | 32 bytes SHA-256 of the original | payload
+    // While the payload still matches its CRC the decoder must reproduce the original exactly; once a fuzzer mutates
+    // it, the only requirement is decoded bytes or CorruptParquetException.
+    static void Lz4ExternalPayload(ReadOnlySpan<byte> input)
+    {
+        if (input.Length < 44)
+            return;
+        var originalLength = BinaryPrimitives.ReadUInt32LittleEndian(input);
+        var payloadLength = BinaryPrimitives.ReadUInt32LittleEndian(input[4..]);
+        var payloadCrc = BinaryPrimitives.ReadUInt32LittleEndian(input[8..]);
+        if (originalLength > 8u << 20 || payloadLength != (uint)(input.Length - 44))
+            return;
+        var hash = input.Slice(12, 32).ToArray();
+        var payload = input[44..].ToArray();
+        var pristine = Crc32(payload) == payloadCrc;
+        var destination = new byte[originalLength];
+        try
+        {
+            ParquetDecompressor.DecompressInto(payload, CompressionKind.Lz4Legacy, destination);
+        }
+        catch (CorruptParquetException error)
+        {
+            if (pristine)
+                throw new InvalidOperationException(
+                    $"external LZ4 payload ({payload.Length} bytes, head {Convert.ToHexString(payload.AsSpan(0, Math.Min(16, payload.Length)))}) was refused: {error.Message}", error);
+            RouteEvidence.Hit("lz4-external.mutated.rejected");
+            return;
+        }
+        catch (NotSupportedException) when (!pristine)
+        {
+            RouteEvidence.Hit("lz4-external.mutated.not-supported");
+            return;
+        }
+        catch (Exception error) when (error is not InvalidOperationException)
+        {
+            throw new InvalidOperationException($"external LZ4 payload threw {error.GetType().Name}: {error.Message}", error);
+        }
+
+        if (!pristine)
+        {
+            RouteEvidence.Hit("lz4-external.mutated.decoded");
+            return;
+        }
+
+        if (!System.Security.Cryptography.SHA256.HashData(destination).AsSpan().SequenceEqual(hash))
+            throw new InvalidOperationException(
+                $"external LZ4 payload ({payload.Length} bytes) decoded to bytes with a different SHA-256 than the original.");
+        RouteEvidence.Hit("lz4-external.pristine.exact-ok");
+        Corrupt(new Cur(payload.Length > 8 ? payload.AsSpan(0, 8) : payload), CompressionKind.Lz4Legacy, payload,
+            (int)originalLength, "lz4-external");
+    }
+
     // ---- LZ4 frames, Hadoop blocks and raw blocks into Plank's Lz4Legacy decoder -------------------------------
 
     static void Lz4DecoderInputs(Cur c)
