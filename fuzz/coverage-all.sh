@@ -9,8 +9,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC=$ROOT/Plank.Fuzzing.Replay/bin/Release/net10.0
 OUT=$ROOT/fuzz/coverage/all; WORK=$ROOT/fuzz/.coverage-work; mkdir -p "$OUT" "$WORK"
 F=$ROOT/fuzz
-WRITER_IN="$F/corpus $F/writer-gap-seeds $F/nested-gap-seeds $F/bloom-estimate-seeds $F/buffer-capacity-seeds $F/dataset-operational-seeds $F/dataset-options-seeds $F/optional-dictionary-index-seeds $F/schema-equality-seeds $F/repros $F/writer-gap-findings"
-READER_IN="$F/decompressor-seeds $F/reader-corpus $F/reader-focused-seeds $F/reader-gap-seeds $F/reader-logical-focus-seeds $F/reader-fixedwidth-samples"
+WRITER_IN="$F/corpus $F/writer-gap-seeds $F/nested-gap-seeds $F/bloom-estimate-seeds $F/buffer-capacity-seeds $F/dataset-operational-seeds $F/dataset-options-seeds $F/optional-dictionary-index-seeds $F/schema-equality-seeds $F/repros $F/writer-gap-findings $F/execution-seeds"
+READER_IN="$F/decompressor-seeds $F/reader-corpus $F/reader-focused-seeds $F/reader-gap-seeds $F/reader-logical-focus-seeds $F/reader-fixedwidth-samples $F/reader-gap-generated $F/reader-pyarrow-seeds $F/reader-pqt-seeds $F/reader-footer-seeds $F/reader-converter-seeds"
 MERGER_IN="$F/corpus $F/writer-gap-seeds $F/dataset-operational-seeds $F/dataset-options-seeds"
 # ISA tiers: default = the host's best (ovh: AVX2+BMI2, no AVX512); avx2off drops AVX2 (SSE paths);
 # scalar disables all intrinsics (portable fallbacks). AVX512 kernels need an AVX512 host (not ovh).
