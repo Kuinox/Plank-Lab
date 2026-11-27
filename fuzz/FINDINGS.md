@@ -66,6 +66,12 @@ header probing. Their fixes landed as #169 and #171, and in reworked form as
 - **Source generator emits uncompilable code for a column name containing `"`.** `Escape()` in `ParquetRowGenerator` and
   `NestedParquetRowEmitter` uses `SymbolDisplay.FormatLiteral(value, quote: false)`, which does not escape the double quote.
   `[ParquetColumn("a\"b")]` yields `Leaf("a"b", ...)`. (A compile-time defect; no fuzz seed.)
+- **Negative `Execution.WorkerCount` gives `OverflowException` from the row writer** (found by the
+  `0xDD EXEC` route, `PlankExecutionFuzzTarget`). With `RowApiMaxParallelism` unset,
+  `ParquetWriterOptions.RowApiMaxParallelism` evaluates `checked((uint)Execution.WorkerCount)`; the generated
+  `CreateRowWriter(stream, options)` reads it before `Validate()` runs, so `WorkerCount = -1` (or `int.MinValue`)
+  surfaces as `OverflowException` instead of the documented `ArgumentOutOfRangeException(WorkerCount)`.
+  Low severity (invalid input is rejected either way). The harness accepts both types.
 
 ## Fuzz-harness defects (fixed)
 

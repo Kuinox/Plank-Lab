@@ -37,6 +37,15 @@ internal static class PlankExecutionFuzzTarget
     /// <summary>The synthetic failure injected by streams, sources, pools and callbacks.</summary>
     sealed class InjectedFault(string message) : Exception(message);
 
+    static readonly int[] Outcomes = new int[8];
+
+    static PlankExecutionFuzzTarget()
+    {
+        if (Environment.GetEnvironmentVariable("PLANK_FUZZ_TRACE") == "1")
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => Console.Error.WriteLine(
+                $"EXEC outcomes: pool-seq={Outcomes[0]} pool-conc={Outcomes[1]} write-ok={Outcomes[2]} write-injected-surfaced={Outcomes[3]} read-ok={Outcomes[4]} read-injected-surfaced={Outcomes[5]} invalid-opts-rejected={Outcomes[6]}");
+    }
+
     internal static void Execute(ReadOnlySpan<byte> data)
     {
         var cursor = new Cursor(data);
@@ -197,6 +206,7 @@ internal static class PlankExecutionFuzzTarget
 
     static void PoolSequence(Cursor cursor)
     {
+        Interlocked.Increment(ref Outcomes[0]);
         var world = CreatePoolWorld(cursor);
         var lives = new List<Live>();
         var operations = cursor.Int(1, 160);
@@ -231,6 +241,7 @@ internal static class PlankExecutionFuzzTarget
 
     static void PoolConcurrent(Cursor cursor)
     {
+        Interlocked.Increment(ref Outcomes[1]);
         var world = CreatePoolWorld(cursor);
         var threadCount = cursor.Int(2, 4);
         var plans = new Cursor[threadCount];
@@ -1047,23 +1058,30 @@ internal static class PlankExecutionFuzzTarget
         // ---- writer options
         var workers = cursor.Pick(1, 1, 2, 3, 4, 8);
         var invalidWorkers = cursor.Byte() % 24 == 0;
-        var writerLog = new WorkerLog(workers);
+        var parallelism = cursor.Pick(0, 0, 1, 2, 3, 8);
+        var writerLog = new WorkerLog(Math.Max(workers, parallelism));
         var faultWriterCallback = injectFaults && cursor.Byte() % 3 == 0 ? cursor.Int(0, workers) : -1;
         var writerExecution = MakeExecution(invalidWorkers ? cursor.Pick(0, -1, int.MinValue) : workers,
             writerLog, faultWriterCallback, state, cursor.Byte());
         var compression = cursor.Pick(CompressionKind.None, CompressionKind.None, CompressionKind.Snappy,
             CompressionKind.Gzip, CompressionKind.Zstd, CompressionKind.Lz4);
+        // BufferWriter allocates initial/chunk segment slots per page, and tiny pages mean many pages:
+        // a 1-byte chunk with a 64 KiB initial buffer is a user-chosen multi-GB allocation, not a bug.
+        var chunkBytes = cursor.Pick(1u, 7u, 64u, 4096u, 64u * 1024);
+        var pageInitial = cursor.Pick(1u, 100u, 4096u, 64u * 1024);
+        var columnInitial = cursor.Pick(1u, 100u, 4096u, 1u << 20);
+        chunkBytes = Math.Max(chunkBytes, Math.Max(pageInitial, columnInitial) / 128);
         var writerOptions = new ParquetWriterOptions
         {
             BufferPool = pool,
             Execution = writerExecution,
-            RowApiMaxParallelism = (uint)cursor.Pick(0, 0, 1, 2, 3, 8),
+            RowApiMaxParallelism = (uint)parallelism,
             RowApiInitialRowCapacity = cursor.Pick(1, 1, 2, 3, 7, 64, 1000),
             TargetRowGroupSizeBytes = cursor.Pick(1UL, 64UL, 1000UL, 64UL * 1024, 1UL << 20, ulong.MaxValue),
             TargetDataPageSizeBytes = cursor.Pick(1u, 64u, 1024u, 1u << 20),
-            BufferChunkSizeBytes = cursor.Pick(1u, 7u, 64u, 4096u, 64u * 1024),
-            InitialPageBufferBytes = cursor.Pick(1u, 100u, 4096u, 64u * 1024),
-            InitialColumnBufferBytes = cursor.Pick(1u, 100u, 4096u, 1u << 20),
+            BufferChunkSizeBytes = chunkBytes,
+            InitialPageBufferBytes = pageInitial,
+            InitialColumnBufferBytes = columnInitial,
             InitialPageCapacity = cursor.Pick(0u, 1u, 4u),
             Compression = compression,
             DataPageVersion = cursor.Bool() ? ParquetDataPageVersion.V2 : ParquetDataPageVersion.V1,
@@ -1166,9 +1184,12 @@ internal static class PlankExecutionFuzzTarget
 
         if (invalidWorkers)
         {
-            if (writeError is not ArgumentOutOfRangeException)
+            // A negative WorkerCount with the default RowApiMaxParallelism overflows in the checked
+            // uint conversion before validation runs (OverflowException instead of ArgumentOutOfRange): see FINDINGS.
+            if (writeError is not (ArgumentOutOfRangeException or OverflowException))
                 throw new ExecutionFuzzException(
                     $"WorkerCount <= 0 was not rejected with ArgumentOutOfRangeException ({Describe(writeError)}).", writeError);
+            Interlocked.Increment(ref Outcomes[6]);
             FinishPool(tracking, defaultPool, requireNoLeaks: true);
             return;
         }
@@ -1182,6 +1203,8 @@ internal static class PlankExecutionFuzzTarget
             if (writerFaulted && !ContainsInjected(writeError) && !tolerated)
                 throw new ExecutionFuzzException(
                     $"Injected failure was replaced by an unrelated exception: {Describe(writeError)}", writeError);
+            if (writerFaulted)
+                Interlocked.Increment(ref Outcomes[3]);
             FinishPool(tracking, defaultPool, requireNoLeaks: true);
             return;
         }
@@ -1200,6 +1223,7 @@ internal static class PlankExecutionFuzzTarget
             throw new ExecutionFuzzException(
                 $"Flush callback reported {flushed} rows; {rows.Length} were written.");
 
+        Interlocked.Increment(ref Outcomes[2]);
         var bytes = backing.ToArray();
         // A non-seekable sink got the bytes through a plain forward stream; same file expected.
         ReadBack(cursor, bytes, rows, pool, tracking, readerLifecycle);
@@ -1222,11 +1246,13 @@ internal static class PlankExecutionFuzzTarget
         var workers = cursor.Pick(1, 1, 2, 3, 4, 8);
         var log = new WorkerLog(workers);
         var faultCallback = inject && cursor.Byte() % 3 == 0 ? cursor.Int(0, workers) : -1;
+        var readAhead = cursor.Pick(0, 1, 1, 2, 5, -1);
+        var readAheadValid = readAhead is 0 or 1;
         var options = new RowApi.RowReaderOptions
         {
             BufferPool = pool,
             Execution = MakeExecution(workers, log, faultCallback, state, cursor.Byte()),
-            MaxReadAheadRowGroups = cursor.Pick(0, 1, 2, 5),
+            MaxReadAheadRowGroups = readAhead,
             VerifyPageCrc = cursor.Bool()
         };
 
@@ -1321,15 +1347,26 @@ internal static class PlankExecutionFuzzTarget
 
         if (log.Problem is { } problem)
             throw new ExecutionFuzzException(problem);
+        var readFaulted = state.Triggered || tracking?.Faulted == true;
+        if (!readAheadValid)
+        {
+            if (readError is not ArgumentOutOfRangeException)
+                throw new ExecutionFuzzException($"MaxReadAheadRowGroups={readAhead} was not rejected ({Describe(readError)}).", readError);
+            return;
+        }
+
         if (readError is not null)
         {
-            if (!state.Triggered)
+            if (!readFaulted)
                 throw new ExecutionFuzzException($"Row reader failed on a valid file: {Describe(readError)}", readError);
             if (!ContainsInjected(readError))
                 throw new ExecutionFuzzException(
                     $"Injected read failure was replaced by an unrelated exception: {Describe(readError)}", readError);
+            Interlocked.Increment(ref Outcomes[5]);
         }
-        else if (state.Triggered && (abandonAfter == int.MaxValue || abandonAfter >= rows.Length) && !restartRows)
+        else if (!readFaulted)
+            Interlocked.Increment(ref Outcomes[4]);
+        if (readError is null && readFaulted && (abandonAfter == int.MaxValue || abandonAfter >= rows.Length) && !restartRows)
         {
             throw new ExecutionFuzzException("An injected read failure was swallowed: all rows came back correct.");
         }
@@ -1349,7 +1386,11 @@ internal static class PlankExecutionFuzzTarget
     }
 
     static string Describe(Exception? error)
-        => error is null ? "no exception" : $"{error.GetType().Name}: {error.Message}";
+        => error is null
+            ? "no exception"
+            : Environment.GetEnvironmentVariable("PLANK_FUZZ_TRACE") == "1"
+                ? error.ToString()
+                : $"{error.GetType().Name}: {error.Message}";
 
     // Hangs are findings: every scheduled operation must finish.
     static void RunGuarded(string what, Action action)
