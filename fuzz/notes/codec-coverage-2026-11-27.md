@@ -84,3 +84,34 @@ declared sizes (snappy preamble, zstd frame content size, gzip trailer CRC and I
 Hadoop LZ4 framing, damaged payloads (flip / truncate / extend / escape bytes / head), real written pages (header sizes,
 page CRC, V1 and V2 payloads decoded independently and compared with Plank's view) and ParquetSharp's reading of the same
 files are all checked. 0 faults in 1,500 + 1,024 random inputs.
+
+## Second measurement: LZ4 level sweep, large repetitive buffers, frame / Hadoop / raw decoder inputs
+
+New modes of `WCD1`, pinned by the first four input bytes (3 = every LZ4 level 0, 3..12 on one boundary-size buffer,
+4 = levels 10-12 on 1-4 MiB repetitive buffers, 5 = LZ4 frames / Hadoop / raw blocks into the Lz4Legacy decoder, 0-2 =
+the general rounds), plus pinned seeds `fuzz/corpus/writer-codec-lz4-*`.
+
+* **before** = the existing writer corpus (530 inputs, symlinked set `covB`).
+* **after** = the same plus 300 general codec inputs, 150 sweeps, 30 large repetitive, 300 decoder inputs and the codec
+  seeds (1,334 inputs).
+
+```
+group                                    lines before      lines after    branches before     branches after
+K4os LZ4 (encoder)                       0.0% (0/433)     0.0% (0/433)       0.0% (0/204)       0.0% (0/204)
+K4os LZ4 (other)                      31.0% (916/2957)  37.0% (1094/2957)   24.0% (415/1728)   31.0% (536/1728)
+Plank Writing/Compression               85.0% (68/80)    93.8% (75/80)      60.9% (14/23)      73.9% (17/23)
+Plank read-side decompressors          22.4% (53/237)  92.0% (218/237)     12.7% (16/126)    92.9% (117/126)
+Plank zlib glue (Compression/)          51.5% (50/97)    51.5% (50/97)      33.8% (22/65)      33.8% (22/65)
+```
+
+What the decoder-input mode builds (`WriterCodecLz4Cases.cs`): frames with independent or dependent blocks, per-block and
+content checksums, content size, all four block-size ids, stored (uncompressed) blocks, blocks generated to reference
+earlier output through the 64 KiB window (generator checked by the independent reference LZ4 decoder and by K4os'
+dictionary decode before use), skippable frames around concatenated frames, Hadoop records, bare blocks, frames the
+decoder must refuse by name (version, reserved bits, block-size id, header checksum, truncation), a frame naming an
+external dictionary (`NotSupportedException`), and damaged copies of all of them (only decoded bytes or
+`CorruptParquetException` are accepted). 0 faults in 910 inputs.
+
+A first version of the dependent-block generator broke LZ4's end-of-block rules (last 5 bytes literals, last match 12
+bytes before the end) and let a block exceed the frame's maximum block size; Plank's decoder correctly rejected those
+(110 "negative" K4os dictionary decodes, 26 refused frames). Both were harness bugs, fixed, not library defects.
