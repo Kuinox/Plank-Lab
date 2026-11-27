@@ -183,6 +183,10 @@ internal static partial class WriterCodecCases
         {
             var left = useGenerated ? data.Length - output.Count : data.Length - position;
             var take = Math.Max(1, Math.Min(c.Pick(blockMax, 1, 1000, 65_536, blockMax / 2 + 1), left));
+            // A generated block is mostly literals, so it can be a little larger than its output: keep it under the
+            // frame's block maximum.
+            if (useGenerated)
+                take = Math.Max(1, Math.Min(take, blockMax - blockMax / 200 - 64));
             byte[] stored;
             bool isStored;
             if (useGenerated)
@@ -258,16 +262,19 @@ internal static partial class WriterCodecCases
         }
 
         var endedWithLiterals = false;
+        var reachedIntoHistory = false;
         while (produced.Count < length)
         {
             var remaining = length - produced.Count;
             var literals = Math.Min(c.Pick(0, 1, 5, 15, 16, 40, 300), remaining);
             var matchLength = 4 + c.Pick(0, 1, 11, 15, 16, 70, 400);
-            var last = remaining - literals < 4 || window.Count == 0;
+            // LZ4's end-of-block rules: the last match starts at least 12 bytes before the end and the last 5 bytes are
+            // literals (strict decoders reject anything else).
+            var last = window.Count == 0 || remaining - literals < 12 || remaining - literals - 5 < 4;
             if (last)
                 literals = remaining;
             else
-                matchLength = Math.Min(matchLength, remaining - literals);
+                matchLength = Math.Min(matchLength, remaining - literals - 5);
             block.Add((byte)((Math.Min(literals, 15) << 4) | (last ? 0 : Math.Min(matchLength - 4, 15))));
             if (literals >= 15)
                 Extended(literals - 15);
@@ -286,6 +293,8 @@ internal static partial class WriterCodecCases
             }
 
             var offset = c.Int(1, Math.Min(65_535, window.Count) + 1);
+            if (offset > produced.Count)
+                reachedIntoHistory = true;
             block.Add((byte)offset);
             block.Add((byte)(offset >> 8));
             if (matchLength - 4 >= 15)
@@ -309,9 +318,11 @@ internal static partial class WriterCodecCases
         var k4os = historyBytes.Length == 0
             ? LZ4Codec.Decode(blockBytes, viaK4os)
             : LZ4Codec.Decode(blockBytes, viaK4os, historyBytes);
-        RouteEvidence.Hit(k4os == producedBytes.Length && viaK4os.AsSpan().SequenceEqual(producedBytes)
-            ? "lz4-decoder.dependent-block.k4os-dictionary-decode-ok"
-            : "lz4-decoder.dependent-block.k4os-dictionary-decode-MISMATCH");
+        var kind = k4os == producedBytes.Length && viaK4os.AsSpan().SequenceEqual(producedBytes)
+            ? "ok"
+            : k4os < 0 ? "MISMATCH-negative" : k4os != producedBytes.Length ? "MISMATCH-length" : "MISMATCH-bytes";
+        var bucket = historyBytes.Length == 0 ? "empty" : historyBytes.Length < 65_536 ? "short" : "64K";
+        RouteEvidence.Hit($"lz4-decoder.dependent-block.k4os-dictionary-decode.{kind}.dict={bucket}.reachesDict={reachedIntoHistory}");
         return (blockBytes, producedBytes);
     }
 }
