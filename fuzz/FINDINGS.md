@@ -109,6 +109,14 @@ unsorted rows is not a defect; the oracle checks declared orders only on the app
   [`repros/chunk-info-equality/`](repros/chunk-info-equality/). Found by route `PHY1` (marker 0xC5, `PhysicalReaderSurfaceCases`),
   which otherwise passes (page cursor, chunk layout, per-page CRC, Bloom no-false-negative, ordinal probes, stale handles).
 
+## Open library defect found by hand-rewritten footers (reader agent, 2026-11-27)
+
+- **Decimal inferred from `precision`/`scale` without a DECIMAL annotation.** A schema element with `precision`/`scale` but no `logicalType` and no `converted_type`
+  is read as `LogicalType.Decimal(p, s)`; Arrow and ParquetSharp report no logical type. Repro: `fuzz/repros/decimal-precision-without-annotation/` (seed made by `fuzz/footer-seeds.py`,
+  flagged by the full-value oracle's metadata comparison). Low severity (leniency, no memory unsafety).
+- Also surfaced by the full-value oracle on an existing seed: `fuzz/reader-corpus/file-schema-nested-maps-dictionary-snappy.bin` — "statistics: Plank lost a min/max Arrow reads" for the nested map key column
+  (`a.key_value.value.key_value.key`, Int32); owner: oracle agent.
+
 ## Fuzz-harness defects (fixed)
 
 - A one-byte `FA` writer input indexed `data[1]`
