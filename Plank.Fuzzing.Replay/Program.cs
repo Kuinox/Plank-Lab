@@ -149,6 +149,8 @@ static class Program
         {
             // Everything else is the corpus doing its job.
             Console.Error.WriteLine($"FAULT\t{file}\t{error.GetType().FullName}\t{error.Message.Replace('\n', ' ')}");
+            if (Environment.GetEnvironmentVariable("PLANK_REPLAY_TRACE") == "1")
+                Console.Error.WriteLine(error.ToString());
             return false;
         }
     }

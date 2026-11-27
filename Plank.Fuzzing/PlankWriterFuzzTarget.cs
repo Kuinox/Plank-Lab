@@ -2436,6 +2436,8 @@ public static class PlankWriterFuzzTarget
     public static void Validate(FuzzCase fuzzCase)
     {
         ArgumentNullException.ThrowIfNull(fuzzCase);
+        if (Environment.GetEnvironmentVariable("PLANK_FUZZ_DESCRIBE") == "1")
+            Console.Error.WriteLine("CASE " + fuzzCase.Describe());
         using var ms = new MemoryStream();
         WriteToStream(fuzzCase, ms);
 
@@ -2450,8 +2452,19 @@ public static class PlankWriterFuzzTarget
     static void WriteToStream(FuzzCase fuzzCase, Stream stream)
     {
         var settings = fuzzCase.Settings;
+        using var pool = WriterFuzzPool.Create(settings.Pool);
+        var defaults = ParquetWriterOptions.Default;
         var writer = fuzzCase.Schema.CreateWriter(stream, new ParquetWriterOptions
         {
+            BufferPool = pool,
+            InitialPageBufferBytes = settings.InitialPageBufferBytes ?? defaults.InitialPageBufferBytes,
+            InitialColumnBufferBytes = settings.InitialColumnBufferBytes ?? defaults.InitialColumnBufferBytes,
+            InitialPageCapacity = settings.InitialPageCapacity ?? defaults.InitialPageCapacity,
+            CreatedBy = settings.CreatedBy,
+            Execution = settings.WorkerCount is { } workers
+                ? new ParquetExecutionOptions { WorkerCount = workers }
+                : new ParquetExecutionOptions(),
+            SortingColumns = settings.Sorting is { Length: > 0 } sorting ? [.. sorting] : [],
             Compression = fuzzCase.Compression,
             DataPageVersion = settings.DataPageVersion,
             WritePageCrc = settings.WritePageCrc,
@@ -2898,10 +2911,20 @@ public static class PlankWriterFuzzTarget
         bool WithKeyValueMetadata,
         int? CompressionLevel = null)
     {
+        internal uint? InitialPageBufferBytes { get; init; }
+        internal uint? InitialColumnBufferBytes { get; init; }
+        internal uint? InitialPageCapacity { get; init; }
+        internal string? CreatedBy { get; init; }
+        internal int? WorkerCount { get; init; }
+        internal WriterPoolKind Pool { get; init; }
+        internal ParquetSortingColumn[]? Sorting { get; init; }
+
         public string Describe()
             => $"{DataPageVersion}/{FileVersion}/page={TargetDataPageSizeBytes}B/chunk={BufferChunkSizeBytes}B"
                + $"{(WritePageCrc ? "/crc" : "")}{(WritePageIndexes ? "/pageindex" : "")}"
-               + $"{(WithKeyValueMetadata ? "/kv" : "")}" + (CompressionLevel is { } level ? $"/level={level}" : "");
+               + $"{(WithKeyValueMetadata ? "/kv" : "")}" + (CompressionLevel is { } level ? $"/level={level}" : "")
+               + $"/initPage={InitialPageBufferBytes}/initCol={InitialColumnBufferBytes}/pageCap={InitialPageCapacity}"
+               + $"/workers={WorkerCount}/pool={Pool}/sort={Sorting?.Length ?? 0}";
     }
 
     public readonly record struct ColumnSpec(PlankColumn Column, Type ClrType)
@@ -2930,7 +2953,192 @@ public static class PlankWriterFuzzTarget
             var settings = PickWriterSettings();
             var columns = CreateColumns();
             var rowGroups = CreateRowGroups(columns);
+            // Everything below draws AFTER the original decode so seeds saved before these
+            // options existed still describe the same columns and values.
+            settings = PickExtraSettings(settings, compression, columns);
+            columns = PickColumnOverrides(columns, compression);
+            rowGroups = ScaleRowGroups(rowGroups, columns);
+            // One-byte pages/chunks are a legitimate boundary but cost one allocation per value:
+            // keep them for small groups only so large groups do not become a pure resource test.
+            // A page per value also rents the (320 KiB default) initial page buffer per page.
+            if (settings.TargetDataPageSizeBytes < 64 && (settings.InitialPageBufferBytes ?? uint.MaxValue) > 4096)
+                settings = settings with { InitialPageBufferBytes = 4096 };
+            if (rowGroups.Max(static g => g[0].Length) > 256)
+                settings = settings with
+                {
+                    TargetDataPageSizeBytes = Math.Max(settings.TargetDataPageSizeBytes, 256),
+                    BufferChunkSizeBytes = Math.Max(settings.BufferChunkSizeBytes, 64)
+                };
             return new FuzzCase(columns, rowGroups, compression, settings);
+        }
+
+        // The base decode caps a case at 3 groups x 64 rows and pins every buffer option to a
+        // default derived from nothing, so growth of the page/column buffers, the page-capacity
+        // table, row-group rollover and multi-page columns with the realistic 4 KiB page target
+        // were reachable only by luck. These are independent fuzzer-chosen values, including 1,
+        // tiny, power-of-two edges and the defaults.
+        WriterSettings PickExtraSettings(WriterSettings settings, CompressionKind compression,
+            ColumnSpec[] columns)
+        {
+            uint Pick(uint?[] choices)
+                => choices[_cursor.NextInt(0, choices.Length)] ?? uint.MaxValue;
+
+            var initialPage = Pick([null, 1, 2, 7, 64, 100, 4096, 65536]);
+            var initialColumn = Pick([null, 1, 3, 16, 100, 1000, 65536, 1u << 20]);
+            var initialPageCapacity = Pick([null, 0, 1, 2, 3, 4, 17]);
+            var chunk = Pick([null, 1, 3, 8, 17, 63, 65, 4097]);
+            var targetPage = Pick([null, 1, 8, 100, 513, 1000, 8192, 65535]);
+            var createdBy = _cursor.NextInt(0, 5) switch
+            {
+                0 => null,
+                1 => "",
+                2 => "fuzz writer",
+                3 => new string('x', 300),
+                _ => "créé par ✓ \u0000 plank"
+            };
+            var workers = _cursor.NextInt(0, 6) switch { 0 => 1, 1 => 2, 2 => 3, 3 => 8, _ => 0 };
+            var pool = (WriterPoolKind)_cursor.NextInt(0, 7);
+            var sortingCount = _cursor.NextInt(0, 4) == 0 ? _cursor.NextInt(1, columns.Length + 1) : 0;
+            // Ordinals must be distinct (duplicates are invalid input), so draw a partial shuffle.
+            var ordinals = Enumerable.Range(0, columns.Length).ToArray();
+            var sorting = new ParquetSortingColumn[sortingCount];
+            for (var i = 0; i < sorting.Length; i++)
+            {
+                var j = _cursor.NextInt(i, ordinals.Length);
+                (ordinals[i], ordinals[j]) = (ordinals[j], ordinals[i]);
+                sorting[i] = new ParquetSortingColumn(ordinals[i], _cursor.NextInt(0, 2) == 0,
+                    _cursor.NextInt(0, 2) == 0);
+            }
+            return settings with
+            {
+                InitialPageBufferBytes = initialPage == uint.MaxValue ? null : initialPage,
+                InitialColumnBufferBytes = initialColumn == uint.MaxValue ? null : initialColumn,
+                InitialPageCapacity = initialPageCapacity == uint.MaxValue ? null : initialPageCapacity,
+                BufferChunkSizeBytes = chunk == uint.MaxValue ? settings.BufferChunkSizeBytes : chunk,
+                TargetDataPageSizeBytes = targetPage == uint.MaxValue ? settings.TargetDataPageSizeBytes : targetPage,
+                CreatedBy = createdBy,
+                WorkerCount = workers == 0 ? null : workers,
+                Pool = pool,
+                Sorting = sorting,
+                CompressionLevel = PickLevel(compression),
+            };
+        }
+
+        int? PickLevel(CompressionKind compression)
+        {
+            if (_cursor.NextInt(0, 2) == 0)
+                return null;
+            return compression switch
+            {
+                CompressionKind.Gzip => _cursor.NextInt(0, 10),
+                CompressionKind.Zstd => _cursor.NextInt(0, 6) switch
+                {
+                    0 => ZstdSharp.Compressor.MinCompressionLevel,
+                    1 => ZstdSharp.Compressor.MaxCompressionLevel,
+                    2 => -1,
+                    3 => 0,
+                    4 => 3,
+                    _ => 19
+                },
+                CompressionKind.Lz4 => _cursor.NextInt(0, 11) is var l and > 0 ? l + 2 : 0,
+                CompressionKind.Brotli => _cursor.NextInt(0, 12),
+                _ => null
+            };
+        }
+
+        // Per-column compression/level overrides and bloom-filter tuning were never set: the
+        // column options always inherited the file codec and used the default bloom filter.
+        ColumnSpec[] PickColumnOverrides(ColumnSpec[] columns, CompressionKind fileCompression)
+        {
+            var result = new ColumnSpec[columns.Length];
+            for (var i = 0; i < columns.Length; i++)
+            {
+                var spec = columns[i];
+                var old = spec.Column.Options!;
+                CompressionKind? columnCompression = null;
+                int? columnLevel = null;
+                if (_cursor.NextInt(0, 4) == 0)
+                {
+                    columnCompression = _cursor.NextInt(0, 6) switch
+                    {
+                        0 => CompressionKind.None,
+                        1 => CompressionKind.Snappy,
+                        2 => CompressionKind.Gzip,
+                        3 => CompressionKind.Zstd,
+                        4 => CompressionKind.Lz4,
+                        _ => CompressionKind.Brotli
+                    };
+                    columnLevel = PickLevel(columnCompression.Value);
+                }
+                var bloom = old.BloomFilter;
+                if (bloom is not null && _cursor.NextInt(0, 2) == 0)
+                    bloom = new ParquetBloomFilterOptions
+                    {
+                        FalsePositiveProbability = _cursor.NextInt(0, 5) switch
+                        {
+                            0 => 0.5, 1 => 0.1, 2 => 0.001, 3 => 1e-9, _ => 0.01
+                        },
+                        ExpectedDistinctValueCount = _cursor.NextInt(0, 3) switch
+                        {
+                            0 => null, 1 => 1u, _ => (uint)_cursor.NextInt(1, 100_000)
+                        },
+                        MaximumBytes = 32u << _cursor.NextInt(0, 14)
+                    };
+                if (columnCompression is null && ReferenceEquals(bloom, old.BloomFilter))
+                {
+                    result[i] = spec;
+                    continue;
+                }
+                var options = new ColumnOptions(old.Repetition, old.Encodings, old.TypeLength,
+                    columnCompression, columnLevel, bloom);
+                result[i] = spec with
+                {
+                    Column = Plank.Schema.ColumnDefinition.Leaf(spec.Column.Name, spec.Column.PhysicalType!.Value, options)
+                };
+            }
+            return result;
+        }
+
+        // Tiles each row group's values to reach counts the 64-row cap never produces (several
+        // 4 KiB pages, dictionary overflow, index width changes) and repeats whole groups.
+        // Tiling preserves each column's value distribution and null pattern, so the decoded
+        // expectations stay trivially correct. Delta columns keep working because deltas simply
+        // jump back at tile seams, which is itself a useful negative-delta pattern.
+        Array[][] ScaleRowGroups(Array[][] rowGroups, ColumnSpec[] columns)
+        {
+            var tile = _cursor.NextInt(0, 8) switch
+            {
+                0 or 1 or 2 or 3 => 1,
+                4 => 2,
+                5 => 5,
+                6 => 17,
+                _ => 70
+            };
+            var extraGroups = _cursor.NextInt(0, 4) switch { 0 => _cursor.NextInt(1, 6), _ => 0 };
+            if (tile == 1 && extraGroups == 0)
+                return rowGroups;
+
+            var scaled = new List<Array[]>();
+            foreach (var group in rowGroups)
+            {
+                var copy = new Array[group.Length];
+                for (var c = 0; c < group.Length; c++)
+                    copy[c] = Tile(group[c], tile);
+                scaled.Add(copy);
+            }
+            for (var i = 0; i < extraGroups; i++)
+                scaled.Add(scaled[_cursor.NextInt(0, scaled.Count)]);
+            return scaled.ToArray();
+        }
+
+        static Array Tile(Array source, int tile)
+        {
+            if (tile == 1)
+                return source;
+            var result = Array.CreateInstance(source.GetType().GetElementType()!, source.Length * tile);
+            for (var i = 0; i < tile; i++)
+                Array.Copy(source, 0, result, i * source.Length, source.Length);
+            return result;
         }
 
         // Compression used to be pinned to None, which left every codec — and
