@@ -132,68 +132,100 @@ static class RowFuzzWideOps
         v.Instant = c.NextTimestampOffset();
         v.Tag = new RowFuzzId(c.NextInt32());
         v.Odd = c.NextInt32();
+        if (c.NextInt(0, 5) == 0)
+        {
+            var unset = c.NextInt32();
+            if ((unset & 1) != 0) v.Flag = default;
+            if ((unset & 2) != 0) v.U8 = default;
+            if ((unset & 4) != 0) v.U16 = default;
+            if ((unset & 8) != 0) v.U32 = default;
+            if ((unset & 16) != 0) v.U64 = default;
+            if ((unset & 32) != 0) v.I32 = default;
+            if ((unset & 64) != 0) v.I64 = default;
+            if ((unset & 128) != 0) v.F32 = default;
+            if ((unset & 256) != 0) v.F64 = default;
+            if ((unset & 512) != 0) v.F64Alp = default;
+            if ((unset & 1024) != 0) v.Dec32 = default;
+            if ((unset & 2048) != 0) v.Dec64 = default;
+            if ((unset & 4096) != 0) v.DecFixed = default;
+            if ((unset & 8192) != 0) v.DecBytes = default;
+            unset &= ~16384;
+            unset &= ~32768;
+            unset &= ~65536;
+            if ((unset & 131072) != 0) v.Mem = default;
+            if ((unset & 262144) != 0) v.Uuid = default;
+            if ((unset & 524288) != 0) v.Day = default;
+            if ((unset & 1048576) != 0) v.Clock = default;
+            unset &= ~2097152;
+            if ((unset & 4194304) != 0) v.Instant = default;
+            if ((unset & 8388608) != 0) v.Tag = default;
+            if ((unset & 16777216) != 0) v.Odd = default;
+            UnsetColumns.Remember(v, unset);
+        }
         return v;
     }
 
     internal static void Set(RowFuzzWide.Row r, RowFuzzWide v)
     {
+        var unset = UnsetColumns.Of(v);
         r.Seq = v.Seq;
-        r.Flag = v.Flag;
-        r.U8 = v.U8;
-        r.U16 = v.U16;
-        r.U32 = v.U32;
-        r.U64 = v.U64;
-        r.I32 = v.I32;
-        r.I64 = v.I64;
-        r.F32 = v.F32;
-        r.F64 = v.F64;
-        r.F64Alp = v.F64Alp;
-        r.Dec32 = v.Dec32;
-        r.Dec64 = v.Dec64;
-        r.DecFixed = v.DecFixed;
-        r.DecBytes = v.DecBytes;
+        if ((unset & 1) == 0) r.Flag = v.Flag;
+        if ((unset & 2) == 0) r.U8 = v.U8;
+        if ((unset & 4) == 0) r.U16 = v.U16;
+        if ((unset & 8) == 0) r.U32 = v.U32;
+        if ((unset & 16) == 0) r.U64 = v.U64;
+        if ((unset & 32) == 0) r.I32 = v.I32;
+        if ((unset & 64) == 0) r.I64 = v.I64;
+        if ((unset & 128) == 0) r.F32 = v.F32;
+        if ((unset & 256) == 0) r.F64 = v.F64;
+        if ((unset & 512) == 0) r.F64Alp = v.F64Alp;
+        if ((unset & 1024) == 0) r.Dec32 = v.Dec32;
+        if ((unset & 2048) == 0) r.Dec64 = v.Dec64;
+        if ((unset & 4096) == 0) r.DecFixed = v.DecFixed;
+        if ((unset & 8192) == 0) r.DecBytes = v.DecBytes;
         r.Text = v.Text;
         r.Dict = v.Dict;
         r.Blob = v.Blob;
-        r.Mem = v.Mem;
-        r.Uuid = v.Uuid;
-        r.Day = v.Day;
-        r.Clock = v.Clock;
-        r.Stamp = v.Stamp;
-        r.Instant = v.Instant;
-        r.Tag = v.Tag;
-        r.Odd = v.Odd;
+        if ((unset & 131072) == 0) r.Mem = v.Mem;
+        if ((unset & 262144) == 0) r.Uuid = v.Uuid;
+        if ((unset & 524288) == 0) r.Day = v.Day;
+        if ((unset & 1048576) == 0) r.Clock = v.Clock;
+        if ((unset & 2097152) == 0) r.Stamp = v.Stamp;
+        if ((unset & 4194304) == 0) r.Instant = v.Instant;
+        if ((unset & 8388608) == 0) r.Tag = v.Tag;
+        if ((unset & 16777216) == 0) r.Odd = v.Odd;
     }
 
     internal static void SetCursor(ref RowFuzzWide.RowCursor r, RowFuzzWide v)
     {
+        var unset = UnsetColumns.Of(v);
         r.NextRow();
         r.Seq = v.Seq;
-        r.Flag = v.Flag;
-        r.U8 = v.U8;
-        r.U16 = v.U16;
-        r.U32 = v.U32;
-        r.U64 = v.U64;
-        r.I32 = v.I32;
-        r.I64 = v.I64;
-        r.F32 = v.F32;
-        r.F64 = v.F64;
-        r.F64Alp = v.F64Alp;
-        r.Dec32 = v.Dec32;
-        r.Dec64 = v.Dec64;
-        r.DecFixed = v.DecFixed;
-        r.DecBytes = v.DecBytes;
+        if ((unset & 1) == 0) r.Flag = v.Flag;
+        if ((unset & 2) == 0) r.U8 = v.U8;
+        if ((unset & 4) == 0) r.U16 = v.U16;
+        if ((unset & 8) == 0) r.U32 = v.U32;
+        if ((unset & 16) == 0) r.U64 = v.U64;
+        if ((unset & 32) == 0) r.I32 = v.I32;
+        if ((unset & 64) == 0) r.I64 = v.I64;
+        if ((unset & 128) == 0) r.F32 = v.F32;
+        if ((unset & 256) == 0) r.F64 = v.F64;
+        if ((unset & 512) == 0) r.F64Alp = v.F64Alp;
+        if ((unset & 1024) == 0) r.Dec32 = v.Dec32;
+        if ((unset & 2048) == 0) r.Dec64 = v.Dec64;
+        if ((unset & 4096) == 0) r.DecFixed = v.DecFixed;
+        if ((unset & 8192) == 0) r.DecBytes = v.DecBytes;
         r.Text = v.Text;
         r.Dict = v.Dict;
         r.Blob = v.Blob;
-        r.Mem = v.Mem;
-        r.Uuid = v.Uuid;
-        r.Day = v.Day;
-        r.Clock = v.Clock;
-        r.Stamp = v.Stamp;
-        r.Instant = v.Instant;
-        r.Tag = v.Tag;
-        r.Odd = v.Odd;
+        if ((unset & 131072) == 0) r.Mem = v.Mem;
+        if ((unset & 262144) == 0) r.Uuid = v.Uuid;
+        if ((unset & 524288) == 0) r.Day = v.Day;
+        if ((unset & 1048576) == 0) r.Clock = v.Clock;
+        if ((unset & 2097152) == 0) r.Stamp = v.Stamp;
+        if ((unset & 4194304) == 0) r.Instant = v.Instant;
+        if ((unset & 8388608) == 0) r.Tag = v.Tag;
+        if ((unset & 16777216) == 0) r.Odd = v.Odd;
     }
 
     internal static RowFuzzWide.Projection Project(int mask)
@@ -231,32 +263,33 @@ static class RowFuzzWideOps
     // Returns the first column whose value differs from v, or null.
     internal static string? Compare(RowFuzzWide.ReadRow r, RowFuzzWide v, int mask)
     {
+        var unset = UnsetColumns.Of(v);
         if ((mask & 1) != 0 && r.Seq != v.Seq) return "Seq";
-        if ((mask & 2) != 0 && (r.Flag != v.Flag)) return "Flag";
-        if ((mask & 4) != 0 && (r.U8 != v.U8)) return "U8";
-        if ((mask & 8) != 0 && (r.U16 != v.U16)) return "U16";
-        if ((mask & 16) != 0 && (r.U32 != v.U32)) return "U32";
-        if ((mask & 32) != 0 && (r.U64 != v.U64)) return "U64";
-        if ((mask & 64) != 0 && (r.I32 != v.I32)) return "I32";
-        if ((mask & 128) != 0 && (r.I64 != v.I64)) return "I64";
-        if ((mask & 256) != 0 && (BitConverter.SingleToInt32Bits(r.F32) != BitConverter.SingleToInt32Bits(v.F32))) return "F32";
-        if ((mask & 512) != 0 && (BitConverter.DoubleToInt64Bits(r.F64) != BitConverter.DoubleToInt64Bits(v.F64))) return "F64";
-        if ((mask & 1024) != 0 && (BitConverter.DoubleToInt64Bits(r.F64Alp) != BitConverter.DoubleToInt64Bits(v.F64Alp))) return "F64Alp";
-        if ((mask & 2048) != 0 && (r.Dec32 != v.Dec32)) return "Dec32";
-        if ((mask & 4096) != 0 && (r.Dec64 != v.Dec64)) return "Dec64";
-        if ((mask & 8192) != 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
-        if ((mask & 16384) != 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
+        if ((mask & 2) != 0 && (unset & 1) == 0 && (r.Flag != v.Flag)) return "Flag";
+        if ((mask & 4) != 0 && (unset & 2) == 0 && (r.U8 != v.U8)) return "U8";
+        if ((mask & 8) != 0 && (unset & 4) == 0 && (r.U16 != v.U16)) return "U16";
+        if ((mask & 16) != 0 && (unset & 8) == 0 && (r.U32 != v.U32)) return "U32";
+        if ((mask & 32) != 0 && (unset & 16) == 0 && (r.U64 != v.U64)) return "U64";
+        if ((mask & 64) != 0 && (unset & 32) == 0 && (r.I32 != v.I32)) return "I32";
+        if ((mask & 128) != 0 && (unset & 64) == 0 && (r.I64 != v.I64)) return "I64";
+        if ((mask & 256) != 0 && (unset & 128) == 0 && (BitConverter.SingleToInt32Bits(r.F32) != BitConverter.SingleToInt32Bits(v.F32))) return "F32";
+        if ((mask & 512) != 0 && (unset & 256) == 0 && (BitConverter.DoubleToInt64Bits(r.F64) != BitConverter.DoubleToInt64Bits(v.F64))) return "F64";
+        if ((mask & 1024) != 0 && (unset & 512) == 0 && (BitConverter.DoubleToInt64Bits(r.F64Alp) != BitConverter.DoubleToInt64Bits(v.F64Alp))) return "F64Alp";
+        if ((mask & 2048) != 0 && (unset & 1024) == 0 && (r.Dec32 != v.Dec32)) return "Dec32";
+        if ((mask & 4096) != 0 && (unset & 2048) == 0 && (r.Dec64 != v.Dec64)) return "Dec64";
+        if ((mask & 8192) != 0 && (unset & 4096) == 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
+        if ((mask & 16384) != 0 && (unset & 8192) == 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
         if ((mask & 32768) != 0 && (!string.Equals(r.Text, v.Text, StringComparison.Ordinal))) return "Text";
         if ((mask & 65536) != 0 && (!string.Equals(r.Dict, v.Dict, StringComparison.Ordinal))) return "Dict";
         if ((mask & 131072) != 0 && (!r.Blob.Value.SequenceEqual(v.Blob))) return "Blob";
-        if ((mask & 262144) != 0 && (!r.Mem.Value.SequenceEqual(v.Mem.Span))) return "Mem";
-        if ((mask & 524288) != 0 && (r.Uuid != v.Uuid)) return "Uuid";
-        if ((mask & 1048576) != 0 && (r.Day != v.Day)) return "Day";
-        if ((mask & 2097152) != 0 && (r.Clock != v.Clock)) return "Clock";
-        if ((mask & 4194304) != 0 && (r.Stamp != v.Stamp)) return "Stamp";
-        if ((mask & 8388608) != 0 && (r.Instant != v.Instant)) return "Instant";
-        if ((mask & 16777216) != 0 && (r.Tag != v.Tag)) return "Tag";
-        if ((mask & 33554432) != 0 && (r.Odd != v.Odd)) return "Odd";
+        if ((mask & 262144) != 0 && (unset & 131072) == 0 && (!r.Mem.Value.SequenceEqual(v.Mem.Span))) return "Mem";
+        if ((mask & 524288) != 0 && (unset & 262144) == 0 && (r.Uuid != v.Uuid)) return "Uuid";
+        if ((mask & 1048576) != 0 && (unset & 524288) == 0 && (r.Day != v.Day)) return "Day";
+        if ((mask & 2097152) != 0 && (unset & 1048576) == 0 && (r.Clock != v.Clock)) return "Clock";
+        if ((mask & 4194304) != 0 && (unset & 2097152) == 0 && (r.Stamp != v.Stamp)) return "Stamp";
+        if ((mask & 8388608) != 0 && (unset & 4194304) == 0 && (r.Instant != v.Instant)) return "Instant";
+        if ((mask & 16777216) != 0 && (unset & 8388608) == 0 && (r.Tag != v.Tag)) return "Tag";
+        if ((mask & 33554432) != 0 && (unset & 16777216) == 0 && (r.Odd != v.Odd)) return "Odd";
         return null;
     }
 }
@@ -854,68 +887,100 @@ static class RowFuzzWideNullableOps
         v.Instant = c.NextInt(0, 4) == 0 ? null : (DateTimeOffset?)(c.NextTimestampOffset());
         v.Tag = c.NextInt(0, 4) == 0 ? null : (RowFuzzId?)(new RowFuzzId(c.NextInt32()));
         v.Odd = c.NextInt(0, 4) == 0 ? null : (int?)(c.NextInt32());
+        if (c.NextInt(0, 5) == 0)
+        {
+            var unset = c.NextInt32();
+            if ((unset & 1) != 0) v.Flag = default;
+            if ((unset & 2) != 0) v.U8 = default;
+            if ((unset & 4) != 0) v.U16 = default;
+            if ((unset & 8) != 0) v.U32 = default;
+            if ((unset & 16) != 0) v.U64 = default;
+            if ((unset & 32) != 0) v.I32 = default;
+            if ((unset & 64) != 0) v.I64 = default;
+            if ((unset & 128) != 0) v.F32 = default;
+            if ((unset & 256) != 0) v.F64 = default;
+            if ((unset & 512) != 0) v.F64Alp = default;
+            if ((unset & 1024) != 0) v.Dec32 = default;
+            if ((unset & 2048) != 0) v.Dec64 = default;
+            if ((unset & 4096) != 0) v.DecFixed = default;
+            if ((unset & 8192) != 0) v.DecBytes = default;
+            if ((unset & 16384) != 0) v.Text = default;
+            if ((unset & 32768) != 0) v.Dict = default;
+            if ((unset & 65536) != 0) v.Blob = default;
+            if ((unset & 131072) != 0) v.Mem = default;
+            if ((unset & 262144) != 0) v.Uuid = default;
+            if ((unset & 524288) != 0) v.Day = default;
+            if ((unset & 1048576) != 0) v.Clock = default;
+            unset &= ~2097152;
+            if ((unset & 4194304) != 0) v.Instant = default;
+            if ((unset & 8388608) != 0) v.Tag = default;
+            if ((unset & 16777216) != 0) v.Odd = default;
+            UnsetColumns.Remember(v, unset);
+        }
         return v;
     }
 
     internal static void Set(RowFuzzWideNullable.Row r, RowFuzzWideNullable v)
     {
+        var unset = UnsetColumns.Of(v);
         r.Seq = v.Seq;
-        r.Flag = v.Flag;
-        r.U8 = v.U8;
-        r.U16 = v.U16;
-        r.U32 = v.U32;
-        r.U64 = v.U64;
-        r.I32 = v.I32;
-        r.I64 = v.I64;
-        r.F32 = v.F32;
-        r.F64 = v.F64;
-        r.F64Alp = v.F64Alp;
-        r.Dec32 = v.Dec32;
-        r.Dec64 = v.Dec64;
-        r.DecFixed = v.DecFixed;
-        r.DecBytes = v.DecBytes;
-        r.Text = v.Text;
-        r.Dict = v.Dict;
-        r.Blob = v.Blob;
-        r.Mem = v.Mem;
-        r.Uuid = v.Uuid;
-        r.Day = v.Day;
-        r.Clock = v.Clock;
-        r.Stamp = v.Stamp;
-        r.Instant = v.Instant;
-        r.Tag = v.Tag;
-        r.Odd = v.Odd;
+        if ((unset & 1) == 0) r.Flag = v.Flag;
+        if ((unset & 2) == 0) r.U8 = v.U8;
+        if ((unset & 4) == 0) r.U16 = v.U16;
+        if ((unset & 8) == 0) r.U32 = v.U32;
+        if ((unset & 16) == 0) r.U64 = v.U64;
+        if ((unset & 32) == 0) r.I32 = v.I32;
+        if ((unset & 64) == 0) r.I64 = v.I64;
+        if ((unset & 128) == 0) r.F32 = v.F32;
+        if ((unset & 256) == 0) r.F64 = v.F64;
+        if ((unset & 512) == 0) r.F64Alp = v.F64Alp;
+        if ((unset & 1024) == 0) r.Dec32 = v.Dec32;
+        if ((unset & 2048) == 0) r.Dec64 = v.Dec64;
+        if ((unset & 4096) == 0) r.DecFixed = v.DecFixed;
+        if ((unset & 8192) == 0) r.DecBytes = v.DecBytes;
+        if ((unset & 16384) == 0) r.Text = v.Text;
+        if ((unset & 32768) == 0) r.Dict = v.Dict;
+        if ((unset & 65536) == 0) r.Blob = v.Blob;
+        if ((unset & 131072) == 0) r.Mem = v.Mem;
+        if ((unset & 262144) == 0) r.Uuid = v.Uuid;
+        if ((unset & 524288) == 0) r.Day = v.Day;
+        if ((unset & 1048576) == 0) r.Clock = v.Clock;
+        if ((unset & 2097152) == 0) r.Stamp = v.Stamp;
+        if ((unset & 4194304) == 0) r.Instant = v.Instant;
+        if ((unset & 8388608) == 0) r.Tag = v.Tag;
+        if ((unset & 16777216) == 0) r.Odd = v.Odd;
     }
 
     internal static void SetCursor(ref RowFuzzWideNullable.RowCursor r, RowFuzzWideNullable v)
     {
+        var unset = UnsetColumns.Of(v);
         r.NextRow();
         r.Seq = v.Seq;
-        r.Flag = v.Flag;
-        r.U8 = v.U8;
-        r.U16 = v.U16;
-        r.U32 = v.U32;
-        r.U64 = v.U64;
-        r.I32 = v.I32;
-        r.I64 = v.I64;
-        r.F32 = v.F32;
-        r.F64 = v.F64;
-        r.F64Alp = v.F64Alp;
-        r.Dec32 = v.Dec32;
-        r.Dec64 = v.Dec64;
-        r.DecFixed = v.DecFixed;
-        r.DecBytes = v.DecBytes;
-        r.Text = v.Text;
-        r.Dict = v.Dict;
-        r.Blob = v.Blob;
-        r.Mem = v.Mem;
-        r.Uuid = v.Uuid;
-        r.Day = v.Day;
-        r.Clock = v.Clock;
-        r.Stamp = v.Stamp;
-        r.Instant = v.Instant;
-        r.Tag = v.Tag;
-        r.Odd = v.Odd;
+        if ((unset & 1) == 0) r.Flag = v.Flag;
+        if ((unset & 2) == 0) r.U8 = v.U8;
+        if ((unset & 4) == 0) r.U16 = v.U16;
+        if ((unset & 8) == 0) r.U32 = v.U32;
+        if ((unset & 16) == 0) r.U64 = v.U64;
+        if ((unset & 32) == 0) r.I32 = v.I32;
+        if ((unset & 64) == 0) r.I64 = v.I64;
+        if ((unset & 128) == 0) r.F32 = v.F32;
+        if ((unset & 256) == 0) r.F64 = v.F64;
+        if ((unset & 512) == 0) r.F64Alp = v.F64Alp;
+        if ((unset & 1024) == 0) r.Dec32 = v.Dec32;
+        if ((unset & 2048) == 0) r.Dec64 = v.Dec64;
+        if ((unset & 4096) == 0) r.DecFixed = v.DecFixed;
+        if ((unset & 8192) == 0) r.DecBytes = v.DecBytes;
+        if ((unset & 16384) == 0) r.Text = v.Text;
+        if ((unset & 32768) == 0) r.Dict = v.Dict;
+        if ((unset & 65536) == 0) r.Blob = v.Blob;
+        if ((unset & 131072) == 0) r.Mem = v.Mem;
+        if ((unset & 262144) == 0) r.Uuid = v.Uuid;
+        if ((unset & 524288) == 0) r.Day = v.Day;
+        if ((unset & 1048576) == 0) r.Clock = v.Clock;
+        if ((unset & 2097152) == 0) r.Stamp = v.Stamp;
+        if ((unset & 4194304) == 0) r.Instant = v.Instant;
+        if ((unset & 8388608) == 0) r.Tag = v.Tag;
+        if ((unset & 16777216) == 0) r.Odd = v.Odd;
     }
 
     internal static RowFuzzWideNullable.Projection Project(int mask)
@@ -953,32 +1018,33 @@ static class RowFuzzWideNullableOps
     // Returns the first column whose value differs from v, or null.
     internal static string? Compare(RowFuzzWideNullable.ReadRow r, RowFuzzWideNullable v, int mask)
     {
+        var unset = UnsetColumns.Of(v);
         if ((mask & 1) != 0 && r.Seq != v.Seq) return "Seq";
-        if ((mask & 2) != 0 && (r.Flag != v.Flag)) return "Flag";
-        if ((mask & 4) != 0 && (r.U8 != v.U8)) return "U8";
-        if ((mask & 8) != 0 && (r.U16 != v.U16)) return "U16";
-        if ((mask & 16) != 0 && (r.U32 != v.U32)) return "U32";
-        if ((mask & 32) != 0 && (r.U64 != v.U64)) return "U64";
-        if ((mask & 64) != 0 && (r.I32 != v.I32)) return "I32";
-        if ((mask & 128) != 0 && (r.I64 != v.I64)) return "I64";
-        if ((mask & 256) != 0 && ((r.F32 is null) != (v.F32 is null) || (r.F32 is { } pv7 && BitConverter.SingleToInt32Bits(pv7) != BitConverter.SingleToInt32Bits(v.F32!.Value)))) return "F32";
-        if ((mask & 512) != 0 && ((r.F64 is null) != (v.F64 is null) || (r.F64 is { } pv8 && BitConverter.DoubleToInt64Bits(pv8) != BitConverter.DoubleToInt64Bits(v.F64!.Value)))) return "F64";
-        if ((mask & 1024) != 0 && ((r.F64Alp is null) != (v.F64Alp is null) || (r.F64Alp is { } pv9 && BitConverter.DoubleToInt64Bits(pv9) != BitConverter.DoubleToInt64Bits(v.F64Alp!.Value)))) return "F64Alp";
-        if ((mask & 2048) != 0 && (r.Dec32 != v.Dec32)) return "Dec32";
-        if ((mask & 4096) != 0 && (r.Dec64 != v.Dec64)) return "Dec64";
-        if ((mask & 8192) != 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
-        if ((mask & 16384) != 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
+        if ((mask & 2) != 0 && (unset & 1) == 0 && (r.Flag != v.Flag)) return "Flag";
+        if ((mask & 4) != 0 && (unset & 2) == 0 && (r.U8 != v.U8)) return "U8";
+        if ((mask & 8) != 0 && (unset & 4) == 0 && (r.U16 != v.U16)) return "U16";
+        if ((mask & 16) != 0 && (unset & 8) == 0 && (r.U32 != v.U32)) return "U32";
+        if ((mask & 32) != 0 && (unset & 16) == 0 && (r.U64 != v.U64)) return "U64";
+        if ((mask & 64) != 0 && (unset & 32) == 0 && (r.I32 != v.I32)) return "I32";
+        if ((mask & 128) != 0 && (unset & 64) == 0 && (r.I64 != v.I64)) return "I64";
+        if ((mask & 256) != 0 && (unset & 128) == 0 && ((r.F32 is null) != (v.F32 is null) || (r.F32 is { } pv7 && BitConverter.SingleToInt32Bits(pv7) != BitConverter.SingleToInt32Bits(v.F32!.Value)))) return "F32";
+        if ((mask & 512) != 0 && (unset & 256) == 0 && ((r.F64 is null) != (v.F64 is null) || (r.F64 is { } pv8 && BitConverter.DoubleToInt64Bits(pv8) != BitConverter.DoubleToInt64Bits(v.F64!.Value)))) return "F64";
+        if ((mask & 1024) != 0 && (unset & 512) == 0 && ((r.F64Alp is null) != (v.F64Alp is null) || (r.F64Alp is { } pv9 && BitConverter.DoubleToInt64Bits(pv9) != BitConverter.DoubleToInt64Bits(v.F64Alp!.Value)))) return "F64Alp";
+        if ((mask & 2048) != 0 && (unset & 1024) == 0 && (r.Dec32 != v.Dec32)) return "Dec32";
+        if ((mask & 4096) != 0 && (unset & 2048) == 0 && (r.Dec64 != v.Dec64)) return "Dec64";
+        if ((mask & 8192) != 0 && (unset & 4096) == 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
+        if ((mask & 16384) != 0 && (unset & 8192) == 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
         if ((mask & 32768) != 0 && (!string.Equals(r.Text, v.Text, StringComparison.Ordinal))) return "Text";
         if ((mask & 65536) != 0 && (!string.Equals(r.Dict, v.Dict, StringComparison.Ordinal))) return "Dict";
         if ((mask & 131072) != 0 && ((r.Blob.IsNull != (v.Blob is null)) || (!r.Blob.IsNull && !r.Blob.Value.SequenceEqual(v.Blob)))) return "Blob";
-        if ((mask & 262144) != 0 && ((r.Mem.IsNull != !v.Mem.HasValue) || (!r.Mem.IsNull && !r.Mem.Value.SequenceEqual(v.Mem.Value.Span)))) return "Mem";
-        if ((mask & 524288) != 0 && (r.Uuid != v.Uuid)) return "Uuid";
-        if ((mask & 1048576) != 0 && (r.Day != v.Day)) return "Day";
-        if ((mask & 2097152) != 0 && (r.Clock != v.Clock)) return "Clock";
-        if ((mask & 4194304) != 0 && (r.Stamp != v.Stamp)) return "Stamp";
-        if ((mask & 8388608) != 0 && (r.Instant != v.Instant)) return "Instant";
-        if ((mask & 16777216) != 0 && (r.Tag != v.Tag)) return "Tag";
-        if ((mask & 33554432) != 0 && (r.Odd != v.Odd)) return "Odd";
+        if ((mask & 262144) != 0 && (unset & 131072) == 0 && ((r.Mem.IsNull != !v.Mem.HasValue) || (!r.Mem.IsNull && !r.Mem.Value.SequenceEqual(v.Mem.Value.Span)))) return "Mem";
+        if ((mask & 524288) != 0 && (unset & 262144) == 0 && (r.Uuid != v.Uuid)) return "Uuid";
+        if ((mask & 1048576) != 0 && (unset & 524288) == 0 && (r.Day != v.Day)) return "Day";
+        if ((mask & 2097152) != 0 && (unset & 1048576) == 0 && (r.Clock != v.Clock)) return "Clock";
+        if ((mask & 4194304) != 0 && (unset & 2097152) == 0 && (r.Stamp != v.Stamp)) return "Stamp";
+        if ((mask & 8388608) != 0 && (unset & 4194304) == 0 && (r.Instant != v.Instant)) return "Instant";
+        if ((mask & 16777216) != 0 && (unset & 8388608) == 0 && (r.Tag != v.Tag)) return "Tag";
+        if ((mask & 33554432) != 0 && (unset & 16777216) == 0 && (r.Odd != v.Odd)) return "Odd";
         return null;
     }
 }
@@ -1572,66 +1638,97 @@ static class RowFuzzFlatNullableOps
         v.Stamp = c.NextInt(0, 4) == 0 ? null : (DateTime?)(c.NextTimestamp());
         v.Instant = c.NextInt(0, 4) == 0 ? null : (DateTimeOffset?)(c.NextTimestampOffset());
         v.Odd = c.NextInt(0, 4) == 0 ? null : (int?)(c.NextInt32());
+        if (c.NextInt(0, 5) == 0)
+        {
+            var unset = c.NextInt32();
+            if ((unset & 1) != 0) v.Flag = default;
+            if ((unset & 2) != 0) v.U8 = default;
+            if ((unset & 4) != 0) v.U16 = default;
+            if ((unset & 8) != 0) v.U32 = default;
+            if ((unset & 16) != 0) v.U64 = default;
+            if ((unset & 32) != 0) v.I32 = default;
+            if ((unset & 64) != 0) v.I64 = default;
+            if ((unset & 128) != 0) v.F32 = default;
+            if ((unset & 256) != 0) v.F64 = default;
+            if ((unset & 512) != 0) v.F64Alp = default;
+            if ((unset & 1024) != 0) v.Dec32 = default;
+            if ((unset & 2048) != 0) v.Dec64 = default;
+            if ((unset & 4096) != 0) v.DecFixed = default;
+            if ((unset & 8192) != 0) v.DecBytes = default;
+            if ((unset & 16384) != 0) v.Text = default;
+            if ((unset & 32768) != 0) v.Dict = default;
+            if ((unset & 65536) != 0) v.Blob = default;
+            if ((unset & 131072) != 0) v.Mem = default;
+            if ((unset & 262144) != 0) v.Uuid = default;
+            if ((unset & 524288) != 0) v.Day = default;
+            if ((unset & 1048576) != 0) v.Clock = default;
+            unset &= ~2097152;
+            if ((unset & 4194304) != 0) v.Instant = default;
+            if ((unset & 8388608) != 0) v.Odd = default;
+            UnsetColumns.Remember(v, unset);
+        }
         return v;
     }
 
     internal static void Set(RowFuzzFlatNullable.Row r, RowFuzzFlatNullable v)
     {
+        var unset = UnsetColumns.Of(v);
         r.Seq = v.Seq;
-        r.Flag = v.Flag;
-        r.U8 = v.U8;
-        r.U16 = v.U16;
-        r.U32 = v.U32;
-        r.U64 = v.U64;
-        r.I32 = v.I32;
-        r.I64 = v.I64;
-        r.F32 = v.F32;
-        r.F64 = v.F64;
-        r.F64Alp = v.F64Alp;
-        r.Dec32 = v.Dec32;
-        r.Dec64 = v.Dec64;
-        r.DecFixed = v.DecFixed;
-        r.DecBytes = v.DecBytes;
-        r.Text = v.Text;
-        r.Dict = v.Dict;
-        r.Blob = v.Blob;
-        r.Mem = v.Mem;
-        r.Uuid = v.Uuid;
-        r.Day = v.Day;
-        r.Clock = v.Clock;
-        r.Stamp = v.Stamp;
-        r.Instant = v.Instant;
-        r.Odd = v.Odd;
+        if ((unset & 1) == 0) r.Flag = v.Flag;
+        if ((unset & 2) == 0) r.U8 = v.U8;
+        if ((unset & 4) == 0) r.U16 = v.U16;
+        if ((unset & 8) == 0) r.U32 = v.U32;
+        if ((unset & 16) == 0) r.U64 = v.U64;
+        if ((unset & 32) == 0) r.I32 = v.I32;
+        if ((unset & 64) == 0) r.I64 = v.I64;
+        if ((unset & 128) == 0) r.F32 = v.F32;
+        if ((unset & 256) == 0) r.F64 = v.F64;
+        if ((unset & 512) == 0) r.F64Alp = v.F64Alp;
+        if ((unset & 1024) == 0) r.Dec32 = v.Dec32;
+        if ((unset & 2048) == 0) r.Dec64 = v.Dec64;
+        if ((unset & 4096) == 0) r.DecFixed = v.DecFixed;
+        if ((unset & 8192) == 0) r.DecBytes = v.DecBytes;
+        if ((unset & 16384) == 0) r.Text = v.Text;
+        if ((unset & 32768) == 0) r.Dict = v.Dict;
+        if ((unset & 65536) == 0) r.Blob = v.Blob;
+        if ((unset & 131072) == 0) r.Mem = v.Mem;
+        if ((unset & 262144) == 0) r.Uuid = v.Uuid;
+        if ((unset & 524288) == 0) r.Day = v.Day;
+        if ((unset & 1048576) == 0) r.Clock = v.Clock;
+        if ((unset & 2097152) == 0) r.Stamp = v.Stamp;
+        if ((unset & 4194304) == 0) r.Instant = v.Instant;
+        if ((unset & 8388608) == 0) r.Odd = v.Odd;
     }
 
     internal static void SetCursor(ref RowFuzzFlatNullable.RowCursor r, RowFuzzFlatNullable v)
     {
+        var unset = UnsetColumns.Of(v);
         r.NextRow();
         r.Seq = v.Seq;
-        r.Flag = v.Flag;
-        r.U8 = v.U8;
-        r.U16 = v.U16;
-        r.U32 = v.U32;
-        r.U64 = v.U64;
-        r.I32 = v.I32;
-        r.I64 = v.I64;
-        r.F32 = v.F32;
-        r.F64 = v.F64;
-        r.F64Alp = v.F64Alp;
-        r.Dec32 = v.Dec32;
-        r.Dec64 = v.Dec64;
-        r.DecFixed = v.DecFixed;
-        r.DecBytes = v.DecBytes;
-        r.Text = v.Text;
-        r.Dict = v.Dict;
-        r.Blob = v.Blob;
-        r.Mem = v.Mem;
-        r.Uuid = v.Uuid;
-        r.Day = v.Day;
-        r.Clock = v.Clock;
-        r.Stamp = v.Stamp;
-        r.Instant = v.Instant;
-        r.Odd = v.Odd;
+        if ((unset & 1) == 0) r.Flag = v.Flag;
+        if ((unset & 2) == 0) r.U8 = v.U8;
+        if ((unset & 4) == 0) r.U16 = v.U16;
+        if ((unset & 8) == 0) r.U32 = v.U32;
+        if ((unset & 16) == 0) r.U64 = v.U64;
+        if ((unset & 32) == 0) r.I32 = v.I32;
+        if ((unset & 64) == 0) r.I64 = v.I64;
+        if ((unset & 128) == 0) r.F32 = v.F32;
+        if ((unset & 256) == 0) r.F64 = v.F64;
+        if ((unset & 512) == 0) r.F64Alp = v.F64Alp;
+        if ((unset & 1024) == 0) r.Dec32 = v.Dec32;
+        if ((unset & 2048) == 0) r.Dec64 = v.Dec64;
+        if ((unset & 4096) == 0) r.DecFixed = v.DecFixed;
+        if ((unset & 8192) == 0) r.DecBytes = v.DecBytes;
+        if ((unset & 16384) == 0) r.Text = v.Text;
+        if ((unset & 32768) == 0) r.Dict = v.Dict;
+        if ((unset & 65536) == 0) r.Blob = v.Blob;
+        if ((unset & 131072) == 0) r.Mem = v.Mem;
+        if ((unset & 262144) == 0) r.Uuid = v.Uuid;
+        if ((unset & 524288) == 0) r.Day = v.Day;
+        if ((unset & 1048576) == 0) r.Clock = v.Clock;
+        if ((unset & 2097152) == 0) r.Stamp = v.Stamp;
+        if ((unset & 4194304) == 0) r.Instant = v.Instant;
+        if ((unset & 8388608) == 0) r.Odd = v.Odd;
     }
 
     internal static RowFuzzFlatNullable.Projection Project(int mask)
@@ -1668,31 +1765,32 @@ static class RowFuzzFlatNullableOps
     // Returns the first column whose value differs from v, or null.
     internal static string? Compare(RowFuzzFlatNullable.ReadRow r, RowFuzzFlatNullable v, int mask)
     {
+        var unset = UnsetColumns.Of(v);
         if ((mask & 1) != 0 && r.Seq != v.Seq) return "Seq";
-        if ((mask & 2) != 0 && (r.Flag != v.Flag)) return "Flag";
-        if ((mask & 4) != 0 && (r.U8 != v.U8)) return "U8";
-        if ((mask & 8) != 0 && (r.U16 != v.U16)) return "U16";
-        if ((mask & 16) != 0 && (r.U32 != v.U32)) return "U32";
-        if ((mask & 32) != 0 && (r.U64 != v.U64)) return "U64";
-        if ((mask & 64) != 0 && (r.I32 != v.I32)) return "I32";
-        if ((mask & 128) != 0 && (r.I64 != v.I64)) return "I64";
-        if ((mask & 256) != 0 && ((r.F32 is null) != (v.F32 is null) || (r.F32 is { } pv7 && BitConverter.SingleToInt32Bits(pv7) != BitConverter.SingleToInt32Bits(v.F32!.Value)))) return "F32";
-        if ((mask & 512) != 0 && ((r.F64 is null) != (v.F64 is null) || (r.F64 is { } pv8 && BitConverter.DoubleToInt64Bits(pv8) != BitConverter.DoubleToInt64Bits(v.F64!.Value)))) return "F64";
-        if ((mask & 1024) != 0 && ((r.F64Alp is null) != (v.F64Alp is null) || (r.F64Alp is { } pv9 && BitConverter.DoubleToInt64Bits(pv9) != BitConverter.DoubleToInt64Bits(v.F64Alp!.Value)))) return "F64Alp";
-        if ((mask & 2048) != 0 && (r.Dec32 != v.Dec32)) return "Dec32";
-        if ((mask & 4096) != 0 && (r.Dec64 != v.Dec64)) return "Dec64";
-        if ((mask & 8192) != 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
-        if ((mask & 16384) != 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
+        if ((mask & 2) != 0 && (unset & 1) == 0 && (r.Flag != v.Flag)) return "Flag";
+        if ((mask & 4) != 0 && (unset & 2) == 0 && (r.U8 != v.U8)) return "U8";
+        if ((mask & 8) != 0 && (unset & 4) == 0 && (r.U16 != v.U16)) return "U16";
+        if ((mask & 16) != 0 && (unset & 8) == 0 && (r.U32 != v.U32)) return "U32";
+        if ((mask & 32) != 0 && (unset & 16) == 0 && (r.U64 != v.U64)) return "U64";
+        if ((mask & 64) != 0 && (unset & 32) == 0 && (r.I32 != v.I32)) return "I32";
+        if ((mask & 128) != 0 && (unset & 64) == 0 && (r.I64 != v.I64)) return "I64";
+        if ((mask & 256) != 0 && (unset & 128) == 0 && ((r.F32 is null) != (v.F32 is null) || (r.F32 is { } pv7 && BitConverter.SingleToInt32Bits(pv7) != BitConverter.SingleToInt32Bits(v.F32!.Value)))) return "F32";
+        if ((mask & 512) != 0 && (unset & 256) == 0 && ((r.F64 is null) != (v.F64 is null) || (r.F64 is { } pv8 && BitConverter.DoubleToInt64Bits(pv8) != BitConverter.DoubleToInt64Bits(v.F64!.Value)))) return "F64";
+        if ((mask & 1024) != 0 && (unset & 512) == 0 && ((r.F64Alp is null) != (v.F64Alp is null) || (r.F64Alp is { } pv9 && BitConverter.DoubleToInt64Bits(pv9) != BitConverter.DoubleToInt64Bits(v.F64Alp!.Value)))) return "F64Alp";
+        if ((mask & 2048) != 0 && (unset & 1024) == 0 && (r.Dec32 != v.Dec32)) return "Dec32";
+        if ((mask & 4096) != 0 && (unset & 2048) == 0 && (r.Dec64 != v.Dec64)) return "Dec64";
+        if ((mask & 8192) != 0 && (unset & 4096) == 0 && (r.DecFixed != v.DecFixed)) return "DecFixed";
+        if ((mask & 16384) != 0 && (unset & 8192) == 0 && (r.DecBytes != v.DecBytes)) return "DecBytes";
         if ((mask & 32768) != 0 && (!string.Equals(r.Text, v.Text, StringComparison.Ordinal))) return "Text";
         if ((mask & 65536) != 0 && (!string.Equals(r.Dict, v.Dict, StringComparison.Ordinal))) return "Dict";
         if ((mask & 131072) != 0 && ((r.Blob.IsNull != (v.Blob is null)) || (!r.Blob.IsNull && !r.Blob.Value.SequenceEqual(v.Blob)))) return "Blob";
-        if ((mask & 262144) != 0 && ((r.Mem.IsNull != !v.Mem.HasValue) || (!r.Mem.IsNull && !r.Mem.Value.SequenceEqual(v.Mem.Value.Span)))) return "Mem";
-        if ((mask & 524288) != 0 && (r.Uuid != v.Uuid)) return "Uuid";
-        if ((mask & 1048576) != 0 && (r.Day != v.Day)) return "Day";
-        if ((mask & 2097152) != 0 && (r.Clock != v.Clock)) return "Clock";
-        if ((mask & 4194304) != 0 && (r.Stamp != v.Stamp)) return "Stamp";
-        if ((mask & 8388608) != 0 && (r.Instant != v.Instant)) return "Instant";
-        if ((mask & 16777216) != 0 && (r.Odd != v.Odd)) return "Odd";
+        if ((mask & 262144) != 0 && (unset & 131072) == 0 && ((r.Mem.IsNull != !v.Mem.HasValue) || (!r.Mem.IsNull && !r.Mem.Value.SequenceEqual(v.Mem.Value.Span)))) return "Mem";
+        if ((mask & 524288) != 0 && (unset & 262144) == 0 && (r.Uuid != v.Uuid)) return "Uuid";
+        if ((mask & 1048576) != 0 && (unset & 524288) == 0 && (r.Day != v.Day)) return "Day";
+        if ((mask & 2097152) != 0 && (unset & 1048576) == 0 && (r.Clock != v.Clock)) return "Clock";
+        if ((mask & 4194304) != 0 && (unset & 2097152) == 0 && (r.Stamp != v.Stamp)) return "Stamp";
+        if ((mask & 8388608) != 0 && (unset & 4194304) == 0 && (r.Instant != v.Instant)) return "Instant";
+        if ((mask & 16777216) != 0 && (unset & 8388608) == 0 && (r.Odd != v.Odd)) return "Odd";
         return null;
     }
 }

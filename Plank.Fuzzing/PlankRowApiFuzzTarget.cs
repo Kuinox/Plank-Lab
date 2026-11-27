@@ -57,6 +57,13 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.StartsWith(UnsetValueProbeMagic))
+        {
+            var probeCursor = new Cursor(data[UnsetValueProbeMagic.Length..]);
+            RunUnsetValueProbe(ref probeCursor);
+            return;
+        }
+
         if (data.StartsWith(EvolutionMagic))
         {
             var evolutionCursor = new Cursor(data[EvolutionMagic.Length..]);

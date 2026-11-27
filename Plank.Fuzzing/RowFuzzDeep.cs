@@ -142,6 +142,24 @@ static class RowFuzzDeepOps
             for (var i = c.NextInt(0, 4); i > 0; i--)
                 v.Mems.Add(c.NextInt(0, 3) == 0 ? null : new ReadOnlyMemory<byte>(c.NextBytes(10)));
         }
+        // Nullable collections, maps and records may be left unassigned: the row API writes an
+        // unassigned row as a null collection, so they must read back null. (The required lists are
+        // always assigned; an unassigned row there is rejected.)
+        if (c.NextInt(0, 4) == 0)
+        {
+            var unset = c.NextInt32();
+            if ((unset & 1) != 0) v.Array = null;
+            if ((unset & 2) != 0) v.Grid = null;
+            if ((unset & 4) != 0) v.Lookup = null;
+            if ((unset & 8) != 0) v.Series = null;
+            if ((unset & 16) != 0) v.Outer = null;
+            if ((unset & 32) != 0) v.Outers = null;
+            if ((unset & 64) != 0) v.Blobs = null;
+            if ((unset & 128) != 0) v.Floats = null;
+            if ((unset & 256) != 0) v.Longs = null;
+            if ((unset & 512) != 0) v.Mems = null;
+            UnsetColumns.Remember(v, unset);
+        }
         return v;
     }
 
@@ -173,39 +191,41 @@ static class RowFuzzDeepOps
 
     internal static void Set(RowFuzzDeep.Row r, RowFuzzDeep v)
     {
+        var unset = UnsetColumns.Of(v);
         r.Seq = v.Seq;
         r.Ints = v.Ints;
-        r.Array = v.Array;
-        r.Grid = v.Grid;
-        r.Lookup = v.Lookup;
-        r.Series = v.Series;
-        r.Outer = v.Outer;
-        r.Outers = v.Outers;
+        if ((unset & 1) == 0) r.Array = v.Array;
+        if ((unset & 2) == 0) r.Grid = v.Grid;
+        if ((unset & 4) == 0) r.Lookup = v.Lookup;
+        if ((unset & 8) == 0) r.Series = v.Series;
+        if ((unset & 16) == 0) r.Outer = v.Outer;
+        if ((unset & 32) == 0) r.Outers = v.Outers;
         r.Ids = v.Ids;
-        r.Blobs = v.Blobs;
+        if ((unset & 64) == 0) r.Blobs = v.Blobs;
         r.Flags = v.Flags;
-        r.Floats = v.Floats;
-        r.Longs = v.Longs;
-        r.Mems = v.Mems;
+        if ((unset & 128) == 0) r.Floats = v.Floats;
+        if ((unset & 256) == 0) r.Longs = v.Longs;
+        if ((unset & 512) == 0) r.Mems = v.Mems;
     }
 
     internal static void SetCursor(ref RowFuzzDeep.RowCursor r, RowFuzzDeep v)
     {
+        var unset = UnsetColumns.Of(v);
         r.NextRow();
         r.Seq = v.Seq;
         r.Ints = v.Ints;
-        r.Array = v.Array;
-        r.Grid = v.Grid;
-        r.Lookup = v.Lookup;
-        r.Series = v.Series;
-        r.Outer = v.Outer;
-        r.Outers = v.Outers;
+        if ((unset & 1) == 0) r.Array = v.Array;
+        if ((unset & 2) == 0) r.Grid = v.Grid;
+        if ((unset & 4) == 0) r.Lookup = v.Lookup;
+        if ((unset & 8) == 0) r.Series = v.Series;
+        if ((unset & 16) == 0) r.Outer = v.Outer;
+        if ((unset & 32) == 0) r.Outers = v.Outers;
         r.Ids = v.Ids;
-        r.Blobs = v.Blobs;
+        if ((unset & 64) == 0) r.Blobs = v.Blobs;
         r.Flags = v.Flags;
-        r.Floats = v.Floats;
-        r.Longs = v.Longs;
-        r.Mems = v.Mems;
+        if ((unset & 128) == 0) r.Floats = v.Floats;
+        if ((unset & 256) == 0) r.Longs = v.Longs;
+        if ((unset & 512) == 0) r.Mems = v.Mems;
     }
 
     internal static RowFuzzDeep.Projection Project(int mask)
@@ -236,7 +256,9 @@ static class RowFuzzDeepOps
         if ((mask & 8) != 0 && !GridEq(r.Grid, v.Grid)) return "Grid";
         if ((mask & 16) != 0 && !DictEq(r.Lookup, v.Lookup)) return "Lookup";
         if ((mask & 32) != 0 && !SeriesEq(r.Series, v.Series)) return "Series";
-        if ((mask & 64) != 0 && !OuterEq(r.Outer, v.Outer)) return "Outer";
+        // An unassigned record keeps its scalar leaves from the reused slot (only collections are cleared and
+        // read as null), so an unset Outer has no defined value.
+        if ((mask & 64) != 0 && (UnsetColumns.Of(v) & 16) == 0 && !OuterEq(r.Outer, v.Outer)) return "Outer";
         if ((mask & 128) != 0 && !ListEq(r.Outers, v.Outers, MixedEq)) return "Outers";
         if ((mask & 256) != 0 && !SeqEq(r.Ids, v.Ids)) return "Ids";
         if ((mask & 512) != 0 && !ListEq(r.Blobs, v.Blobs, static (a, b) => a is null ? b is null : b is not null && a.AsSpan().SequenceEqual(b))) return "Blobs";

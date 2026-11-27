@@ -127,20 +127,39 @@ def emit_class(name, nullable, cols=None):
             a(f"        v.{col[0]} = c.NextInt(0, 4) == 0 ? null : ({clr(col, True)})({e});")
         else:
             a(f"        v.{col[0]} = {e};")
+    # Some rows leave columns unassigned. A column that is never assigned must read back as the
+    # CLR default, never as the value a previous row (or a reused/grown slot) held. Required string and
+    # byte[] columns are always assigned: a null there is rejected input, not a default.
+    a("        if (c.NextInt(0, 5) == 0)")
+    a("        {")
+    a("            var unset = c.NextInt32();")
+    for i, col in enumerate(COLS):
+        if (not nullable and is_ref(col)) or col[3] == "ts":
+            a(f"            unset &= ~{1 << i};")
+            continue   # required string/byte[] null is rejected input; default(DateTime) is not a UTC timestamp
+        a(f"            if ((unset & {1 << i}) != 0) v.{col[0]} = default;")
+    for i, col in enumerate(COLS):
+        pass
+    a("            UnsetColumns.Remember(v, unset);")
+    a("        }")
     a("        return v;")
     a("    }\n")
     a(f"    internal static void Set({name}.Row r, {name} v)")
     a("    {")
+    a("        var unset = UnsetColumns.Of(v);")
     a("        r.Seq = v.Seq;")
-    for col in COLS:
-        a(f"        r.{col[0]} = v.{col[0]};")
+    for i, col in enumerate(COLS):
+        guard = "" if (not nullable and is_ref(col)) else f"if ((unset & {1 << i}) == 0) "
+        a(f"        {guard}r.{col[0]} = v.{col[0]};")
     a("    }\n")
     a(f"    internal static void SetCursor(ref {name}.RowCursor r, {name} v)")
     a("    {")
+    a("        var unset = UnsetColumns.Of(v);")
     a("        r.NextRow();")
     a("        r.Seq = v.Seq;")
-    for col in COLS:
-        a(f"        r.{col[0]} = v.{col[0]};")
+    for i, col in enumerate(COLS):
+        guard = "" if (not nullable and is_ref(col)) else f"if ((unset & {1 << i}) == 0) "
+        a(f"        {guard}r.{col[0]} = v.{col[0]};")
     a("    }\n")
     a(f"    internal static {name}.Projection Project(int mask)")
     a("    {")
@@ -153,6 +172,7 @@ def emit_class(name, nullable, cols=None):
     a(f"    // Returns the first column whose value differs from v, or null.")
     a(f"    internal static string? Compare({name}.ReadRow r, {name} v, int mask)")
     a("    {")
+    a("        var unset = UnsetColumns.Of(v);")
     a("        if ((mask & 1) != 0 && r.Seq != v.Seq) return \"Seq\";")
     for i, col in enumerate(COLS):
         t = col[3].split(":")[0]
@@ -179,7 +199,10 @@ def emit_class(name, nullable, cols=None):
             cond = f"!string.Equals({p}, {w}, StringComparison.Ordinal)"
         else:
             cond = f"{p} != {w}"
-        a(f"        if ((mask & {bit}) != 0 && ({cond})) return \"{col[0]}\";")
+        # An unassigned value-type column keeps whatever the reused slot held (only reference-typed buffers
+        # are cleared on reuse), so only reference columns have a defined value there: null.
+        skip = "" if is_ref(col) else f"(unset & {1 << i}) == 0 && "
+        a(f"        if ((mask & {bit}) != 0 && {skip}({cond})) return \"{col[0]}\";")
     a("        return null;")
     a("    }")
     a("}\n")

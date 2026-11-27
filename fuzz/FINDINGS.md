@@ -63,6 +63,13 @@ header probing. Their fixes landed as #169 and #171, and in reworked form as
   converter for 'RowFuzzId' and cannot be read as 'Int32'` (`ParquetWriter.OpenAppendFile`). Repro:
   [`repros/dataset-append-latest-converter/`](repros/dataset-append-latest-converter/) (an `RDN1` input; replay it with
   `PLANK_FUZZ_APPEND_LATEST_CONVERTER=1`, the option is off for the converter-bearing wide schemas by default).
+- **A column a row never assigns keeps the previous row group's value (row API slot reuse).** `RowApiColumnWriteState<T>.ResetForReuse`
+  clears only reference-typed buffers, so after a row group is written the reused slot still holds the earlier rows' scalar
+  values (and records' scalar leaves). A later row that skips such a column is written with that stale value; reference columns
+  (null) and nested collections (`RowApiNestedLeafBuffer`: an unassigned row is written as a null collection) behave correctly.
+  Nothing documents "assign every column of every row". Repro: [`repros/rowapi-unset-column-stale-value/`](repros/rowapi-unset-column-stale-value/)
+  (`RUS1`, fails: `unset Id read 7, expected 0`). The wide routes leave columns unassigned only where the behaviour is defined
+  (reference columns, nullable collections) and skip the comparison for unassigned scalar columns.
 - **Source generator emits uncompilable code for a column name containing `"`.** `Escape()` in `ParquetRowGenerator` and
   `NestedParquetRowEmitter` uses `SymbolDisplay.FormatLiteral(value, quote: false)`, which does not escape the double quote.
   `[ParquetColumn("a\"b")]` yields `Leaf("a"b", ...)`. (A compile-time defect; no fuzz seed.)
