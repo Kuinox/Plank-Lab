@@ -65,6 +65,18 @@ Plank→Plank round trips cannot see a defect that is symmetric in the writer an
   decides it — declared sorting columns against the rows. Files Plank itself rejects are left to the route.
   `PLANK_FUZZ_ORACLE_DUMP=<dir>` saves each mismatching written file; `PLANK_FUZZ_FULL_ORACLE=0` disables both hooks.
 
+**Read-API matrix** (`Plank.Fuzzing/ReadApiMatrix.cs`, run by both hooks above on every file they check): each column is
+read again through every API that decodes it and every CLR type Plank accepts for it — `RowGroup.Column<T>`/`<T?>` for
+bool, sbyte, byte, short, ushort, int, uint, long, ulong, Half, float, double, decimal, DateOnly, TimeOnly, TimeSpan,
+DateTime, DateTimeOffset and Guid (narrowing, widening, decimal scales, timestamp units/UTC, INT96 as DateTime);
+`NestedColumn<T>` with level comparison; `RowReaderCore.GetCurrent` by descriptor and by ordinal (the generated readers'
+fast path), unprojected and projected; value converters through a requested schema mirroring the file's; and the
+physical page cursor (data-page value counts, v2 num_nulls/num_rows and record-aligned starts against Arrow's levels,
+stored-byte CRC of every page on Plank's own files). Every returned value must be the specified conversion of Arrow's
+physical value (or C#'s numeric conversion); refusals are allowed, values for unspecified combinations only have to
+line up with Arrow's entries. `PLANK_FUZZ_READ_MATRIX=0` disables it. There is no dataset *reader* in the library (only
+the dataset writer, whose output goes through the written-file hook).
+
 Oracle capability gaps (narrow, by name; value and metadata mismatches are never suppressed): encoding 10 (ALP) columns
 and pages, dictionary-encoded BOOLEAN (Arrow cannot decode them); logical types ParquetSharp 24 has no class for
 (GEOMETRY, GEOGRAPHY, VARIANT: no logical-type comparison); key/value pairs with NUL or invalid UTF-8, or duplicate keys

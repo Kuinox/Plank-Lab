@@ -97,6 +97,13 @@ metadata from Arrow-decoded values.
   [`repros/statistics-uint-in-signed-int32-order/`](repros/statistics-uint-in-signed-int32-order/)
   (`writer-gap-seeds/delta-binary-packed-int32/public-generic-dispatch.bin`).
 
+- **Narrow unsigned reads wrap silently (read-API matrix).** `RowGroup.Column<byte|ushort|uint>` (and `<T?>`,
+  `NestedColumn<T>`, row-reader descriptors) on *any* INT32 column — unannotated, DATE, TIME, INT(16, signed),
+  INT(32, unsigned) — and `<ulong>` on INT64 return the value truncated to the CLR width (unchecked cast): DATE
+  2019-04-15 (day 18000) reads as `byte` 80, -300 as 212. `sbyte`/`short` are refused (`NotSupportedException`), so
+  this is not a deliberate "raw bits" contract. Repro: [`repros/narrow-unsigned-reads-wrap/`](repros/narrow-unsigned-reads-wrap/)
+  (explicit test `Repro_NarrowUnsignedReadsWrapSilently`). The matrix excludes exactly this wrap shape unless
+  `PLANK_FUZZ_STRICT_NARROWING=1`.
 - **Minor spec deviation: precision/scale without any annotation read as DECIMAL.** A FIXED_LEN_BYTE_ARRAY schema
   element with `precision = 9, scale = 0` but neither `converted_type` nor `logicalType` is exposed by Plank as
   `LogicalType.Decimal(9, 0)`; the specification (and Arrow) leave it unannotated. Seeds:
