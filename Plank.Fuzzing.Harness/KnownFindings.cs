@@ -24,6 +24,9 @@ internal static class KnownFindings
         "dataset-append-latest-converter",      // AppendToLatestRowGroup on a converter column
         "stale-scalar-slot-reuse",              // unassigned scalar column keeps the previous row group's value
         "negative-workercount",                 // WorkerCount < 0 -> OverflowException instead of ArgumentOutOfRange
+        "writer-oom-memory-cap",                // not a library finding: the writer target's drawn buffer options need a few GB;
+                                                // under a container memory cap (heap limit = 75%) a long-lived worker OOMs. Writer only:
+                                                // an OOM while reading an untrusted file would be a real finding.
     ];
 
     static readonly HashSet<string> Enabled = Parse(Environment.GetEnvironmentVariable("PLANK_FUZZ_KNOWN_FINDINGS"));
@@ -50,21 +53,21 @@ internal static class KnownFindings
     }
 
     /// <summary>Returns the id of the known finding the exception matches, or null (also when none is enabled).</summary>
-    internal static string? Match(Exception exception, IReadOnlySet<string>? enabled = null)
+    internal static string? Match(Exception exception, IReadOnlySet<string>? enabled = null, string? targetName = null)
     {
         enabled ??= Enabled;
         if (enabled.Count == 0)
             return null;
         var text = exception.ToString();
         foreach (var id in AllIds)
-            if (enabled.Contains(id) && Matches(id, exception, text))
+            if (enabled.Contains(id) && Matches(id, exception, text, targetName))
                 return id;
         return null;
     }
 
     internal static IReadOnlySet<string> ParseIds(string value) => Parse(value);
 
-    static bool Matches(string id, Exception e, string t)
+    static bool Matches(string id, Exception e, string t, string? targetName)
     {
         bool Has(string s) => t.Contains(s, StringComparison.Ordinal);
         bool Chain<T>() where T : Exception
@@ -99,6 +102,8 @@ internal static class KnownFindings
                 return Chain<InvalidOperationException>() && Has("uses a converter for") && Has("cannot be read as");
             case "stale-scalar-slot-reuse":
                 return Has("RowApiRoundTripException") && Has("'unset ") && Has(" read ") && Has(", expected ");
+            case "writer-oom-memory-cap":
+                return targetName == "writer" && Chain<OutOfMemoryException>();
             case "negative-workercount":
                 return Chain<OverflowException>() && Has("get_RowApiMaxParallelism");
             default:

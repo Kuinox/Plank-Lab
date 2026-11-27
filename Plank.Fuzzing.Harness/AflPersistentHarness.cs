@@ -18,6 +18,8 @@ internal static unsafe class AflPersistentHarness
     private const int FaultNone = 0;
     private const int FaultCrash = 2;
     private const int SaveInterval = 10_000;
+    private static readonly int GcEvery =
+        int.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_GC_EVERY"), out var gcEvery) ? gcEvery : 0;
     private static readonly bool SurviveCrash =
         Environment.GetEnvironmentVariable("PLANK_FUZZ_SURVIVE_CRASH") == "1";
 
@@ -138,6 +140,15 @@ internal static unsafe class AflPersistentHarness
                 TryWriteAllBytes(lastInputPath, input);
 
             uint status = ExecuteOne(targetName, execute, input, SurviveCrash, out bool fatal);
+
+            // PLANK_FUZZ_GC_EVERY=N: a compacting full GC every N executions. The shared buffer pool and LOH
+            // fragmentation make a long-lived worker's heap creep up until a container memory cap fails an
+            // allocation that a fresh process would survive.
+            if (GcEvery > 0 && execCount % GcEvery == 0)
+            {
+                System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+                GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+            }
             WriteU32(StFd, status);
 
             if (fatal)
@@ -173,7 +184,7 @@ internal static unsafe class AflPersistentHarness
         catch (Exception ex)
         {
             // PLANK_FUZZ_KNOWN_FINDINGS: documented library bugs are counted, not reported, so AFL keeps exploring.
-            if (KnownFindings.Match(ex) is { } known)
+            if (KnownFindings.Match(ex, null, targetName) is { } known)
             {
                 KnownFindings.Record(targetName, known);
                 return FaultNone;

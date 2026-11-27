@@ -57,6 +57,15 @@ public class KnownFindingsTests
         await Assert.That(KnownFindings.Match(new InvalidOperationException("Row API round trip lost 'No more row slots are available.'"), all)).IsEqualTo("276");
     }
 
+    [Test]
+    public async Task OutOfMemoryIsOnlyAnArtifactForTheWriterTarget()
+    {
+        var all = KnownFindings.ParseIds("all");
+        await Assert.That(KnownFindings.Match(new OutOfMemoryException(), all, "writer")).IsEqualTo("writer-oom-memory-cap");
+        await Assert.That(KnownFindings.Match(new OutOfMemoryException(), all, "reader")).IsNull();
+        await Assert.That(KnownFindings.Match(new InvalidOperationException("x", new OutOfMemoryException()), all, "writer")).IsEqualTo("writer-oom-memory-cap");
+    }
+
     static string FuzzDirectory()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
