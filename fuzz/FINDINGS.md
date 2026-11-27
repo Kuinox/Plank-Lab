@@ -102,6 +102,17 @@ metadata from Arrow-decoded values.
   `LogicalType.Decimal(9, 0)`; the specification (and Arrow) leave it unannotated. Seeds:
   `reader-footer-seeds/footer-legacy-both-dropped-r00.bin`, `-r04.bin`. The reader oracle excludes exactly this shape.
 
+Replays on ovh (2026-11-27, Plank 3a6a28a, `agents/oracle/chunked.sh`, chunks of 400 so a segfault loses one chunk):
+writer target over every writer seed dir (1,004 inputs) + 18.8k random mutants: 14.8k Plank-written files checked
+(828k chunk statistics, 453k pages of column/offset index, 33.5k Bloom values, 2k nested logical values) — every
+mismatch is one of the two findings above. Reader target over every reader seed dir, the 8.5k-file generated corpus and
+47k mutants: 9.5k accepted files fully compared (schema, counts, statistics vs raw footer, KV, sorting, Bloom probes,
+13k nested logical values) — no mismatch left after the triage below. Segfaults seen only on `0xFF RWG1/RWN1` row-group
+row-writer inputs and their mutants (the known #276 overrun; they crash with the oracle disabled too).
+Harness bug noticed (writer-owned, not fixed here): `DecimalBinaryStatisticsCoverageCase` picks the `_` value set for
+any control byte ≥ 2 but expects the `order == 2` statistics only for exactly 2, so mutated `DBS1` inputs fault with
+"Decimal binary statistics changed." although Plank's statistics are right (the oracle checks them).
+
 Reader-side disagreements with Arrow classified as not Plank defects (replay of all reader seed dirs + 17k mutants):
 Plank ignores deprecated-only `min`/`max` statistics (parquet-testing `int32_decimal`, `nested_lists`, impala files...)
 where Arrow reads them for signed-order columns — a missed pruning opportunity, never a wrong value; where a footer has
