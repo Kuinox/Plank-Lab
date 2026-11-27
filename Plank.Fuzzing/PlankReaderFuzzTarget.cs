@@ -175,7 +175,7 @@ public static class PlankReaderFuzzTarget
     // through to be reported instead of silently swallowed.
     static readonly string[] BindingDiagnostics =
     [
-        "Requested schema column ", "cannot be read as", "must be read as", "does not have a Bloom filter",
+        "Requested schema column ", "cannot be read as", "must be read as", "must declare", "does not have a Bloom filter",
         "Row API column "
     ];
 
@@ -209,9 +209,24 @@ public static class PlankReaderFuzzTarget
         }
     }
 
+    internal const byte ConverterDeclineProbeSelector = 0x72;
+    internal static ReadOnlySpan<byte> ConverterDeclineProbeMarker => "CVRT"u8;
+
     static void Run(byte selector, byte[] fileBytes, IParquetBufferPool bufferPool,
         IParquetReadSource? injectedSource = null)
     {
+        // Reads every flat leaf through a converter of every plausible physical type, which
+        // forces the batched decoders to decline and the converted whole-page decoders to run.
+        if (selector == ConverterDeclineProbeSelector
+            && fileBytes.AsSpan().StartsWith(ConverterDeclineProbeMarker))
+        {
+            var payload = fileBytes.AsSpan(ConverterDeclineProbeMarker.Length);
+            if (payload.IsEmpty || payload.Length > 16 * 1024)
+                return;
+            ConverterDeclineProbe.Run(payload.ToArray(), bufferPool);
+            return;
+        }
+
         if (selector == EncodedDecoderKindProbeSelector
             && fileBytes.AsSpan().StartsWith(EncodedDecoderKindProbeMarker))
         {

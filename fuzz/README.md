@@ -54,3 +54,13 @@ only a bounded subset is committed: `fuzz/reader-gap-generated/` (boundary-size,
 nullable-dictionary, multi-page seeds from `Plank.Fuzzing/ReaderGapSeedCases.cs`, files ≤ 8 KB) and the
 `gen-codec-*` decompressor seeds in `fuzz/reader-corpus/` (every block codec × size × level × destination length ±1).
 Coverage runs must replay the generated corpus too: the committed `reader-*` dirs alone miss most of the reader.
+
+## Seeds from other writers
+
+- `fuzz/pyarrow-reader-seeds.py` (pyarrow: version 1.0/2.6, v1/v2 pages, every codec, DELTA_*/BYTE_STREAM_SPLIT on every width incl. FLBA, INT96,
+  bloom filters, page indexes, checksums, legacy and compliant nested layouts) -> `fuzz/reader-pyarrow-seeds/` (routes 0x00/0x04 kept).
+- `fuzz/footer-seeds.py` (hand-rewritten Thrift: unknown fields of every type in footer and page headers, bloom length missing, location gaps,
+  geospatial statistics/logical types, legacy-only converted types) -> `fuzz/reader-footer-seeds/`.
+- `fuzz/reader-pqt-seeds/`: `import-parquet-testing-seeds.sh` output (≤ 8 KB files of the pinned parquet-testing submodule), committed here so coverage runs include it.
+- `fuzz/reader-converter-seeds/`: inputs for the `CVRT` route (`ConverterDeclineProbe`): each flat leaf read through value converters of every plausible physical type.
+- Coverage summarising helpers: `fuzz/tools-reader-coverage/` (`covunion.py PATTERN cobertura...`).
