@@ -47,6 +47,22 @@ header probing. Their fixes landed as #169 and #171, and in reworked form as
   fixed, sorting defect; the `ab` inputs were not kept. Not classified as a
   library defect.
 
+## Open library defects found by the wide row-API routes (rowapi agent, 2026-11-27)
+
+- **`TargetDataPageSizeBytes = int.MaxValue` overflows the buffer pool.** `ParquetWriterOptions.Validate` accepts it
+  (the limit is `<= int.MaxValue`), but the first byte-array page then throws `OverflowException` from
+  `DefaultParquetBufferPool.Rent` (`BufferWriter.EnsureCurrentSegment` → `Rent`). Repro:
+  [`repros/rowapi-page-size-int-max/`](repros/rowapi-page-size-int-max/) (an `RWW1` row-API input). The wide routes cap the
+  drawn page size at 2^29 so this does not mask other faults.
+- **Dataset append with `AppendToLatestRowGroup = true` fails for a column with a value converter.** Re-opening an existing
+  partition file reaches `LatestRowGroupValues.ReadFixed<int>` which throws `InvalidOperationException: Column 'Tag' uses a
+  converter for 'RowFuzzId' and cannot be read as 'Int32'` (`ParquetWriter.OpenAppendFile`). Repro:
+  [`repros/dataset-append-latest-converter/`](repros/dataset-append-latest-converter/) (an `RDN1` input from before the option
+  was gated off in the generated dataset route).
+- **Source generator emits uncompilable code for a column name containing `"`.** `Escape()` in `ParquetRowGenerator` and
+  `NestedParquetRowEmitter` uses `SymbolDisplay.FormatLiteral(value, quote: false)`, which does not escape the double quote.
+  `[ParquetColumn("a\"b")]` yields `Leaf("a"b", ...)`. (A compile-time defect; no fuzz seed.)
+
 ## Fuzz-harness defects (fixed)
 
 - A one-byte `FA` writer input indexed `data[1]`

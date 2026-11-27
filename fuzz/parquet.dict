@@ -72,3 +72,8 @@ rowapi_wide_nullable_magic="RWN1"
 rowapi_nested_magic="NRW1"
 rowapi_nullable_binary_magic="RBN1"
 rowapi_pipeline_magic="RWP1"
+
+rowapi_wide_dataset_magic="RDW1"
+rowapi_wide_nullable_dataset_magic="RDN1"
+rowapi_wide_merge_magic="RMW1"
+rowapi_wide_nullable_merge_magic="RMN1"

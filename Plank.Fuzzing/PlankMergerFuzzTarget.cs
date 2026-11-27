@@ -35,6 +35,17 @@ public static class PlankMergerFuzzTarget
 
     public static void Execute(ReadOnlySpan<byte> data)
     {
+        // Generated-schema merge and dataset routes (see PlankRowApiFuzzTarget): they run
+        // without an expected-exception filter, so any exception is a finding.
+        // The corpus seeds carry the writer target's 0xFF row-API marker; accept them as they are.
+        var rowApiData = data.Length > 4 && data[0] == 0xFF ? data[1..] : data;
+        if (rowApiData.Length >= 4 && (rowApiData[..4].SequenceEqual("RMW1"u8) || rowApiData[..4].SequenceEqual("RMN1"u8)
+            || rowApiData[..4].SequenceEqual("RDW1"u8) || rowApiData[..4].SequenceEqual("RDN1"u8)))
+        {
+            PlankRowApiFuzzTarget.Execute(rowApiData);
+            return;
+        }
+
         if (data.Length >= MutationSchemaMagic.Length
             && data[..MutationSchemaMagic.Length].SequenceEqual(MutationSchemaMagic))
         {
@@ -692,7 +703,7 @@ public static class PlankMergerFuzzTarget
     public sealed class MergeException(string message) : Exception(message);
 
     /// <summary>An in-memory destination the merger can both read and write.</summary>
-    sealed class MemoryReadWriteSource : IParquetReadWriteSource
+    internal sealed class MemoryReadWriteSource : IParquetReadWriteSource
     {
         readonly MemoryStream _stream = new();
 

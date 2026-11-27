@@ -332,6 +332,261 @@ static class @S@Routes
         }
     }
 
+
+    static readonly byte[][] DatasetKeys = [.. Enumerable.Range(0, 6).Select(static i => System.Text.Encoding.UTF8.GetBytes($"part{i}"))];
+
+    static int PartitionOf(@S@ v, int partitions)
+        => (int)((((uint)v.Seq * 2654435761u) >> 8) % (uint)partitions);
+
+    // Routes generated rows through the generated dataset writer with independent pool size,
+    // pending capacity, append options, rollover and (optionally) an injected I/O fault.
+    internal static void RunDataset(ref PlankRowApiFuzzTarget.Cursor c)
+    {
+        var s = RowRouteSettings.Draw(ref c);
+        RowRouteSettings.Announce(s);
+        try
+        {
+            RunDatasetCore(ref c, s);
+        }
+        catch (PlankRowApiFuzzTarget.RowApiRoundTripException ex)
+        {
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(ex.Message + " | " + s);
+        }
+        catch (Exception ex) when (RowRouteSettings.Trace(ex, s))
+        {
+            throw;
+        }
+    }
+
+    static void RunDatasetCore(ref PlankRowApiFuzzTarget.Cursor c, RowRouteSettings s)
+    {
+        var partitions = c.NextInt(1, 7);
+        var createParts = c.NextBool();
+        var ownedPath = c.NextBool();
+        var poolSize = c.NextInt(1, 5);
+        var pending = (uint)(c.NextInt(0, 4) == 0 ? 0 : c.NextInt(1, 12));
+        var append = new ParquetAppendOptions
+        {
+            PreserveExistingMetadata = c.NextBool(),
+            // The Tag column uses a value converter, and appending to the latest row group of an
+            // existing file fails on such columns (fuzz/repros/dataset-append-latest-converter),
+            // so that option is kept off here until the library handles it.
+            AppendToLatestRowGroup = c.NextBool() && false,
+            WriterOptions = s.WriterOptions()
+        };
+        var failAt = c.NextInt(0, 3) == 0 ? c.NextInt(1, 40) : 0;
+        var plan = new DatasetFaultPlan(failAt, c.NextInt(1, 64), c.NextBool());
+        var rows = new @S@[s.Count];
+        for (var i = 0; i < rows.Length; i++)
+            rows[i] = @S@Ops.Generate(ref c, i);
+
+        var store = new InMemoryFileStore();
+        var files = new FaultingDatasetFile[poolSize];
+        for (var i = 0; i < files.Length; i++)
+            files[i] = new FaultingDatasetFile(new InMemoryDatasetFile(store), plan);
+        var options = new DatasetWriterOptions
+        {
+            AppendOptions = append,
+            WriterOptions = append.WriterOptions,
+            PendingRowCapacity = createParts ? 0 : pending
+        };
+        @S@.Route route = (@S@ row, IParquetBufferPool pool, out ParquetBuffer? allocation) =>
+        {
+            var key = DatasetKeys[PartitionOf(row, partitions)];
+            if (!ownedPath)
+            {
+                allocation = null;
+                return key;
+            }
+            var owner = pool.Rent(checked((uint)(key.Length + 1)));
+            allocation = owner;
+            key.CopyTo(owner.Span[1..]);
+            return owner.Span[1..(key.Length + 1)];
+        };
+        DatasetFilePath filePath = (ReadOnlySpan<byte> key, ulong index, IParquetBufferPool pool, out ParquetBuffer? allocation) =>
+        {
+            allocation = null;
+            return System.Text.Encoding.UTF8.GetBytes($"{System.Text.Encoding.UTF8.GetString(key)}-{index}");
+        };
+
+        var writer = createParts
+            ? @S@.CreateDatasetWriter(route, filePath, files, options)
+            : @S@.CreateDatasetWriter(route, files, options);
+        Exception? injected = null;
+        try
+        {
+            foreach (var row in rows)
+                writer.Queue(row);
+        }
+        catch (Exception ex) when (DatasetFaultPlan.IsInjected(ex))
+        {
+            injected = ex;
+        }
+
+        if (injected is not null)
+        {
+            // A failed dataset writer is permanently faulted: later calls rethrow the original failure.
+            try
+            {
+                writer.Queue(rows.Length > 0 ? rows[0] : @S@Ops.Generate(ref c, 0));
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException("@S@ dataset writer accepted a row after a failure.");
+            }
+            catch (IOException again) when (again.Message == injected.Message)
+            {
+            }
+            // The failure was already reported to the caller, so cleanup must not throw it again.
+            writer.Dispose();
+        }
+        else
+        {
+            try
+            {
+                writer.Dispose();
+            }
+            catch (Exception ex) when (DatasetFaultPlan.IsInjected(ex))
+            {
+                injected = ex;
+            }
+        }
+
+        try
+        {
+            writer.Dispose();
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException("@S@ dataset writer accepted a second Dispose.");
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        if (Environment.GetEnvironmentVariable("PLANK_FUZZ_TRACE") == "2")
+            Console.Error.WriteLine($"DATASET rows={rows.Length} parts={partitions} files={store.Files.Count} pool={poolSize} pending={pending} createParts={createParts} failAt={failAt} fired={plan.Fired} injected={injected is not null}");
+        if (injected is not null)
+        {
+            if (!plan.Fired)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException("@S@ dataset reported an injected fault that never fired.");
+            return;
+        }
+        if (plan.Fired)
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException("@S@ dataset swallowed an injected fault.");
+
+        var expectedByPartition = Enumerable.Range(0, partitions).Select(static _ => new List<int>()).ToArray();
+        foreach (var row in rows)
+            expectedByPartition[PartitionOf(row, partitions)].Add(row.Seq);
+        var actualByPartition = Enumerable.Range(0, partitions).Select(static _ => new List<(ulong Part, List<int> Seqs)>()).ToArray();
+        foreach (var (path, stream) in store.Files)
+        {
+            if (stream.Length == 0)
+                continue;
+            var partition = -1;
+            for (var i = 0; i < partitions; i++)
+                if (path.StartsWith($"part{i}", StringComparison.Ordinal) && (path.Length == 5 || path[5] == '-'))
+                    partition = i;
+            if (partition < 0)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ dataset file '{path}' names no partition.");
+            var part = createParts && ulong.TryParse(path.AsSpan(path.LastIndexOf('-') + 1), out var index) ? index : 0;
+            actualByPartition[partition].Add((part, ReadSeqs(stream.ToArray(), rows, s, partition, partitions, path)));
+        }
+        for (var p = 0; p < partitions; p++)
+        {
+            var merged = actualByPartition[p].OrderBy(static x => x.Part).SelectMany(static x => x.Seqs).ToList();
+            if (!merged.SequenceEqual(expectedByPartition[p]))
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
+                    $"@S@ dataset partition {p} holds {merged.Count} rows in a different order or set than the {expectedByPartition[p].Count} queued.");
+        }
+    }
+
+    static List<int> ReadSeqs(byte[] bytes, @S@[] rows, RowRouteSettings s, int partition, int partitions, string path)
+    {
+        var seqs = new List<int>();
+        using var reader = @S@.CreateRowReader(new MemoryStream(bytes, writable: false), default, s.ReaderOptions());
+        while (reader.MoveNext())
+        {
+            var seq = reader.Current.Seq;
+            if ((uint)seq >= (uint)rows.Length)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ dataset file '{path}' returned unknown Seq {seq}.");
+            if (PartitionOf(rows[seq], partitions) != partition)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ dataset row {seq} was written to '{path}' (partition {partition}).");
+            var diff = @S@Ops.Compare(reader.Current, rows[seq], (1 << @S@Ops.ColumnCount) - 1);
+            if (diff is not null)
+                throw new PlankRowApiFuzzTarget.RowApiRoundTripException($"@S@ dataset lost '{diff}' of row {seq} in '{path}'.");
+            seqs.Add(seq);
+        }
+        return seqs;
+    }
+
+
+    // Writes several files with independently drawn writer settings (so each has its own
+    // row-group layout, codec and page version), merges them with drawn merge options, and
+    // checks the merged file holds exactly the concatenation, with consistent counters.
+    internal static void RunMerge(ref PlankRowApiFuzzTarget.Cursor c)
+    {
+        var s = RowRouteSettings.Draw(ref c);
+        RowRouteSettings.Announce(s);
+        try
+        {
+            RunMergeCore(ref c, s);
+        }
+        catch (PlankRowApiFuzzTarget.RowApiRoundTripException ex)
+        {
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(ex.Message + " | " + s);
+        }
+        catch (Exception ex) when (RowRouteSettings.Trace(ex, s))
+        {
+            throw;
+        }
+    }
+
+    static void RunMergeCore(ref PlankRowApiFuzzTarget.Cursor c, RowRouteSettings s)
+    {
+        var fileCount = c.NextInt(1, 5);
+        var all = new List<@S@>();
+        var files = new byte[fileCount][];
+        var groupCounts = new int[fileCount];
+        for (var f = 0; f < fileCount; f++)
+        {
+            var fs = RowRouteSettings.Draw(ref c);
+            var count = Math.Min(fs.Count, 40);
+            var rows = new @S@[count];
+            for (var i = 0; i < count; i++)
+                rows[i] = @S@Ops.Generate(ref c, all.Count + i);
+            all.AddRange(rows);
+            using var stream = new MemoryStream();
+            using (var w = CreatePipeline(stream, fs, fs.WriterOptions(), null))
+            {
+                foreach (var v in rows)
+                    @S@Ops.Set(w.GetRow(), v);
+                w.Complete();
+            }
+            files[f] = stream.ToArray();
+            using var meta = @S@.Schema.CreateReader(new MemoryStream(files[f], writable: false));
+            groupCounts[f] = meta.RowGroups.Count;
+        }
+
+        var options = new ParquetMergeOptions
+        {
+            PreserveFirstFileMetadata = c.NextBool(),
+            WriterOptions = s.WriterOptions()
+        };
+        using var destination = new PlankMergerFuzzTarget.MemoryReadWriteSource();
+        ParquetFileMerger merger;
+        if (c.NextBool())
+        {
+            destination.Write(0, files[0]);
+            merger = @S@.Schema.CreateMerger(destination, options);
+        }
+        else
+        {
+            merger = @S@.Schema.CreateMerger(new MemoryReadSource(files[0]), destination, options);
+        }
+        for (var f = 1; f < fileCount; f++)
+            merger.AppendFile(new MemoryReadSource(files[f]));
+        if (merger.SourceFileCount != fileCount || merger.RowCount != all.Count || merger.RowGroupCount != groupCounts.Sum())
+            throw new PlankRowApiFuzzTarget.RowApiRoundTripException(
+                $"@S@ merger counters {merger.SourceFileCount}/{merger.RowGroupCount}/{merger.RowCount}; expected {fileCount}/{groupCounts.Sum()}/{all.Count}.");
+        merger.CloseFile();
+        CheckFile(destination.ToArray(), all.ToArray(), s, "@S@ merged");
+    }
+
     static @S@.PipelineWriter CreatePipeline(Stream stream, RowRouteSettings s, ParquetWriterOptions options, Action<int>? onFlush)
         => s.WriterVariant switch
         {
@@ -410,6 +665,7 @@ static class @S@Routes
 
 print("""// <auto-generated by fuzz/tools/gen_row_wide.py; do not edit by hand. -->
 #nullable enable
+using Plank.Dataset;
 using Plank.Reading;
 using Plank.Schema;
 using Plank.Writing;

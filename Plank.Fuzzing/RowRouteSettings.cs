@@ -171,7 +171,7 @@ internal sealed class RowRouteSettings
             0 => all,
             1 => 1 << ((ProjectionSeed & int.MaxValue) % columnCount),
             2 => (ProjectionSeed & all) == 0 ? 1 : ProjectionSeed & all,
-            _ => (ProjectionSeed & all) | 1 // TEMP: non-empty
+            _ => ProjectionSeed & all // may be empty: Projection.None must still yield every row
         };
     }
 }

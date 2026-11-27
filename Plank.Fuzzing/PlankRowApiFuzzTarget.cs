@@ -37,6 +37,10 @@ public static partial class PlankRowApiFuzzTarget
     static ReadOnlySpan<byte> DirectRowGroupMagic => "RWG1"u8;
     static ReadOnlySpan<byte> WideMagic => "RWW1"u8;
     static ReadOnlySpan<byte> WideNullableMagic => "RWN1"u8;
+    static ReadOnlySpan<byte> WideDatasetMagic => "RDW1"u8;
+    static ReadOnlySpan<byte> WideNullableDatasetMagic => "RDN1"u8;
+    static ReadOnlySpan<byte> WideMergeMagic => "RMW1"u8;
+    static ReadOnlySpan<byte> WideNullableMergeMagic => "RMN1"u8;
 
     public static void Execute(ReadOnlySpan<byte> data)
     {
@@ -50,6 +54,34 @@ public static partial class PlankRowApiFuzzTarget
         {
             var wideCursor = new Cursor(data[WideMagic.Length..]);
             RowFuzzWideRoutes.Run(ref wideCursor);
+            return;
+        }
+
+        if (data.StartsWith(WideDatasetMagic))
+        {
+            var datasetCursor = new Cursor(data[WideDatasetMagic.Length..]);
+            RowFuzzWideRoutes.RunDataset(ref datasetCursor);
+            return;
+        }
+
+        if (data.StartsWith(WideNullableDatasetMagic))
+        {
+            var datasetCursor = new Cursor(data[WideNullableDatasetMagic.Length..]);
+            RowFuzzWideNullableRoutes.RunDataset(ref datasetCursor);
+            return;
+        }
+
+        if (data.StartsWith(WideMergeMagic))
+        {
+            var mergeCursor = new Cursor(data[WideMergeMagic.Length..]);
+            RowFuzzWideRoutes.RunMerge(ref mergeCursor);
+            return;
+        }
+
+        if (data.StartsWith(WideNullableMergeMagic))
+        {
+            var mergeCursor = new Cursor(data[WideNullableMergeMagic.Length..]);
+            RowFuzzWideNullableRoutes.RunMerge(ref mergeCursor);
             return;
         }
 
