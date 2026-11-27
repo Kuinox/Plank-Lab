@@ -102,6 +102,12 @@ plain bytes as the spec says, and its typed `MightContain(±0.0)` also answers t
 (an allowed false positive; `Plank.Lab.Tests/FullValueOracleTests`). `ParquetWriterOptions.SortingColumns`
 is the caller's declaration and is not validated by Plank, so the generic route declaring an order over
 unsorted rows is not a defect; the oracle checks declared orders only on the append-sorting route.
+## Open library defects found by the API-surface routes (surface agent, 2026-11-27)
+
+- **`ParquetColumnChunkInfo.Equals` throws `NotSupportedException` on the first call per process.** The public record struct's generated
+  equality reaches `ParquetColumnChunkEncodings` (inline-array storage, no custom equality); later calls succeed. Repro:
+  [`repros/chunk-info-equality/`](repros/chunk-info-equality/). Found by route `PHY1` (marker 0xC5, `PhysicalReaderSurfaceCases`),
+  which otherwise passes (page cursor, chunk layout, per-page CRC, Bloom no-false-negative, ordinal probes, stale handles).
 
 ## Fuzz-harness defects (fixed)
 
