@@ -86,3 +86,44 @@ seed('lz4legacy-frame-block-7.bin', 5, len(raw), frame([(blk, False)], bd=0x70))
 seed('lz4legacy-frame-dictid.bin', 5, len(raw), frame([(blk, False)], flags=0x61))
 seed('lz4legacy-frame-truncated.bin', 5, len(raw), frame([(blk, False)])[:20])
 seed('lz4legacy-frame-badmagic-second.bin', 5, len(raw) * 2, frame([(blk, False)]) + b'\x01\x02\x03\x04')
+
+# --- zstd / brotli / gzip variants (need `zstandard` and `brotli` Python modules; seeds are committed,
+# so these only run when someone regenerates: uv pip install --target /tmp/pyc zstandard brotli; PYTHONPATH=/tmp/pyc) ---
+try:
+    import zstandard, brotli
+except ImportError:
+    zstandard = brotli = None
+if zstandard:
+    text = (b'the quick brown fox jumps over the lazy dog ' * 40) + bytes(range(256))
+    n = len(text)
+    z = zstandard.ZstdCompressor(level=3)
+    zf = z.compress(text)
+    seed('zstd-frame.bin', 2, n, zf)
+    seed('zstd-frame-no-contentsize.bin', 2, n, zstandard.ZstdCompressor(level=3, write_content_size=False).compress(text))
+    seed('zstd-two-frames.bin', 2, n * 2, zf + zf)
+    seed('zstd-level19.bin', 2, n, zstandard.ZstdCompressor(level=19).compress(text))
+    seed('zstd-checksum.bin', 2, n, zstandard.ZstdCompressor(level=3, write_checksum=True).compress(text))
+    seed('zstd-incompressible.bin', 2, 300, zstandard.ZstdCompressor().compress(bytes((i * 167 + 13) & 0xFF for i in range(300))))
+    seed('zstd-dest-too-small.bin', 2, 50, zf)
+    seed('zstd-truncated.bin', 2, n, zf[:len(zf) // 2])
+    seed('zstd-corrupt-checksum.bin', 2, n, bytearray(zstandard.ZstdCompressor(write_checksum=True).compress(text))[:-1] + b'\x00')
+    seed('zstd-dest-zero.bin', 2, 0, zf)
+if brotli:
+    text = (b'abcabcabc hello hello hello ' * 50)
+    n = len(text)
+    bf = brotli.compress(text, quality=5)
+    seed('brotli-q5.bin', 4, n, bf)
+    seed('brotli-q0.bin', 4, n, brotli.compress(text, quality=0))
+    seed('brotli-q11.bin', 4, n, brotli.compress(text, quality=11))
+    seed('brotli-empty.bin', 4, 0, brotli.compress(b''))
+    seed('brotli-dest-too-small.bin', 4, 20, bf)
+    seed('brotli-truncated.bin', 4, n, bf[:len(bf) // 2])
+    seed('brotli-trailing-garbage.bin', 4, n, bf + b'\x00garbage')
+gz = gzip.compress(b'multi member one ' * 20)
+gz2 = gzip.compress(b'second member ' * 20)
+seed('gzip-two-members.bin', 1, len(b'multi member one ' * 20) + len(b'second member ' * 20), gz + gz2)
+seed('gzip-truncated.bin', 1, 340, gz[:len(gz) - 6])
+seed('gzip-bad-crc.bin', 1, 340, gz[:-8] + b'\xde\xad\xbe\xef' + gz[-4:])
+seed('gzip-dest-too-small.bin', 1, 10, gz)
+seed('gzip-trailing-garbage.bin', 1, 340, gz + b'junk')
+seed('gzip-empty-dest.bin', 1, 0, gzip.compress(b''))
