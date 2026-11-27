@@ -195,7 +195,7 @@ internal static class WriterGroupCases
         }
 
         writer.CloseFile();
-        using var reader = schema.CreateReader(new MemoryStream(stream.ToArray(), writable: false));
+        using var reader = schema.CreateReader(new MemoryStream(FullValueOracle.Checked(stream.ToArray()), writable: false));
         if (reader.RowGroups.Count != groups)
             throw new InvalidOperationException($"Expected {groups} row groups, read {reader.RowGroups.Count}.");
         for (var g = 0; g < groups; g++)
