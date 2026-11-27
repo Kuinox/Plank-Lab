@@ -68,6 +68,20 @@ internal sealed class FullValueOracleTests
         FullValueOracle.VerifyWritten(Write(ParquetPhysicalType.Float, values, bloom: true));
     }
 
+    // Repros of open library findings (fuzz/FINDINGS.md). Explicit: they fail until Plank is fixed.
+    [Test, Explicit]
+    public void Repro_UIntInUnannotatedInt32_StatisticsFollowTheColumnOrder()
+        => FullValueOracle.VerifyWritten(Write(ParquetPhysicalType.Int32, new uint[] { 0, 1, 65536, uint.MaxValue }));
+
+    [Test, Explicit]
+    public void Repro_ULongInUnannotatedInt64_StatisticsFollowTheColumnOrder()
+        => FullValueOracle.VerifyWritten(Write(ParquetPhysicalType.Int64, new ulong[] { 0, 1, ulong.MaxValue }));
+
+    [Test, Explicit]
+    public void Repro_Int96_DistinctCountIsNotZero()
+        => FullValueOracle.VerifyWritten(Write(ParquetPhysicalType.Int96,
+            new[] { new byte[12], Enumerable.Repeat((byte)1, 12).ToArray(), Enumerable.Repeat((byte)2, 12).ToArray() }));
+
     [Test]
     [Arguments(0x8000000000000000ul)] // -0.0
     [Arguments(0x7FF8000000000001ul)] // a NaN with payload

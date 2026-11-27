@@ -90,7 +90,7 @@ metadata from Arrow-decoded values.
   GEOGRAPHY chunks get `statistics { null_count, distinct_count: 0 }` whatever their values (no min/max,
   which is right). Repro: [`repros/statistics-distinct-count-zero-unordered/`](repros/statistics-distinct-count-zero-unordered/)
   (13 writer seeds hit it, e.g. `corpus/encoding-plain-int96.bin`).
-- **`uint` written to an unannotated (signed) INT32 column gets statistics in unsigned order.**
+- **`uint`/`ulong` written to an unannotated (signed) INT32/INT64 column get statistics in unsigned order.**
   `CreateSerializedColumn<uint>` on `Leaf(..., Int32)` with no logical type is accepted and writes
   `min_value = 0, max_value = -1` for values `{0, 1, 65536, 1000000, 0xFFFFFFFF}`: min > max in the column's
   signed order, so `col < 0` pruning skips a chunk containing -1. Repro:
