@@ -188,6 +188,10 @@ public static class PlankWriterFuzzTarget
     const byte RowGroupWriteCoverageMarker = 0xC9;
     static ReadOnlySpan<byte> RowGroupWriteCoverageMagic => "RGW1"u8;
 
+    // Typed single-column matrix with independently drawn value counts, cardinalities, widths, codecs and levels.
+    const byte TypeMatrixMarker = 0xC8;
+    static ReadOnlySpan<byte> TypeMatrixMagic => "WTM1"u8;
+
     // Hand-written *Cases routes build their own WriterSettings with the default pool and default
     // buffer sizes. A hash of the whole input picks the buffer pool and the initial buffer sizes for
     // those routes (the generic route chooses its own explicitly), so every route that goes through
@@ -201,6 +205,14 @@ public static class PlankWriterFuzzTarget
         foreach (var b in data)
             hash = (hash ^ b) * 16777619u;
         _ambientHash = hash;
+
+        if (data.Length >= 1 + TypeMatrixMagic.Length
+            && data[0] == TypeMatrixMarker
+            && data.Slice(1, TypeMatrixMagic.Length).SequenceEqual(TypeMatrixMagic))
+        {
+            WriterTypeMatrixCases.Execute(data[(1 + TypeMatrixMagic.Length)..]);
+            return;
+        }
         if (data.Length >= 1 + ExecutionMagic.Length
             && data[0] == ExecutionMarker
             && data.Slice(1, ExecutionMagic.Length).SequenceEqual(ExecutionMagic))
@@ -2917,7 +2929,7 @@ public static class PlankWriterFuzzTarget
         return bytesReader.ReadAll(rowCount);
     }
 
-    static T[] ReadAllBuffers<T>(RowGroupColumn<T> buffers)
+    internal static T[] ReadAllBuffers<T>(RowGroupColumn<T> buffers)
     {
         var values = new List<T>();
         foreach (var buffer in buffers)
@@ -2931,7 +2943,7 @@ public static class PlankWriterFuzzTarget
     // A null must come back as null, not as an empty array: an optional column can
     // legitimately hold both, and collapsing them would make the round-trip check
     // blind to a writer that confused the two.
-    static byte[]?[] ReadAllBinaryBuffers(RowGroupColumn<byte> buffers)
+    internal static byte[]?[] ReadAllBinaryBuffers(RowGroupColumn<byte> buffers)
     {
         var values = new List<byte[]?>();
         foreach (var buffer in buffers)
