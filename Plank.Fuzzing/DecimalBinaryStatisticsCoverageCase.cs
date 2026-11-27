@@ -7,8 +7,11 @@ namespace Plank.Fuzzing;
 
 internal static class DecimalBinaryStatisticsCoverageCase
 {
-    internal static void Execute(byte order)
+    internal static void Execute(byte control)
     {
+        // Any control byte >= 2 draws the third value set, so the expectation below must use the same
+        // normalised variant (mutated DBS1 inputs with control > 2 used to fault on a correct library).
+        var order = control >= 2 ? 2 : control;
         var definition = ColumnDefinition.Leaf("decimal-binary-bytes",
             ParquetPhysicalType.ByteArray,
             new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.Plain)),

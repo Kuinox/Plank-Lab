@@ -214,6 +214,9 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
 
 ## Fuzz-harness defects (fixed)
 
+- `DecimalBinaryStatisticsCoverageCase` (`DBS1`): any control byte >= 2 drew the third value set but the expectation was only
+  applied for exactly 2, so mutated inputs (AFL found control `04`) faulted with "Decimal binary statistics changed." on a
+  correct library. The control byte is now normalised once. Seed: `corpus/writer-decimal-binary-statistics-control-4.bin`.
 - Append-sorting route (`0xF8`, kinds 3/4, double/float): the "ambiguous" `-0/+0` case built ascending retained rows
   even when the declared sort was descending, so the file violated its own `sorting_columns`
   ("rows violate the declared sorting_columns ... -2 then -1", found by AFL as 23 distinct inputs once the oracle began
