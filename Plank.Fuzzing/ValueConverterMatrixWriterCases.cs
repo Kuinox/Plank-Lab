@@ -108,7 +108,7 @@ public static class ValueConverterMatrixWriterCases
                     static value => value);
                 break;
             case 13:
-                RunRequired(ParquetPhysicalType.Int64, new LogicalType.Time(TimeUnit.Millis, false), 0,
+                RunRequired(ParquetPhysicalType.Int64, new LogicalType.Time(TimeUnit.Micros, false), 0,
                     rowCount, valueBase, step,
                     static value => TimeOnly.MinValue.Add(TimeSpan.FromMilliseconds(PositiveModulo(value, 86_400_000))),
                     static value => checked((int)(value.Ticks / TimeSpan.TicksPerMillisecond)),
@@ -193,7 +193,7 @@ public static class ValueConverterMatrixWriterCases
                     static value => value);
                 break;
             case 13:
-                RunOptional(ParquetPhysicalType.Int64, new LogicalType.Time(TimeUnit.Millis, false), 0,
+                RunOptional(ParquetPhysicalType.Int64, new LogicalType.Time(TimeUnit.Micros, false), 0,
                     rowCount, valueBase, step, nullMask,
                     static value => TimeOnly.MinValue.Add(TimeSpan.FromMilliseconds(PositiveModulo(value, 86_400_000))),
                     static value => checked((int)(value.Ticks / TimeSpan.TicksPerMillisecond)),

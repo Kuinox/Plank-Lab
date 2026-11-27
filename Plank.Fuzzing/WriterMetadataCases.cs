@@ -279,25 +279,21 @@ internal static class WriterMetadataCases
 
     static void ExerciseRequiredDateTimeDictionaryWrongPhysicalType()
     {
-        var definition = ColumnDefinition.Leaf("required-timestamp-wrong-physical", ParquetPhysicalType.Int32,
-            new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.RleDictionary)),
-            logicalType: new LogicalType.Timestamp(TimeUnit.Micros, false),
-            pageStrategy: ForceDictionaryPageStrategy.Shared);
-        var schema = new PlankSchema([definition]);
-        using var stream = new MemoryStream();
-        using var writer = schema.CreateWriter(stream, StatisticsWriterOptions());
-        var timestamp = writer.CreateSerializedColumn<DateTime>(schema.LeafColumns[0]);
+        // Library master validates the logical/physical pairing when the column is defined, so the
+        // mismatch is rejected before any writer exists. (Older builds rejected it in the encoder.)
         try
         {
-            timestamp.Serialize([new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Unspecified)]);
+            _ = ColumnDefinition.Leaf("required-timestamp-wrong-physical", ParquetPhysicalType.Int32,
+                new ColumnOptions(encodings: ImmutableArray.Create(EncodingKind.RleDictionary)),
+                logicalType: new LogicalType.Timestamp(TimeUnit.Micros, false),
+                pageStrategy: ForceDictionaryPageStrategy.Shared);
         }
-        catch (InvalidOperationException error) when (error.Message.Contains("required INT64 column",
-            StringComparison.Ordinal))
+        catch (ArgumentException error) when (error.ParamName == "physicalType")
         {
             return;
         }
 
-        throw new InvalidOperationException("Wrong-physical timestamp dictionary was not rejected by the encoder.");
+        throw new InvalidOperationException("Wrong-physical timestamp column definition was accepted.");
     }
 
     static void ExerciseRequiredDateTimePlainFallback()
