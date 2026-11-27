@@ -131,3 +131,12 @@ When it finishes: `fuzz/tools-reader-coverage/digest-compare.sh dg-avx512.txt dg
 differential for every kernel gated on `Avx512F.IsSupported` / `Vector512.IsHardwareAccelerated`; `covunion.py` on the cobertura files against the ovh tiers gives the AVX-512-only methods
 (expected: the byte-stream-split interleave around `ColumnChunkReader.cs` 3151/3258 and `BooleanBitUnpacker.cs` 55). Fill the numbers in here.
 The same digest files also give a cross-ISA differential on ovh today: the existing AVX2/scalar tiers can be compared with `PLANK_FUZZ_DIGEST_FILE` runs.
+
+### Cross-ISA differential measured on ovh (digest files)
+
+`PLANK_FUZZ_DIGEST_FILE` replays of the same 14,562-input corpus under five environments, compared with `digest-compare.sh` against the native AVX2 run
+(2,884 distinct file contents decoded through the file-schema route, flat columns as `T` and `T?`, values via invariant formatting): **no differing digest** for
+`DOTNET_EnableAVX2=0`, `DOTNET_EnableHWIntrinsic=0` (scalar), `DOTNET_PreferredVectorBitWidth=128` and `PLANK_FUZZ_ISA_MASK=all`. So the SSE, scalar, 128-bit-vector
+and inverted-flag decoders agree with the AVX2/PDEP ones on everything we have. The same replays report 10 *oracle* mismatches in every tier (statistics "Plank lost a min/max
+Arrow reads" on parquet-testing decimal/string/nested seeds, `repeated_no_annotation` row count) — those come from the full-value oracle (another agent's), are ISA-independent, and are not
+caused by this work; they surfaced because `fuzz/reader-pqt-seeds/` is now committed.
