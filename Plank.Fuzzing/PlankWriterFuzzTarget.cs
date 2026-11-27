@@ -188,8 +188,19 @@ public static class PlankWriterFuzzTarget
     const byte RowGroupWriteCoverageMarker = 0xC9;
     static ReadOnlySpan<byte> RowGroupWriteCoverageMagic => "RGW1"u8;
 
+    // Hand-written *Cases routes build their own WriterSettings with the default pool and default
+    // buffer sizes. A hash of the whole input picks the buffer pool and the initial buffer sizes for
+    // those routes (the generic route chooses its own explicitly), so every route that goes through
+    // WriteToStream also covers exact-size / dirty / non-retaining pools and tiny initial buffers.
+    // Hash-based on purpose: it never changes what a route writes, only how the buffers behave.
+    [ThreadStatic] static uint _ambientHash;
+
     public static void Execute(ReadOnlySpan<byte> data)
     {
+        var hash = 2166136261u;
+        foreach (var b in data)
+            hash = (hash ^ b) * 16777619u;
+        _ambientHash = hash;
         if (data.Length >= 1 + ExecutionMagic.Length
             && data[0] == ExecutionMarker
             && data.Slice(1, ExecutionMagic.Length).SequenceEqual(ExecutionMagic))
@@ -2463,8 +2474,20 @@ public static class PlankWriterFuzzTarget
     static void WriteToStream(FuzzCase fuzzCase, Stream stream)
     {
         var settings = fuzzCase.Settings;
-        using var pool = WriterFuzzPool.Create(settings.Pool);
         var defaults = ParquetWriterOptions.Default;
+        if (!settings.Explicit && _ambientHash % 3 != 0)
+        {
+            var h = _ambientHash / 3;
+            settings = settings with
+            {
+                Pool = (WriterPoolKind)(h % 7),
+                InitialPageBufferBytes = new uint?[] { null, 1, 7, 64, 4096 }[(h >> 3) % 5],
+                InitialColumnBufferBytes = new uint?[] { null, 1, 100, 65536 }[(h >> 6) % 4],
+                InitialPageCapacity = new uint?[] { null, 1, 2, 17 }[(h >> 8) % 4],
+                WorkerCount = new int?[] { null, 1, 2 }[(h >> 10) % 3],
+            };
+        }
+        using var pool = WriterFuzzPool.Create(settings.Pool);
         var writer = fuzzCase.Schema.CreateWriter(stream, new ParquetWriterOptions
         {
             BufferPool = pool,
@@ -3002,6 +3025,7 @@ public static class PlankWriterFuzzTarget
         internal int? WorkerCount { get; init; }
         internal WriterPoolKind Pool { get; init; }
         internal ParquetSortingColumn[]? Sorting { get; init; }
+        internal bool Explicit { get; init; }
 
         public string Describe()
             => $"{DataPageVersion}/{FileVersion}/page={TargetDataPageSizeBytes}B/chunk={BufferChunkSizeBytes}B"
@@ -3104,6 +3128,7 @@ public static class PlankWriterFuzzTarget
                 WorkerCount = workers == 0 ? null : workers,
                 Pool = pool,
                 Sorting = sorting,
+                Explicit = true,
                 CompressionLevel = PickLevel(compression),
             };
         }
