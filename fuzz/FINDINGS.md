@@ -183,6 +183,10 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
   `RowReaderOptions` (null pool, `WorkerCount <= 0`, `MaxReadAheadRowGroups` -1/2/int.Max rejected at creation), `Serialize` over exact /
   empty / offset-sliced / Memory-sliced inputs, merger counters and closed-state refusals, appender with `AppendToLatestRowGroup`.
   Behaviour note, not a defect: importing a file into a merger skips zero-row groups, and the merger's `RowGroupCount` agrees with the file.
+- Route `NST1` (0xC1, `NestedSurfaceCases`) found no defect in 1,500 inputs: `ParquetGeospatialStatistics.Read` on hand-encoded Thrift
+  compact structs (valid encodings decode exactly; wrong wire types, missing X/Y bounds and a mistyped type list are
+  `CorruptParquetException`; ~13k truncations and bit flips never throw anything else), `ReadGeospatialStatistics` ordinal probes,
+  `Serialize` offset/count slices of nested list columns against the Dremel levels, and `RowReaderOptions` on the nested row reader.
 
 ## Fuzz-harness defects (fixed)
 

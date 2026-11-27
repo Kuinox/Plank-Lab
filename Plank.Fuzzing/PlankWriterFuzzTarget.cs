@@ -213,6 +213,14 @@ public static class PlankWriterFuzzTarget
             hash = (hash ^ b) * 16777619u;
         _ambientHash = hash;
 
+        if (data.Length >= 1 + NestedSurfaceCases.Magic.Length
+            && data[0] == NestedSurfaceCases.Marker
+            && data.Slice(1, NestedSurfaceCases.Magic.Length).SequenceEqual(NestedSurfaceCases.Magic))
+        {
+            NestedSurfaceCases.Execute(data[(1 + NestedSurfaceCases.Magic.Length)..]);
+            return;
+        }
+
         if (data.Length >= 1 + OptionsSweepCases.Magic.Length
             && data[0] == OptionsSweepCases.Marker
             && data.Slice(1, OptionsSweepCases.Magic.Length).SequenceEqual(OptionsSweepCases.Magic))
