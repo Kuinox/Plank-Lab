@@ -189,6 +189,10 @@ public static class PlankWriterFuzzTarget
     static ReadOnlySpan<byte> RowGroupWriteCoverageMagic => "RGW1"u8;
 
     // Typed single-column matrix with independently drawn value counts, cardinalities, widths, codecs and levels.
+    // Nested list / map data with fuzzer-drawn optionality, null / empty lists, page and row-group splits.
+    const byte NestedShapesMarker = 0xC7;
+    static ReadOnlySpan<byte> NestedShapesMagic => "WNS1"u8;
+
     const byte TypeMatrixMarker = 0xC8;
     static ReadOnlySpan<byte> TypeMatrixMagic => "WTM1"u8;
 
@@ -205,6 +209,14 @@ public static class PlankWriterFuzzTarget
         foreach (var b in data)
             hash = (hash ^ b) * 16777619u;
         _ambientHash = hash;
+
+        if (data.Length >= 1 + NestedShapesMagic.Length
+            && data[0] == NestedShapesMarker
+            && data.Slice(1, NestedShapesMagic.Length).SequenceEqual(NestedShapesMagic))
+        {
+            WriterNestedCases.Execute(data[(1 + NestedShapesMagic.Length)..]);
+            return;
+        }
 
         if (data.Length >= 1 + TypeMatrixMagic.Length
             && data[0] == TypeMatrixMarker

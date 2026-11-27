@@ -178,3 +178,5 @@ writer_magic_type_matrix="WTM1"
 # Converter-decline probe route (selector 0x72 + marker)
 magic_CVRT="CVRT"
 selector_converter_probe="\x72"
+writer_marker_nested_shapes="\xC7"
+writer_magic_nested_shapes="WNS1"
