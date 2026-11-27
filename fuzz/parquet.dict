@@ -198,3 +198,9 @@ rowapi_random_schema_magic="RRS1"
 
 writer_marker_codec="\xDB"
 writer_magic_codec="WCD1"
+
+
+
+# Truncation probe (selector 0x7e + marker)
+magic_TRNC="TRNC"
+selector_truncation_probe="\x7e"

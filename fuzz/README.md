@@ -118,3 +118,10 @@ treat a fault that matches a documented finding's narrow signature (`Plank.Fuzzi
 matched against the full exception text) as a pass: it is not an AFL crash and no crash file is saved; the
 counts go to `$PLANK_FUZZ_CRASH_DIR/known-findings-<target>-<pid>.txt`. It is off by default and the replay
 driver never uses it. Remove an id's signature when the library bug is fixed so a regression shows up again.
+
+## Resource pressure and truncation
+
+- `ResourceBudget` (all reader inputs; `PLANK_FUZZ_BUDGET=0` disables): a single pool rent over 64 MiB + 64x the input length, total rents over 512 MiB + 512x, managed allocation over 256 MiB + 256x
+  or more than 10 s of wall time is reported as a `ResourceBudgetException` finding. Oversized rents are refused *before* allocating.
+- `fuzz/resource-seeds.py` -> `fuzz/reader-resource-seeds/`: valid pyarrow files (six codecs, v1/v2 pages) whose footer or page headers declare huge numbers, list counts and binary lengths.
+- `TRNC` route (selector 0x7e): every prefix of a valid file, and the file with the tail pages cut out but the footer kept, through memory, stream, 1-7-byte-per-read stream and `Reset(Stream)`; seeds in `fuzz/reader-truncation-seeds/`.

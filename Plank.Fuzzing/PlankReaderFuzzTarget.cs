@@ -192,14 +192,18 @@ public static class PlankReaderFuzzTarget
         if (IsaFlags.Current != ProcessIsaMask)
             throw new InvalidOperationException("IsaFlags leaked a flipped state from a previous input.");
         using var isa = IsaFlags.Flip(IsaMaskOf(data));
+        var budget = ResourceBudget.Enabled ? new ResourceBudget(data.Length) : null;
         try
         {
-            Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : data[1..].ToArray(), bufferPool);
+            Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : data[1..].ToArray(),
+                budget?.Wrap(bufferPool) ?? bufferPool);
+            budget?.Check();
         }
         catch (Exception ex) when (IsExpectedRejection(ex))
         {
             // PLANK_FUZZ_TRACE_INVALID_OPERATION=1 lists every swallowed InvalidOperationException
             // so each message can be classified as API misuse or as a leaked internal assertion.
+            budget?.Check();
             if (ex is InvalidOperationException && TraceInvalidOperation)
                 Console.Error.WriteLine($"INVALIDOP\t{ex.GetType().Name}\t{ex.Message.Replace('\n', ' ')}\t{ex.StackTrace?.Split('\n').FirstOrDefault()?.Trim()}");
         }
@@ -249,9 +253,21 @@ public static class PlankReaderFuzzTarget
     internal const byte ConverterDeclineProbeSelector = 0x72;
     internal static ReadOnlySpan<byte> ConverterDeclineProbeMarker => "CVRT"u8;
 
+    internal const byte TruncationProbeSelector = 0x7E;
+    internal static ReadOnlySpan<byte> TruncationProbeMarker => "TRNC"u8;
+
     static void Run(byte selector, byte[] fileBytes, IParquetBufferPool bufferPool,
         IParquetReadSource? injectedSource = null)
     {
+        if (selector == TruncationProbeSelector && fileBytes.AsSpan().StartsWith(TruncationProbeMarker))
+        {
+            var payload = fileBytes.AsSpan(TruncationProbeMarker.Length);
+            if (payload.IsEmpty || payload.Length > 6000)
+                return;
+            RunTruncationProbe(payload.ToArray(), bufferPool);
+            return;
+        }
+
         // Reads every flat leaf through a converter of every plausible physical type, which
         // forces the batched decoders to decline and the converted whole-page decoders to run.
         if (selector == ConverterDeclineProbeSelector
@@ -651,6 +667,67 @@ public static class PlankReaderFuzzTarget
                     types[i] = reader.Schema.LeafColumns[i].PhysicalType;
                 ReaderAcceptanceOracle.VerifyWithParquetNet(fileBytes, types, decodedColumns);
             }
+        }
+    }
+
+    // Every prefix of a valid file, and the file with its tail pages cut out but the footer kept, through every source
+    // flavour: a memory span, a seekable stream, a stream that returns 1-7 bytes per read, and the Reset(Stream) overload.
+    // A proper prefix has no trailing magic/footer, so it must be rejected; anything rejected must be a CorruptParquetException
+    // (or the documented binding diagnostics), never IndexOutOfRange / EndOfStream / IO / Overflow, and never slow or huge.
+    static void RunTruncationProbe(byte[] file, IParquetBufferPool bufferPool)
+    {
+        var step = Math.Max(1, file.Length / 400);
+        var footerLength = file.Length >= 8 ? BitConverter.ToInt32(file, file.Length - 8) : 0;
+        var footerStart = footerLength > 0 && footerLength <= file.Length - 8 ? file.Length - 8 - footerLength : -1;
+        for (var cut = 0; cut < file.Length; cut += (cut > file.Length - 16 ? 1 : step))
+        {
+            var prefix = file[..cut];
+            for (var flavour = 0; flavour < 4; flavour++)
+            {
+                var accepted = ReadWholeFile(prefix, flavour, bufferPool, cut);
+                if (accepted)
+                    throw new InvalidDataException(
+                        $"A {cut}-byte prefix of a {file.Length}-byte file was accepted and fully read (source flavour {flavour}).");
+            }
+
+            if (footerStart > cut)
+            {
+                // The pages after `cut` are gone but the footer still describes them.
+                var holed = new byte[cut + (file.Length - footerStart)];
+                file.AsSpan(0, cut).CopyTo(holed);
+                file.AsSpan(footerStart).CopyTo(holed.AsSpan(cut));
+                for (var flavour = 0; flavour < 2; flavour++)
+                    ReadWholeFile(holed, flavour, bufferPool, cut);
+            }
+        }
+    }
+
+    // Returns true when the whole file opened and every column drained without a rejection.
+    static bool ReadWholeFile(byte[] bytes, int flavour, IParquetBufferPool bufferPool, int cut)
+    {
+        var options = new ParquetReaderOptions { BufferPool = bufferPool };
+        try
+        {
+            using var reader = new ParquetReader(options);
+            switch (flavour)
+            {
+                case 0: reader.Reset(new MemoryReadSource(bytes)); break;
+                case 1: reader.Reset(new MemoryStream(bytes, writable: false)); break;
+                case 2: reader.Reset(new StreamReadSource(new FragmentedReadStream(bytes, 1 + cut % 7))); break;
+                default: reader.Reset(new StreamReadSource(new MemoryStream(bytes, writable: false))); break;
+            }
+            DrainFileMetadata(reader);
+            foreach (var group in reader.RowGroups)
+                foreach (var column in reader.Schema.LeafColumns)
+                {
+                    DrainMetadata(group, column);
+                    DrainColumn(group, column);
+                }
+            return true;
+        }
+        catch (Exception ex) when (IsExpectedRejection(ex))
+        {
+            return false;
         }
     }
 

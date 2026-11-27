@@ -189,6 +189,13 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
   `CorruptParquetException`; ~13k truncations and bit flips never throw anything else), `ReadGeospatialStatistics` ordinal probes,
   `Serialize` offset/count slices of nested list columns against the Dremel levels, and `RowReaderOptions` on the nested row reader.
 
+## Open library defect found by the resource-budget seeds (reader agent, 2026-11-27)
+
+- **`PageMetadataReader.ScanPageLocations` throws `OverflowException` for a page header with `compressed_page_size = int.MaxValue`** (via `ParquetColumnChunkMetadata.OpenPages()`),
+  where `CorruptParquetException` is required. Repro: `fuzz/repros/page-metadata-scan-overflow/`. The other ~1,900 declared-huge-size/count/list-length/binary-length/page-header seeds
+  (`fuzz/reader-resource-seeds/`, made by `fuzz/resource-seeds.py`) were all rejected cleanly within the allocation/time budget (`ResourceBudget`), and every prefix of 86 valid files through
+  four source flavours (`fuzz/reader-truncation-seeds/`, route `TRNC`) was rejected with `CorruptParquetException`.
+
 ## Fuzz-harness defects (fixed)
 
 - A one-byte `FA` writer input indexed `data[1]`
