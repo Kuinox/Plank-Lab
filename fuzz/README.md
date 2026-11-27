@@ -110,3 +110,11 @@ Check `afl-showmap` twice on a seed before trusting a route under AFL.
 `PLANK_FUZZ_SURVIVE_CRASH=1` makes the harness report a managed exception to AFL as a crash (wait status
 11) and keep serving instead of FailFast-ing, so AFL records crashes and does not re-dry-run the queue on
 restart. Native crashes still kill the worker; run workers in a restart loop (see `jobworker` pattern).
+
+`PLANK_FUZZ_KNOWN_FINDINGS=all` (or a comma list of ids: `276`, `distinct-count-zero-unordered`,
+`uint-ulong-signed-stats`, `chunk-info-equality`, `decimal-without-annotation`, `page-size-int-max`,
+`dataset-append-latest-converter`, `stale-scalar-slot-reuse`, `negative-workercount`) makes the AFL harness
+treat a fault that matches a documented finding's narrow signature (`Plank.Fuzzing.Harness/KnownFindings.cs`,
+matched against the full exception text) as a pass: it is not an AFL crash and no crash file is saved; the
+counts go to `$PLANK_FUZZ_CRASH_DIR/known-findings-<target>-<pid>.txt`. It is off by default and the replay
+driver never uses it. Remove an id's signature when the library bug is fixed so a regression shows up again.

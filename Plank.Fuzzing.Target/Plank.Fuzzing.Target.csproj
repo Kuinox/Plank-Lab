@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <Compile Include="..\Plank.Fuzzing.Harness\AflPersistentHarness.cs" Link="AflPersistentHarness.cs" />
+    <Compile Include="..\Plank.Fuzzing.Harness\KnownFindings.cs" Link="KnownFindings.cs" />
   </ItemGroup>
 
   <ItemGroup>

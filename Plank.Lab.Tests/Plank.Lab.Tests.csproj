@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Compile Include="..\Plank.Fuzzing.Harness\AflPersistentHarness.cs" Link="Harness\AflPersistentHarness.cs" />
+    <Compile Include="..\Plank.Fuzzing.Harness\KnownFindings.cs" Link="Harness\KnownFindings.cs" />
     <PackageReference Include="SharpFuzz.Common" Version="2.2.0" />
   </ItemGroup>
 

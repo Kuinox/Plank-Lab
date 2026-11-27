@@ -172,6 +172,12 @@ internal static unsafe class AflPersistentHarness
         }
         catch (Exception ex)
         {
+            // PLANK_FUZZ_KNOWN_FINDINGS: documented library bugs are counted, not reported, so AFL keeps exploring.
+            if (KnownFindings.Match(ex) is { } known)
+            {
+                KnownFindings.Record(targetName, known);
+                return FaultNone;
+            }
             TryWriteAllText($"/tmp/plank-fuzz-{targetName}-last-exception.txt", ex.ToString());
             SaveCrashInput(targetName, input);
             if (surviveCrash)
