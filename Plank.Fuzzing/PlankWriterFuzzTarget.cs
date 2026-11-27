@@ -2669,9 +2669,12 @@ public static class PlankWriterFuzzTarget
             throw new InvalidOperationException(
                 $"ParquetSharp row-group count mismatch. Expected {fuzzCase.RowGroups.Count}, got {rowGroupCount}.");
 
+        AssertFileMetadata(reader, fuzzCase);
+
         for (var rowGroupIndex = 0; rowGroupIndex < rowGroupCount; rowGroupIndex++)
         {
             using var rowGroup = reader.RowGroup(rowGroupIndex);
+            AssertRowGroupMetadata(rowGroup, fuzzCase, rowGroupIndex);
             var expectedRowCount = fuzzCase.RowGroups[rowGroupIndex][0].Length;
             var rowCount = checked((int)rowGroup.MetaData.NumRows);
             if (rowCount != expectedRowCount)
@@ -2687,6 +2690,76 @@ public static class PlankWriterFuzzTarget
                     fuzzCase.RowGroups[rowGroupIndex][columnIndex], actual);
             }
         }
+    }
+
+    // The value round trip never looked at the footer: created_by, key/value metadata, the codec of
+    // every column chunk (file-wide or per-column override), declared sorting columns and the
+    // per-chunk value counts were written and never compared with what was asked for.
+    static void AssertFileMetadata(ParquetFileReader reader, FuzzCase fuzzCase)
+    {
+        var metadata = reader.FileMetaData;
+        long expectedRows = 0;
+        foreach (var group in fuzzCase.RowGroups)
+            expectedRows += group[0].Length;
+        if (metadata.NumRows != expectedRows)
+            throw new InvalidOperationException(
+                $"Footer num_rows mismatch. Expected {expectedRows}, got {metadata.NumRows}. {fuzzCase.Describe()}");
+        if (metadata.NumColumns != fuzzCase.Columns.Count)
+            throw new InvalidOperationException(
+                $"Footer column count mismatch. Expected {fuzzCase.Columns.Count}, got {metadata.NumColumns}.");
+        // ParquetSharp reads created_by as a C string, so an embedded NUL ends it early: compare the prefix.
+        var expectedCreatedBy = fuzzCase.Settings.CreatedBy is { } createdBy
+            ? createdBy[..(createdBy.IndexOf('\0') is var nul and >= 0 ? nul : createdBy.Length)]
+            : null;
+        if (!string.IsNullOrEmpty(expectedCreatedBy) && metadata.CreatedBy != expectedCreatedBy)
+            throw new InvalidOperationException(
+                $"Footer created_by mismatch. Expected '{expectedCreatedBy}', got '{metadata.CreatedBy}'.");
+        if (fuzzCase.Settings.WithKeyValueMetadata)
+        {
+            var kv = metadata.KeyValueMetadata;
+            if (kv is null || !kv.TryGetValue("fuzz", out var fuzzValue) || fuzzValue != "1"
+                || !kv.TryGetValue("empty", out var emptyValue) || emptyValue != "")
+                throw new InvalidOperationException("Footer key/value metadata lost or altered an entry.");
+        }
+    }
+
+    static void AssertRowGroupMetadata(ParquetSharp.RowGroupReader rowGroup, FuzzCase fuzzCase, int rowGroupIndex)
+    {
+        var meta = rowGroup.MetaData;
+        for (var c = 0; c < fuzzCase.Columns.Count; c++)
+        {
+            using var chunk = meta.GetColumnChunkMetaData(c);
+            var options = fuzzCase.Columns[c].Column.Options!;
+            var expected = options.Compression ?? fuzzCase.Compression;
+            var actual = chunk.Compression;
+            var ok = expected switch
+            {
+                CompressionKind.None => actual == ParquetSharp.Compression.Uncompressed,
+                CompressionKind.Snappy => actual == ParquetSharp.Compression.Snappy,
+                CompressionKind.Gzip => actual == ParquetSharp.Compression.Gzip,
+                CompressionKind.Zstd => actual == ParquetSharp.Compression.Zstd,
+                CompressionKind.Brotli => actual == ParquetSharp.Compression.Brotli,
+                CompressionKind.Lz4 => actual is ParquetSharp.Compression.Lz4 or ParquetSharp.Compression.Lz4Hadoop,
+                _ => true
+            };
+            if (!ok)
+                throw new InvalidOperationException(
+                    $"Row group {rowGroupIndex} column {c} codec mismatch: expected {expected}, footer says {actual}.");
+            if (chunk.NumValues != fuzzCase.RowGroups[rowGroupIndex][c].Length)
+                throw new InvalidOperationException(
+                    $"Row group {rowGroupIndex} column {c} num_values {chunk.NumValues} != {fuzzCase.RowGroups[rowGroupIndex][c].Length}.");
+        }
+
+        var expectedSorting = fuzzCase.Settings.Sorting ?? [];
+        var sorting = meta.SortingColumns();
+        if ((sorting?.Length ?? 0) != expectedSorting.Length)
+            throw new InvalidOperationException(
+                $"Row group {rowGroupIndex} sorting column count {(sorting?.Length ?? 0)} != {expectedSorting.Length}.");
+        for (var i = 0; i < expectedSorting.Length; i++)
+            if (sorting![i].ColumnIndex != expectedSorting[i].ColumnOrdinal
+                || sorting[i].IsDescending != expectedSorting[i].Descending
+                || sorting[i].NullsFirst != expectedSorting[i].NullsFirst)
+                throw new InvalidOperationException($"Row group {rowGroupIndex} sorting column {i} differs.");
     }
 
     // ParquetSharp is the second opinion on everything this target writes, so a
