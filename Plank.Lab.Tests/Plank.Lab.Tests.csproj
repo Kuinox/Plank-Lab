@@ -7,6 +7,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Plank.Fuzzing.Harness\AflPersistentHarness.cs" Link="Harness\AflPersistentHarness.cs" />
+    <PackageReference Include="SharpFuzz.Common" Version="2.2.0" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.12.15" />
   </ItemGroup>

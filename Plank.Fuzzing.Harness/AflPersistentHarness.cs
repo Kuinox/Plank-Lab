@@ -18,6 +18,8 @@ internal static unsafe class AflPersistentHarness
     private const int FaultNone = 0;
     private const int FaultCrash = 2;
     private const int SaveInterval = 10_000;
+    private static readonly bool SurviveCrash =
+        Environment.GetEnvironmentVariable("PLANK_FUZZ_SURVIVE_CRASH") == "1";
 
     // If AFL hands us this many empty inputs back-to-back, input delivery is
     // broken rather than the fuzzer being unlucky. See the watchdog below.
@@ -135,29 +137,47 @@ internal static unsafe class AflPersistentHarness
             if (++execCount % SaveInterval == 0)
                 TryWriteAllBytes(lastInputPath, input);
 
-            int fault = FaultNone;
-            try { execute(input); }
-            catch (Exception ex)
-            {
-                fault = FaultCrash;
-                TryWriteAllText($"/tmp/plank-fuzz-{targetName}-last-exception.txt", ex.ToString());
-            }
+            uint status = ExecuteOne(targetName, execute, input, SurviveCrash, out bool fatal);
+            WriteU32(StFd, status);
 
-            WriteU32(StFd, (uint)fault);
-
-            if (fault == FaultCrash)
+            if (fatal)
             {
                 // This process *is* the fork server, so dying here takes the
                 // whole worker down and AFL aborts with "Unable to request new
-                // process from fork server" — without saving the crash. Persist
-                // the input ourselves, under its content hash so concurrent
-                // workers never clobber each other and repeat finds collapse.
-                SaveCrashInput(targetName, input);
-
+                // process from fork server" (the input is already persisted by
+                // ExecuteOne under its content hash).
                 // FailFast exits immediately — no chance for AFL++ SIGKILL to race
                 shmdt(coverageMem);
                 Environment.FailFast("fuzz target crashed");
             }
+        }
+    }
+
+    // Runs one testcase and returns the wait-status word to report to AFL.
+    //
+    // PLANK_FUZZ_SURVIVE_CRASH=1 (surviveCrash): a managed exception is reported as
+    // a SIGSEGV-style status (11) so AFL records a real crash with its own
+    // bitmap-based uniqueness, and the loop keeps serving. Without it the worker
+    // FailFasts (fatal = true), AFL only sees "Unable to communicate with fork
+    // server", records nothing and re-dry-runs the whole queue on restart.
+    // Native crashes (segfaults, FailFast) still kill the process either way.
+    // In both modes the input is saved under PLANK_FUZZ_CRASH_DIR by content hash.
+    internal static uint ExecuteOne(string targetName, Action<byte[]> execute, byte[] input, bool surviveCrash, out bool fatal)
+    {
+        fatal = false;
+        try
+        {
+            execute(input);
+            return FaultNone;
+        }
+        catch (Exception ex)
+        {
+            TryWriteAllText($"/tmp/plank-fuzz-{targetName}-last-exception.txt", ex.ToString());
+            SaveCrashInput(targetName, input);
+            if (surviveCrash)
+                return 11;
+            fatal = true;
+            return FaultCrash;
         }
     }
 
