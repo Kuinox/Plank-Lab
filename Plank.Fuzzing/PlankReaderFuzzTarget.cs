@@ -151,9 +151,47 @@ public static class PlankReaderFuzzTarget
         return (int)((hash >> 20) & 7);
     }
 
+    // IsaFlags and the JIT: methods marked AggressiveOptimization (many of the reader's kernels) are compiled once,
+    // fully optimized, at their first call, and the compiler folds the then-current value of a static readonly flag
+    // into the code. A per-input flip therefore reaches only the methods still in tier 0, and *which* methods those are
+    // depends on what ran before, which makes coverage depend on history, something AFL's calibration cannot tolerate.
+    // So the flags are chosen per process, not per input:
+    //   PLANK_FUZZ_ISA_MASK=<hex>|all   inverts those flags for the whole process (give each AFL worker / coverage tier its own),
+    //                                   applied before anything is compiled and the non-generic AggressiveOptimization
+    //                                   methods are compiled right away under it (PrepareMethod);
+    //   PLANK_FUZZ_ISA_RANDOM=1         additionally flips a pseudo-random subset per input (noisy; diagnostic use only).
+    // The file-schema route's IsaDifferential check compares the two sides on every input regardless.
+    static readonly int ProcessIsaMask = InitProcessIsaMask();
+    static readonly bool RandomIsaMasks = Environment.GetEnvironmentVariable("PLANK_FUZZ_ISA_RANDOM") == "1";
+
+    static int InitProcessIsaMask()
+    {
+        var forced = Environment.GetEnvironmentVariable("PLANK_FUZZ_ISA_MASK");
+        var mask = string.IsNullOrEmpty(forced) ? 0 : forced == "all" ? IsaFlags.AllMask : Convert.ToInt32(forced, 16);
+        IsaFlags.Apply(mask);
+        IsaFlags.PrepareAggressivelyOptimizedMethods();
+        return mask;
+    }
+
+    internal static int IsaMaskOf(ReadOnlySpan<byte> data)
+    {
+        if (!RandomIsaMasks)
+            return ProcessIsaMask;
+        uint hash = 2166136261;
+        foreach (var b in data)
+            hash = (hash ^ b) * 16777619;
+        hash ^= hash >> 15;
+        hash *= 2246822519;
+        hash ^= hash >> 13;
+        return (hash & 1) == 0 ? ProcessIsaMask : (int)((hash >> 4) & (uint)IsaFlags.AllMask);
+    }
+
     static void Execute(ReadOnlySpan<byte> data, IParquetBufferPool bufferPool)
     {
         borrowBits = BorrowBitsOf(data);
+        if (IsaFlags.Current != ProcessIsaMask)
+            throw new InvalidOperationException("IsaFlags leaked a flipped state from a previous input.");
+        using var isa = IsaFlags.Flip(IsaMaskOf(data));
         try
         {
             Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : data[1..].ToArray(), bufferPool);
@@ -585,6 +623,12 @@ public static class PlankReaderFuzzTarget
 
             }
         }
+
+        // Same file, every dispatch flag at its machine default and then every flag inverted: the
+        // scalar and vector decoders must return identical values (and the same verdict on corruption).
+        // See IsaDifferential.
+        if ((selector & 1) == 0 && (borrowBits & 2) == 0)
+            IsaDifferential.Check(fileBytes, options);
 
         // Bit 3 (file-schema route) reads the file again through a page pruner.
         // See CrossCheckPrunedReads.
@@ -1909,6 +1953,11 @@ public static class PlankReaderFuzzTarget
             ParquetPhysicalType.Double => DrainValues<double>(rowGroup.Column<double>(column)),
             _ => throw new InvalidOperationException("The decoded-value oracle received an unsupported column.")
         };
+
+    internal static T[] DrainValuesPublic<T>(RowGroupColumn<T> buffers) => DrainValues(buffers);
+
+    internal static (TValue[]? Values, Exception? Error) TryReadPathPublic<TValue>(Func<TValue[]> read)
+        => TryReadPath(read);
 
     static T[] DrainValues<T>(RowGroupColumn<T> buffers)
     {

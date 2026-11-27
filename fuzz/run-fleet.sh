@@ -123,7 +123,10 @@ mkdir -p "$PLANK_FUZZ_DISAGREEMENT_DIR"
 # actually work; DOTNET_EnableAVX512F=0 is silently ignored.
 isa_env() {
   case "$1" in
-    worker-03|worker-04|worker-07) echo "DOTNET_EnableAVX512=0" ;;    # AVX2 tier
+    worker-03|worker-07) echo "DOTNET_EnableAVX512=0" ;;              # AVX2 tier
+    # Library dispatch flags that are plain static fields (CPUID model checks, nullable-layout probes) inverted for the whole
+    # process: the other side of UseScalarWideInt64Gather, UsePdep and the Has*CanonicalLayout probes. See fuzz/notes/isa-dispatch.md.
+    worker-04)           echo "DOTNET_EnableAVX512=0 PLANK_FUZZ_ISA_MASK=all" ;;
     worker-05)           echo "DOTNET_EnableAVX2=0" ;;                # SSE tier, no BMI2/PDEP
     worker-06)           echo "DOTNET_EnableHWIntrinsic=0" ;;         # scalar only
     *)                   echo "" ;;                                   # native (AVX-512)
@@ -140,20 +143,20 @@ start_one() {
   mkdir -p "$tmp"
   # Each worker needs its own AFL_TMPDIR: they all write .cur_input there.
   # Respawn loop keeps the fleet alive across the occasional worker abort.
-  # PLANK_FUZZ_ROTATE_ISA=<seconds> makes the worker cycle through all four
+  # PLANK_FUZZ_ROTATE_ISA=<seconds> makes the worker cycle through all six
   # instruction-set tiers instead of keeping the one isa_env gives it: a small
   # fleet (one pinned worker) otherwise never runs the scalar, SSE or AVX2
   # decoders at all. AFL is stopped with SIGINT, which saves its state, and the
   # next tier resumes the same queue.
   local rotate="${PLANK_FUZZ_ROTATE_ISA:-0}"
   nohup setsid bash -c "
-    tiers=('' 'DOTNET_EnableAVX512=0' 'DOTNET_EnableAVX2=0' 'DOTNET_EnableHWIntrinsic=0')
+    tiers=('' 'DOTNET_EnableAVX512=0' 'DOTNET_EnableAVX2=0' 'DOTNET_EnableHWIntrinsic=0' 'PLANK_FUZZ_ISA_MASK=all' 'DOTNET_EnableAVX2=0 PLANK_FUZZ_ISA_MASK=all')
     round=0
     fast_exits=0
     while true; do
       started=\$(date +%s)
       if [ $rotate -gt 0 ]; then
-        tier=\${tiers[\$((round % 4))]}
+        tier=\${tiers[\$((round % 6))]}
         round=\$((round + 1))
         echo \"==> ISA tier: \${tier:-native}\" >>'$LOGS/$name.log'
         limit='timeout -s INT $rotate'
