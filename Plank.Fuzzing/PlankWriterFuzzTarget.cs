@@ -1850,11 +1850,18 @@ public static class PlankWriterFuzzTarget
                         incoming[0] = double.NaN;
                     else
                     {
+                        // The -0/+0 boundary must still respect the declared sort order: ascending runs
+                        // up to 0 then continues after -0, descending mirrors it. (Ascending data under a
+                        // descending declaration violated sorting_columns by construction.)
                         for (var i = 0; i < rowCount; i++)
-                            retained[i] = i - rowCount + 1;
-                        incoming[0] = -0d;
+                            retained[i] = descending ? rowCount - 1 - i : i - rowCount + 1;
+                        // The ambiguous step is +0 -> -0 ascending and -0 -> +0 descending: equal numerically,
+                        // but an inversion of the total order, so Plank must not claim the append is sorted.
+                        if (descending)
+                            retained[^1] = -0d;
+                        incoming[0] = descending ? 0d : -0d;
                         for (var i = 1; i < rowCount; i++)
-                            incoming[i] = i;
+                            incoming[i] = descending ? -i : i;
                     }
                 }
                 else if (breakOrder)
@@ -1885,11 +1892,18 @@ public static class PlankWriterFuzzTarget
                         incoming[0] = float.NaN;
                     else
                     {
+                        // The -0/+0 boundary must still respect the declared sort order: ascending runs
+                        // up to 0 then continues after -0, descending mirrors it. (Ascending data under a
+                        // descending declaration violated sorting_columns by construction.)
                         for (var i = 0; i < rowCount; i++)
-                            retained[i] = i - rowCount + 1;
-                        incoming[0] = -0f;
+                            retained[i] = descending ? rowCount - 1 - i : i - rowCount + 1;
+                        // The ambiguous step is +0 -> -0 ascending and -0 -> +0 descending: equal numerically,
+                        // but an inversion of the total order, so Plank must not claim the append is sorted.
+                        if (descending)
+                            retained[^1] = -0f;
+                        incoming[0] = descending ? 0f : -0f;
                         for (var i = 1; i < rowCount; i++)
-                            incoming[i] = i;
+                            incoming[i] = descending ? -i : i;
                     }
                 }
                 else if (breakOrder)

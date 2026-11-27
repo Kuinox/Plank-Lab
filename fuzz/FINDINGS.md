@@ -205,6 +205,14 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
 
 ## Fuzz-harness defects (fixed)
 
+- Append-sorting route (`0xF8`, kinds 3/4, double/float): the "ambiguous" `-0/+0` case built ascending retained rows
+  even when the declared sort was descending, so the file violated its own `sorting_columns`
+  ("rows violate the declared sorting_columns ... -2 then -1", found by AFL as 23 distinct inputs once the oracle began
+  checking declared orders). Descending now mirrors the data and puts the order inversion at `-0 -> +0`.
+  Seeds: `corpus/writer-append-sorting-zero-ambiguous-desc-{double,float}.bin`. Not a library defect.
+- AFL-only: a long-lived persistent worker under a container memory cap runs out of heap on drawn multi-GB buffer
+  options (`OutOfMemoryException` in `BufferWriter..ctor`); passes in a fresh process. Counted as `writer-oom-memory-cap`
+  by `PLANK_FUZZ_KNOWN_FINDINGS`, not a library defect.
 - A one-byte `FA` writer input indexed `data[1]`
   (`crashes/writer-aa7225e7d5b0a255.bin`).
 - The `0x26`/`0x2E` logical-type probe collided with unrelated reader inputs,
