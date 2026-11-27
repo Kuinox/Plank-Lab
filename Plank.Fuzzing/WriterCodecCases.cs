@@ -266,6 +266,62 @@ internal static class WriterCodecCases
 
         if (kind == CompressionKind.Lz4)
             CheckHadoopFraming(what, compressed, data);
+        Corrupt(c, kind, compressed, data.Length, what);
+    }
+
+    // Plank's decompressors get damaged copies of what the compressors just produced. The only acceptable outcomes
+    // are decoded bytes or CorruptParquetException: any other exception type escaping a decoder (an out-of-range
+    // index, an invalid-operation from a codec library, an overflow) is a bug in the read path.
+    static void Corrupt(Cur c, CompressionKind kind, byte[] compressed, int expectedLength, string what)
+    {
+        if (compressed.Length == 0)
+            return;
+        for (var round = 0; round < 3; round++)
+        {
+            var damaged = (byte[])compressed.Clone();
+            var how = c.Int(0, 5);
+            switch (how)
+            {
+                case 0: // flip 1-4 bytes
+                    for (var i = c.Int(1, 5); i > 0; i--)
+                        damaged[c.Int(0, damaged.Length)] ^= (byte)c.Int(1, 256);
+                    break;
+                case 1: // truncate
+                    damaged = damaged[..c.Int(0, damaged.Length)];
+                    break;
+                case 2: // append garbage
+                    damaged = damaged.Concat(Enumerable.Range(0, c.Int(1, 40)).Select(_ => c.Byte())).ToArray();
+                    break;
+                case 3: // overwrite a run with 0xFF / 0x00 (length and offset escapes)
+                {
+                    var start = c.Int(0, damaged.Length);
+                    var length = Math.Min(c.Int(1, 9), damaged.Length - start);
+                    damaged.AsSpan(start, length).Fill(c.Int(0, 2) == 0 ? (byte)0xFF : (byte)0);
+                    break;
+                }
+                default: // damage the head (frame / preamble / header bytes)
+                    damaged[c.Int(0, Math.Min(damaged.Length, 12))] ^= (byte)c.Int(1, 256);
+                    break;
+            }
+
+            // The page declares its uncompressed size, so the destination is the declared one (sometimes wrong).
+            var declared = Math.Max(0, expectedLength + c.Pick(0, 0, 0, 1, -1, 4096));
+            var destination = new byte[declared];
+            try
+            {
+                ParquetDecompressor.DecompressInto(damaged, kind, destination);
+                RouteEvidence.Hit($"codec.corrupt.{kind}.decoded");
+            }
+            catch (CorruptParquetException)
+            {
+                RouteEvidence.Hit($"codec.corrupt.{kind}.rejected");
+            }
+            catch (Exception error)
+            {
+                throw new InvalidOperationException(
+                    $"{what}: decompressing a damaged {kind} payload (variant {how}, {damaged.Length} bytes, declared {declared}) threw {error.GetType().Name}: {error.Message}", error);
+            }
+        }
     }
 
     // Plank reads LZ4 pages written as Hadoop frames (BE uncompressed size, BE compressed size, block) by other
