@@ -183,11 +183,10 @@ public static class PlankReaderFuzzTarget
     {
         CorruptParquetException or NotSupportedException => true,
         InvalidOperationException => ex.GetType() == typeof(InvalidOperationException)
-            && (BindingDiagnostics.Any(d => ex.Message.Contains(d, StringComparison.Ordinal))
-                // Raised by the harness's own row reassembly (NestedRowMaterializer, owned by the
-                // row-API agent), not by the library, and it rejects valid files with null list
-                // elements (TODO(rowapi): fix the materializer, then drop this clause).
-                || ex.StackTrace?.Contains("NestedRowMaterializer", StringComparison.Ordinal) == true),
+            // NestedRowMaterializer's exceptions are not swallowed: it is the check on the row
+            // reader's level bookkeeping. Its false positives on null map values / list elements came
+            // from guessed collection levels, now derived from the schema (SchemaCollectionLevels).
+            && BindingDiagnostics.Any(d => ex.Message.Contains(d, StringComparison.Ordinal)),
         _ => false
     };
 
@@ -1387,9 +1386,10 @@ public static class PlankReaderFuzzTarget
         }
 
         var descriptors = new RowApiColumnDescriptor[schema.LeafColumns.Length];
+        var collectionLevels = SchemaCollectionLevels(schema);
         for (var i = 0; i < descriptors.Length; i++)
         {
-            var descriptor = CreateRowApiDescriptor(schema.LeafColumns[i], i);
+            var descriptor = CreateRowApiDescriptor(schema.LeafColumns[i], i, collectionLevels[i]);
             // A leaf the fuzzer cannot describe (nesting deeper than two levels,
             // or a repeated binary leaf) would otherwise abort the whole file:
             // RowReaderCore requires one descriptor per leaf, in leaf order, so
@@ -1715,7 +1715,8 @@ public static class PlankReaderFuzzTarget
 
     // Returns null when the leaf has no describable shape, which the caller
     // treats as "skip this file's row-API pass".
-    static RowApiColumnDescriptor? CreateRowApiDescriptor(LeafColumn leaf, int index)
+    static RowApiColumnDescriptor? CreateRowApiDescriptor(LeafColumn leaf, int index,
+        RowApiCollectionLevel[]? collectionLevels)
     {
         var name = $"p{index}";
 
@@ -1724,7 +1725,7 @@ public static class PlankReaderFuzzTarget
         // which is why every nested file silently skipped its row-API pass and
         // RowApiNestedColumnReadState measured 0/282 lines.
         if (leaf.MaxRepetitionLevel > 0)
-            return CreateNestedDescriptor(leaf, name);
+            return CreateNestedDescriptor(leaf, name, collectionLevels);
 
         // Binary leaves require the variable-length read state. A descriptor
         // of byte reaches the fixed-width state, which cannot decode BYTE_ARRAY
@@ -1741,13 +1742,16 @@ public static class PlankReaderFuzzTarget
     }
 
     // The generated code computes its collection thresholds from the row type it
-    // was generated for; the fuzzer only has the leaf, so it reconstructs them:
-    // the innermost collection has an element at the leaf's maximum definition
-    // level, and each enclosing one sits a level above. That is the correct
-    // reading for the shapes the corpus generates, and for anything else it is
-    // still a well-formed descriptor — a corrupt file can present any levels it
-    // likes, which is the point.
-    static RowApiColumnDescriptor? CreateNestedDescriptor(LeafColumn leaf, string name)
+    // was generated for; the fuzzer reconstructs them from the file schema with
+    // the Parquet level rules (SchemaCollectionLevels). Only when that walk does
+    // not agree with the leaf's max levels does it fall back to assuming the
+    // innermost collection has an element at the leaf's maximum definition level
+    // and each enclosing one sits a level above. That fallback is wrong for
+    // optional elements/values (a null map value sits at the entry level, which
+    // it misread as an empty-collection marker), but it is still a well-formed
+    // descriptor — a corrupt file can present any levels it likes.
+    static RowApiColumnDescriptor? CreateNestedDescriptor(LeafColumn leaf, string name,
+        RowApiCollectionLevel[]? schemaLevels)
     {
         var repetition = leaf.MaxRepetitionLevel;
         var definition = leaf.MaxDefinitionLevel;
@@ -1757,7 +1761,8 @@ public static class PlankReaderFuzzTarget
         if (repetition is not (1 or 2) || definition < repetition)
             return null;
 
-        var levels = NestedCollectionLevels(leaf)!;
+        var levels = schemaLevels ?? NestedCollectionLevels(leaf)!;
+        NestedLevelsByLeaf.AddOrUpdate(leaf, levels);
 
         // The row reader returns raw levels and dense values, so the descriptor
         // only depends on the physical value type; the nested shape is rebuilt
@@ -1786,6 +1791,70 @@ public static class PlankReaderFuzzTarget
             levels[i] = new RowApiCollectionLevel(i + 1, element - 1, element);
         }
         return levels;
+    }
+
+    // Levels the descriptor of each nested leaf was created with, for the materializer.
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<LeafColumn, RowApiCollectionLevel[]>
+        NestedLevelsByLeaf = new();
+
+    // Collection levels of every leaf, in leaf order, from the schema tree: each optional or
+    // repeated node adds one definition level, LIST and MAP nodes add their implicit repeated
+    // group (list / key_value). For the k-th repeated node on a leaf's path, the collection is
+    // defined at the level before that node and has an element at the node's own level. Null
+    // for a leaf whose walk disagrees with its declared max levels.
+    static RowApiCollectionLevel[]?[] SchemaCollectionLevels(ParquetSchema schema)
+    {
+        var result = new List<RowApiCollectionLevel[]?>(schema.LeafColumns.Length);
+        var repeated = new List<int>(2);
+        foreach (var definition in schema.Definitions)
+            Walk(definition, 0, repeated, result);
+        var levels = new RowApiCollectionLevel[]?[schema.LeafColumns.Length];
+        if (result.Count != levels.Length)
+            return levels;
+        for (var i = 0; i < levels.Length; i++)
+        {
+            var leaf = schema.LeafColumns[i];
+            var leafLevels = result[i];
+            if (leafLevels is not null && leafLevels.Length == leaf.MaxRepetitionLevel
+                && (leafLevels.Length == 0 || leafLevels[^1].ElementDefinitionLevel <= leaf.MaxDefinitionLevel))
+                levels[i] = leafLevels;
+        }
+        return levels;
+
+        static void Walk(ColumnDefinition node, int definition, List<int> repeated,
+            List<RowApiCollectionLevel[]?> result)
+        {
+            var pushed = 0;
+            if (node.Repetition is ParquetRepetition.Optional or ParquetRepetition.Repeated)
+                definition++;
+            if (node.Repetition == ParquetRepetition.Repeated)
+            {
+                repeated.Add(definition);
+                pushed++;
+            }
+            switch (node.Kind)
+            {
+                case NodeKind.Leaf:
+                    var levels = new RowApiCollectionLevel[repeated.Count];
+                    for (var i = 0; i < levels.Length; i++)
+                        levels[i] = new RowApiCollectionLevel(i + 1, repeated[i] - 1, repeated[i]);
+                    result.Add(levels);
+                    break;
+                case NodeKind.List:
+                case NodeKind.Map:
+                    definition++;
+                    repeated.Add(definition);
+                    pushed++;
+                    foreach (var child in node.Children)
+                        Walk(child, definition, repeated, result);
+                    break;
+                default:
+                    foreach (var child in node.Children)
+                        Walk(child, definition, repeated, result);
+                    break;
+            }
+            repeated.RemoveRange(repeated.Count - pushed, pushed);
+        }
     }
 
     static object? ReadCurrent(RowReaderCore rows, RowApiColumnDescriptor descriptor)
@@ -1822,7 +1891,8 @@ public static class PlankReaderFuzzTarget
 
     static object? MaterializeNested<TValue>(RowApiNestedColumnDescriptor<TValue> descriptor,
         RowApiNestedLeafRow<TValue> row)
-        => NestedRowMaterializer.Materialize(row, descriptor.Column, NestedCollectionLevels(descriptor.Column)!);
+        => NestedRowMaterializer.Materialize(row, descriptor.Column,
+            NestedLevelsByLeaf.TryGetValue(descriptor.Column, out var levels) ? levels : NestedCollectionLevels(descriptor.Column)!);
 
     // Acceptance alone does not catch two readers successfully decoding the
     // same bytes to different values. The Parquet.Net route is deliberately
