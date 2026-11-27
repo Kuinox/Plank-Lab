@@ -23,11 +23,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Plank.Fuzzing\Plank.Fuzzing.csproj" />
+    <!-- Built for its output only: a SharpFuzz.Common with a [ThreadStatic] PrevLocation, copied over the package dll after instrumenting. -->
+    <ProjectReference Include="..\Plank.Fuzzing.TraceShim\Plank.Fuzzing.TraceShim.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <Target Name="SharpFuzzInstrument" AfterTargets="Build">
     <Exec Command="sharpfuzz &quot;$(OutDir)Plank.dll&quot;" />
     <Exec Command="sharpfuzz &quot;$(OutDir)Plank.Fuzzing.dll&quot;" />
+    <!-- Per-thread edge chains: multithreaded code (row pipelines) otherwise maps different edges on every run. -->
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\Plank.Fuzzing.TraceShim\bin\$(Configuration)\netstandard2.0\SharpFuzz.Common.dll" DestinationFolder="$(OutDir)" Condition="'$(PLANK_FUZZ_STOCK_TRACE)' != '1'" />
   </Target>
 
 </Project>
