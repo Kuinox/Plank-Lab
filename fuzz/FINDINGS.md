@@ -174,6 +174,15 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
 | Optional BYTE_STREAM_SPLIT binary and FLBA DELTA_BYTE_ARRAY are rejected with explicit `NotSupportedException`s. | asserted in `WriterTypeMatrixCases.Binary` |
 | `AppendToLatestRowGroup` on a column with a value converter fails with `InvalidOperationException: Column ... uses a converter for ... and cannot be read as ...` (the retained values are read back as the CLR type). New row groups and merges work. | asserted in `WriterTypeMatrixCases.AppendMergeVariant` |
 | `InitialColumnBufferBytes > int.MaxValue` is accepted by `ParquetWriterOptions.Validate`; it is only rejected when a column buffer is first rented. | `BufferWriterCapacityCases` |
+- **`DatasetWriterOptions.PendingRowCapacity = int.MaxValue` is accepted by `Validate` and then fails with `OutOfMemoryException`**
+  ("Array dimensions exceeded supported range") on the first queued row, instead of a defined refusal at construction (same class as
+  the `TargetDataPageSizeBytes = int.MaxValue` finding above). Found by route `OPT1` mode 4 (`OptionsSweepCases`); counted as
+  `knownPendingCapacityOom`, not faulted. Values above int.MaxValue are correctly rejected with `ArgumentOutOfRangeException`.
+- Route `OPT1` (0xC2) otherwise found no defect in 2,600 inputs: every `ParquetWriterOptions` property with edge values (invalid ones are
+  rejected with `ArgumentException` at `CreateWriter`, valid ones round-trip), `ParquetReaderOptions` / `ParquetFileReaderOptions` /
+  `RowReaderOptions` (null pool, `WorkerCount <= 0`, `MaxReadAheadRowGroups` -1/2/int.Max rejected at creation), `Serialize` over exact /
+  empty / offset-sliced / Memory-sliced inputs, merger counters and closed-state refusals, appender with `AppendToLatestRowGroup`.
+  Behaviour note, not a defect: importing a file into a merger skips zero-row groups, and the merger's `RowGroupCount` agrees with the file.
 
 ## Fuzz-harness defects (fixed)
 
