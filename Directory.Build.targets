@@ -32,6 +32,55 @@
     exact size instead of reused larger. The library sources are not edited; at run time without PLANK_FUZZ_GUARD it
     all behaves as the original.
   -->
+  <!--
+    -p:PlankCheckedAccess=true (checked-access fuzz builds only, Plank.Fuzzing.Checked/README.md): the Roslyn tool
+    Plank.Fuzzing.Checked/Rewriter rewrites a copy of every library file (and of Plank.InternalGen's generated decoder,
+    which the compiler then stops generating) so that each Unsafe/MemoryMarshal/vector/pointer access is checked
+    against the logical span its ref came from (PlankOobReadException). The library sources are not edited.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedAccess)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLANK_CHECKED_ACCESS</DefineConstants>
+    <_PlankCheckedRewriterProject>$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Rewriter/Plank.Fuzzing.Checked.Rewriter.csproj</_PlankCheckedRewriterProject>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedAccess)' == 'true'">
+    <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Runtime/PlankCheckedAccess.cs" Link="Checked/PlankCheckedAccess.cs" />
+    <ProjectReference Include="$(_PlankCheckedRewriterProject)" ReferenceOutputAssembly="false" Private="false"
+                      SkipGetTargetFrameworkProperties="true" GlobalPropertiesToRemove="PlankCheckedAccess" />
+  </ItemGroup>
+
+  <Target Name="PlankCheckedAccessRewrite" BeforeTargets="CoreCompile" AfterTargets="PlankGuardArrayRewrite"
+          Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedAccess)' == 'true'">
+    <PropertyGroup>
+      <_PlankCheckedDir>$(ProjectDir)$(IntermediateOutputPath)checked-access/</_PlankCheckedDir>
+      <_PlankCheckedTool>$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Rewriter/bin/$(Configuration)/net10.0/Plank.Fuzzing.Checked.Rewriter.dll</_PlankCheckedTool>
+    </PropertyGroup>
+    <ItemGroup>
+      <_PlankCheckedGen Include="@(Analyzer)" Condition="'%(Filename)' == 'Plank.InternalGen'" />
+      <_PlankCheckedLine Include="out=$(_PlankCheckedDir)" />
+      <_PlankCheckedLine Include="root=$(ProjectDir)" />
+      <_PlankCheckedLine Include="report=$(_PlankCheckedDir)sites.tsv" />
+      <_PlankCheckedLine Include="hand=$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/hand-rewrites.txt" />
+      <_PlankCheckedLine Include="define=$(DefineConstants.Replace(';', ','))" />
+      <_PlankCheckedLine Include="@(Compile->'src=%(FullPath)|%(Identity)')" />
+      <_PlankCheckedLine Include="@(ReferencePathWithRefAssemblies->'ref=%(FullPath)')" />
+      <_PlankCheckedLine Include="@(_PlankCheckedGen->'gen=%(FullPath)')" />
+    </ItemGroup>
+    <MakeDir Directories="$(_PlankCheckedDir)" />
+    <WriteLinesToFile File="$(_PlankCheckedDir)rewriter.rsp" Lines="@(_PlankCheckedLine)" Overwrite="true" />
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(_PlankCheckedTool)&quot; &quot;$(_PlankCheckedDir)rewriter.rsp&quot;" />
+    <ReadLinesFromFile File="$(_PlankCheckedDir)originals.txt">
+      <Output TaskParameter="Lines" ItemName="_PlankCheckedOriginal" />
+    </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(_PlankCheckedDir)rewritten.txt">
+      <Output TaskParameter="Lines" ItemName="_PlankCheckedRewritten" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <Compile Remove="@(_PlankCheckedOriginal)" />
+      <Compile Include="@(_PlankCheckedRewritten)" />
+      <Analyzer Remove="@(_PlankCheckedGen)" />
+    </ItemGroup>
+  </Target>
+
   <UsingTask TaskName="PlankGuardArrayRewrite" TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll"
              Condition="'$(PlankGuardArrays)' == 'true'">

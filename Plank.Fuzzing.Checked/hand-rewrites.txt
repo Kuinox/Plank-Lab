@@ -1,0 +1,89 @@
+# Hand rewrites applied by the checked-access rewriter to the library COPY before the automatic pass
+# (Plank.Fuzzing.Checked/README.md). Format: "### <file relative to library/Plank/Plank>", then blocks
+#   <<<            old text (exact, must occur exactly once in the file; may span lines)
+#   ===            new text (same number of lines, so file:line stays right)
+#   >>>
+# Lines starting with '#' outside blocks are comments. A block that no longer matches fails the build.
+
+# ParquetBuffer is the root of every native buffer and of every slice of one (RetainSlice): its views register
+# [_data, _data + _length) as a fresh region, so a reused pool allocation is bounded by the CURRENT logical length
+# (not by a stale earlier rental at the same address), and every span projected from it is checked against it.
+### ParquetBuffer.cs
+<<<
+        => _header is null ? [] : new Span<byte>(_data, _length);
+===
+        => _header is null ? [] : global::Plank.CheckedAccess.C.RootSpan(_data, _length, "ParquetBuffer.cs:29");
+>>>
+<<<
+        return MemoryMarshal.CreateSpan(ref Unsafe.AsRef<T>(_data), _length / elementSize);
+===
+        global::Plank.CheckedAccess.C.RegisterRoot(_data, _length, "ParquetBuffer.cs:49"); return MemoryMarshal.CreateSpan(ref Unsafe.AsRef<T>(_data), _length / elementSize);
+>>>
+<<<
+        return MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef<T>(buffer._data), count);
+===
+        global::Plank.CheckedAccess.C.RegisterRoot(buffer._data, buffer._length, "ParquetBuffer.cs:119"); return MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef<T>(buffer._data), count);
+>>>
+<<<
+        return MemoryMarshal.CreateSpan(ref Unsafe.AsRef<T>(buffer._data), count);
+===
+        global::Plank.CheckedAccess.C.RegisterRoot(buffer._data, buffer._length, "ParquetBuffer.cs:128"); return MemoryMarshal.CreateSpan(ref Unsafe.AsRef<T>(buffer._data), count);
+>>>
+<<<
+        => MemoryMarshal.CreateSpan(ref Unsafe.AsRef<T>(buffer._data), count);
+===
+        { global::Plank.CheckedAccess.C.RegisterRoot(buffer._data, buffer._length, "ParquetBuffer.cs:133"); return MemoryMarshal.CreateSpan(ref Unsafe.AsRef<T>(buffer._data), count); }
+>>>
+
+# Row API fast path: RowReaderCore.GetCurrent<T> returns ref *(batch.Address + _currentBatchOffset) with no bound.
+# The copy carries the batch's element count (CurrentSpan[CurrentIndex..].Length) and checks the offset against it.
+### RowApi/RowApiColumnReadState.cs
+<<<
+readonly struct RowApiValueBatch(nint address, Type type)
+===
+readonly struct RowApiValueBatch(nint address, Type type, int length = -1)
+>>>
+<<<
+    internal readonly Type Type = type;
+===
+    internal readonly Type Type = type; internal readonly int Length = length;
+>>>
+### RowApi/RowApiColumnReadStateOfT.cs
+<<<
+        return new RowApiValueBatch((nint)Unsafe.AsPointer(ref MemoryMarshal.GetReference(values)),
+            ValueType);
+===
+        return new RowApiValueBatch((nint)Unsafe.AsPointer(ref MemoryMarshal.GetReference(values)),
+            ValueType, values.Length);
+>>>
+### RowApi/RowReaderCore.cs
+<<<
+                return ref Unsafe.Add(
+                    ref Unsafe.AsRef<T>((void*)batch.Address), _currentBatchOffset);
+===
+                return ref Unsafe.Add(
+                    ref global::Plank.CheckedAccess.C.RowBatch<T>(batch.Address, batch.Length, _currentBatchOffset, "RowApi/RowReaderCore.cs:252"), _currentBatchOffset);
+>>>
+
+# Binary values: BinaryValueDescriptor.GetSpan(nint payloadAddress) builds a span from a raw address. The payload
+# address computations register the payload area [descriptors end, buffer end) and GetSpan is checked against it.
+### Reading/Logical/Internal/ColumnChunkReader.cs
+<<<
+            : buffer.DangerousGetAddress() +
+              checked(valueCount * Unsafe.SizeOf<BinaryValueDescriptor>());
+===
+            : global::Plank.CheckedAccess.C.NativePayload(buffer.DangerousGetAddress(), buffer.Length,
+              checked(valueCount * Unsafe.SizeOf<BinaryValueDescriptor>()), "Reading/Logical/Internal/ColumnChunkReader.cs:2405");
+>>>
+### Reading/Logical/ColumnBuffer.cs
+<<<
+            : values.DangerousGetAddress() + variableLengthNativePayloadOffset;
+===
+            : global::Plank.CheckedAccess.C.NativePayload(values.DangerousGetAddress(), values.Length, variableLengthNativePayloadOffset, "Reading/Logical/ColumnBuffer.cs:64");
+>>>
+### Reading/Logical/Internal/BinaryValueDescriptor.cs
+<<<
+        => IsNull ? [] : new ReadOnlySpan<byte>((void*)(payloadAddress + _offsetPlusOne - 1), _length);
+===
+        => IsNull ? [] : global::Plank.CheckedAccess.C.SpanAt(payloadAddress, _offsetPlusOne - 1, _length, "Reading/Logical/Internal/BinaryValueDescriptor.cs:33");
+>>>

@@ -1,0 +1,13 @@
+diff --git a/Plank/Reading/Logical/Internal/BooleanBitUnpacker.cs b/Plank/Reading/Logical/Internal/BooleanBitUnpacker.cs
+index 505c63b..883577f 100644
+--- a/Plank/Reading/Logical/Internal/BooleanBitUnpacker.cs
++++ b/Plank/Reading/Logical/Internal/BooleanBitUnpacker.cs
+@@ -114,7 +114,7 @@ static class BooleanBitUnpacker
+         var lastByte = destination.Length - 8;
+         for (; index <= lastByte; index += 8)
+             Unsafe.WriteUnaligned(ref Unsafe.Add(ref output, index),
+-                ExpandedBooleanBytes[Unsafe.Add(ref source, index >> 3)]);
++                ExpandedBooleanBytes[Unsafe.Add(ref source, (index >> 3) + 1)]); // POSITIVE CONTROL: deliberate +1 over-read
+ 
+         return index;
+     }

@@ -139,12 +139,16 @@ static class Program
         return 0;
     }
 
+    static readonly bool EchoInputs = Environment.GetEnvironmentVariable("PLANK_REPLAY_ECHO") == "1";
+
     static bool Replay(string target, byte[] data, string file)
     {
         // PLANK_FUZZ_GUARD=end|start: an out-of-bounds access kills the process with a fatal AccessViolation and its
         // managed stack; this line names the input first. The input bytes are handed over in a page-guarded array,
         // released (PROT_NONE) when the input is done.
-        if (GuardMemory.Enabled)
+        // PLANK_REPLAY_ECHO=1 names every input the same way without guard mode (checked-access replays attribute
+        // PLANK-OOB lines and deaths to the input, fuzz/tools/checked-replay.py).
+        if (GuardMemory.Enabled || EchoInputs)
             Console.Error.WriteLine($"GUARD-INPUT\t{file}");
         using var guardScope = GuardScope.Begin();
         if (GuardMemory.Enabled)
