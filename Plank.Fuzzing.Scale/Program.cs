@@ -1024,6 +1024,22 @@ static class Program
             describe.Add($"file={new FileInfo(path).Length}");
             Console.WriteLine("  " + describe[^1]);
             var e = new Expected { Cols = cols, Rows = rows, RowGroupSizes = [.. groups] };
+            if (variant == 2)
+            {
+                // Known limitation (fuzz/FINDINGS.md): Plank writes a column chunk above 2 GB but its reader refuses it.
+                try
+                {
+                    using var fileSource = new FileReadSource(path);
+                    Verify.PlankLogical(fileSource, e, null, checkMetadata: true);
+                    Console.WriteLine("  NOTE: a > 2 GB column chunk was read back (the limitation is gone)");
+                }
+                catch (NotSupportedException ex) when (ex.Message.Contains("larger than Int32.MaxValue", StringComparison.Ordinal))
+                {
+                    Console.WriteLine("  known: > 2 GB chunk refused by Plank's reader");
+                }
+                Verify.Arrow(path, e);
+                return;
+            }
             using (var fileSource = new FileReadSource(path))
                 Verify.PlankLogical(fileSource, e, null, checkMetadata: true);
             using (var fileSource = new FileReadSource(path))

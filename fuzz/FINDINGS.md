@@ -341,6 +341,14 @@ and with ParquetSharp.
   invalid input, low severity. Repro: [`repros/time-nanos-negative-accepted/`](repros/time-nanos-negative-accepted/)
   (`Plank.Fuzzing.Scale repro time-nanos-negative <dir>`). Found by the `types` mode (every logical type at scale).
 
+- **Plank writes column chunks above 2 GB that its own reader refuses.** One row group whose BYTE_ARRAY chunk is 2.4 GB
+  (2148 × 1 MB values, columnar writer, `big` mode variant 2) is written without complaint; reading it fails with
+  `NotSupportedException: Column chunks larger than Int32.MaxValue are not supported` (`ParquetPageCursor..ctor`), while Arrow
+  reads every chunk. The writer should refuse (or cap) such chunks, or the reader support them. Reproduce with
+  `Plank.Fuzzing.Scale run big 1 3` (writes 2.4 GB to `$SCALE_TMP`). Files above 4 GB with smaller chunks (5.8 GB, 12.3 GB)
+  read back exactly with Plank and Arrow. The 12.3 GB file was meant to be 2.3 GB: with untruncated binary statistics (finding above)
+  every 1 MB value is also stored twice in its page header and twice in the column index.
+
 Logical-type limitations seen by the `types` mode (refusals, not wrong values): `RowGroup.Column<Guid>` is refused on purpose
 (UUID is read as bytes by the logical API; the row API maps Guid); `System.Decimal` input is refused for precision > 29 even
 when every value fits; BYTE_ARRAY decimals in DELTA_LENGTH_BYTE_ARRAY / DELTA_BYTE_ARRAY pages cannot be read as `decimal`
