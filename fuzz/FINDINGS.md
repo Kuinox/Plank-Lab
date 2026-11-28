@@ -332,7 +332,8 @@ files, 300–3000 columns, multi-MB values, 2/4 GB files) and checks them value 
   Exact with one worker or no read-ahead; the defaults (`WorkerCount = ProcessorCount`, `MaxReadAheadRowGroups = 1`) trigger it.
   Repro: [`repros/int96-readahead-wrong-timestamps/`](repros/int96-readahead-wrong-timestamps/) (file + `Plank.Fuzzing.Scale repro int96-readahead <dir>`).
   Found by the `evolve` mode (schema evolution through the multi-worker row reader); no AFL route reads INT96 through the row
-  reader with workers and more than one row group.
+  reader with workers and more than one row group. Cause: `RowReaderCore.StartReadAhead` copies `Projected`/`Materialized`/`Ordinal`
+  into the read-ahead states but not `ReadDefinition`, which binding sets only for the INT96 conversion.
 and with ParquetSharp.
 
 - **Binary min/max statistics are never truncated, so one large value makes the file unreadable for Arrow.** A page holding a

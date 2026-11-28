@@ -27,3 +27,8 @@ WorkerCount=8 MaxReadAheadRowGroups=1: (same)
 read as microseconds.) `ParquetSchemaEvolutionOptions` is only needed to allow the INT96 binding; the logical reader's
 `Column<DateTime>` on the same column is right. Default `RowReaderOptions` are `WorkerCount = Environment.ProcessorCount`,
 `MaxReadAheadRowGroups = 1`, so any multi-core machine reading a multi-row-group INT96 file this way is affected.
+
+Cause (read after the fuzz finding): `RowReaderCore.StartReadAhead` creates the read-ahead states with
+`state.Descriptor.CreateState()` and copies `Projected`, `Materialized` and `Ordinal` from the current states, but not
+`ReadDefinition`, which binding (`RowReaderCore.cs:502`) sets only for the INT96 → timestamp conversion. The prefetched row
+group is therefore decoded with the property's own INT64 TIMESTAMP definition.
