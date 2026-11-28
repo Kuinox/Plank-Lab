@@ -83,7 +83,8 @@ static class Program
                 default: throw new ArgumentException("unknown mode " + mode);
             }
             message = "";
-            Console.WriteLine($"OK {mode} {seed} t{tier} {sw.Elapsed.TotalSeconds:F1}s {string.Join(" | ", describe.Take(1))}");
+            using var self = System.Diagnostics.Process.GetCurrentProcess();
+            Console.WriteLine($"OK {mode} {seed} t{tier} {sw.Elapsed.TotalSeconds:F1}s rss={self.WorkingSet64 >> 20}MB peak={self.PeakWorkingSet64 >> 20}MB {string.Join(" | ", describe.Take(1))}");
             return true;
         }
         catch (Exception ex)
