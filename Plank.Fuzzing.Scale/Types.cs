@@ -102,6 +102,7 @@ public sealed class LType
         t.Configure(rng);
         spec.Encodings = [];
         spec.Compression = null;
+        spec.CompressionLevel = null;
         spec.Bloom = false;
         return t;
     }

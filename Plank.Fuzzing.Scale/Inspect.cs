@@ -1,3 +1,4 @@
+using System.Text;
 using Plank.Reading.Physical;
 using Ps = ParquetSharp;
 
@@ -230,6 +231,167 @@ public static class Repros
                 }
                 return exit;
             }
+            case "guid-missing-default":
+            {
+                // A file with only "Id", read as ScaleTypes with MissingColumns = MaterializeDefault.
+                var schema = new Plank.Schema.ParquetSchema([Plank.Schema.ColumnDefinition.RequiredLeaf("Id", Plank.Schema.ParquetPhysicalType.Int64)]);
+                var output = new MemoryStream();
+                using (var writer = schema.CreateWriter(output))
+                {
+                    var column = writer.CreateSerializedColumn<long>(schema.LeafColumns[0]);
+                    var rg = writer.StartRowGroup();
+                    column.Serialize([1L]);
+                    rg.Write(column);
+                    writer.CloseFile();
+                }
+                var evolution = new Plank.Reading.ParquetSchemaEvolutionOptions { MissingColumns = Plank.Reading.MissingColumnEvolutionBehavior.MaterializeDefault };
+                using var reader = ScaleTypes.CreateRowReader(new Plank.Reading.MemoryReadSource(output.ToArray()), default, null, evolution);
+                reader.MoveNext();
+                var row = reader.Current;
+                Console.WriteLine($"Id={row.Id} Dec9={row.Dec9} Stamp={row.Stamp:O} Day={row.Day} U32={row.U32} MaybeKey={(row.MaybeKey?.ToString() ?? "null")} Doc={(row.Doc ?? "null")}");
+                try { Console.WriteLine($"Key={row.Key}"); return 0; }
+                catch (Exception ex) { Console.WriteLine($"Key: {ex.GetType().Name}: {ex.Message}"); return 1; }
+            }
+            case "int96-row-timestamp":
+            {
+                // INT96 "Stamp" values read into ScaleTypes.Stamp (TIMESTAMP(MICROS) property) with PhysicalTypes = AllowCompatible,
+                // next to the logical reader's DateTime projection of the same INT96 column.
+                var stamps = new[]
+                {
+                    new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(1970, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(1971, 6, 15, 12, 30, 0, DateTimeKind.Utc), new DateTime(1969, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(2024, 3, 1, 8, 0, 0, DateTimeKind.Utc),
+                    new DateTime(2262, 4, 11, 0, 0, 0, DateTimeKind.Utc), new DateTime(2263, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(2500, 1, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(3000, 7, 4, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(9999, 12, 31, 0, 0, 0, DateTimeKind.Utc), new DateTime(1677, 9, 22, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(1600, 1, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+                };
+                var repeat = int.TryParse(Environment.GetEnvironmentVariable("REPRO_ROWS"), out var rr) ? rr : stamps.Length;
+                stamps = Enumerable.Range(0, repeat).Select(i => stamps[i % stamps.Length]).ToArray();
+                var schema = new Plank.Schema.ParquetSchema([
+                    Plank.Schema.ColumnDefinition.RequiredLeaf("Id", Plank.Schema.ParquetPhysicalType.Int64),
+                    Plank.Schema.ColumnDefinition.RequiredLeaf("Stamp", Plank.Schema.ParquetPhysicalType.Int96)]);
+                var raws = stamps.Select(d =>
+                {
+                    var ticks = d.Ticks - DateTime.UnixEpoch.Ticks;
+                    var day = (int)Math.Floor(ticks / (double)TimeSpan.TicksPerDay);
+                    var nanos = (ticks - (long)day * TimeSpan.TicksPerDay) * 100;
+                    var b = new byte[12];
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(b, nanos);
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(8), 2440588 + day);
+                    return b;
+                }).ToArray();
+                var output = new MemoryStream();
+                using (var writer = schema.CreateWriter(output))
+                {
+                    var ids = writer.CreateSerializedColumn<long>(schema.LeafColumns[0]);
+                    var col = writer.CreateSerializedColumn<byte[]>(schema.LeafColumns[1]);
+                    var rg = writer.StartRowGroup();
+                    ids.Serialize(Enumerable.Range(0, stamps.Length).Select(i => (long)i).ToArray()); rg.Write(ids);
+                    col.Serialize(raws); rg.Write(col);
+                    writer.CloseFile();
+                }
+                var bytes = output.ToArray();
+                var logical = new List<DateTime>();
+                using (var reader = new Plank.Reading.Logical.ParquetReader())
+                {
+                    reader.Reset(new Plank.Reading.MemoryReadSource(bytes));
+                    foreach (Plank.Reading.Logical.RowGroup g in reader.RowGroups)
+                        foreach (var b in g.Column<DateTime>(reader.Schema.LeafColumns[1]))
+                            foreach (var v in b.Values) logical.Add(v);
+                }
+                var evolution = new Plank.Reading.ParquetSchemaEvolutionOptions
+                {
+                    MissingColumns = Plank.Reading.MissingColumnEvolutionBehavior.MaterializeDefault,
+                    PhysicalTypes = Plank.Reading.SchemaTypeEvolutionBehavior.AllowCompatible,
+                };
+                var exit = 0;
+                try
+                {
+                    using var rows = ScaleTypes.CreateRowReader(new Plank.Reading.MemoryReadSource(bytes),
+                        Environment.GetEnvironmentVariable("REPRO_ALL") == "1" ? ScaleTypes.Projection.All : ScaleTypes.Projection.Id | ScaleTypes.Projection.Stamp,
+                        int.TryParse(Environment.GetEnvironmentVariable("REPRO_WORKERS"), out var wk) ? new Plank.RowApi.RowReaderOptions { Execution = new Plank.ParquetExecutionOptions { WorkerCount = wk } } : null, evolution);
+                    var i = 0;
+                    while (rows.MoveNext())
+                    {
+                        var got = rows.Current.Stamp;
+                        var flag = got.Ticks != stamps[i].Ticks ? "  <-- WRONG" : "";
+                        if (flag.Length > 0) exit = 1;
+                        if (i < 13 || flag.Length > 0)
+                            Console.WriteLine($"row {i}: INT96 {stamps[i]:O}: logical DateTime {logical[i]:O}, row API Stamp {got:O}{flag}");
+                        i++;
+                    }
+                }
+                catch (Exception ex) { Console.WriteLine($"row API: {ex.GetType().Name}: {ex.Message}"); exit = exit == 0 ? 2 : exit; }
+                return exit;
+            }
+            case "int96-readahead":
+            {
+                // Two row groups of INT96 timestamps (Id, Stamp) read into ScaleTypes (Stamp: TIMESTAMP(MICROS)) with
+                // PhysicalTypes = AllowCompatible. One worker: exact. WorkerCount > 1 with MaxReadAheadRowGroups = 1: the
+                // read-ahead row group is decoded without the INT96 conversion.
+                var dir2 = dir;
+                Directory.CreateDirectory(dir2);
+                var stamps = new DateTime[] {
+                    new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
+                byte[] Raw(DateTime d)
+                {
+                    var ticks = d.Ticks - DateTime.UnixEpoch.Ticks;
+                    var day = (int)Math.Floor(ticks / (double)TimeSpan.TicksPerDay);
+                    var b = new byte[12];
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(b, (ticks - (long)day * TimeSpan.TicksPerDay) * 100);
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(8), 2440588 + day);
+                    return b;
+                }
+                var schema = new Plank.Schema.ParquetSchema([
+                    Plank.Schema.ColumnDefinition.RequiredLeaf("Id", Plank.Schema.ParquetPhysicalType.Int64),
+                    Plank.Schema.ColumnDefinition.RequiredLeaf("Stamp", Plank.Schema.ParquetPhysicalType.Int96)]);
+                var output = new MemoryStream();
+                using (var writer = schema.CreateWriter(output))
+                {
+                    var ids = writer.CreateSerializedColumn<long>(schema.LeafColumns[0]);
+                    var col = writer.CreateSerializedColumn<byte[]>(schema.LeafColumns[1]);
+                    for (var g = 0; g < 2; g++)
+                    {
+                        var rg = writer.StartRowGroup();
+                        ids.Serialize(Enumerable.Range(g * stamps.Length, stamps.Length).Select(i => (long)i).ToArray()); rg.Write(ids);
+                        col.Serialize(stamps.Select(Raw).ToArray()); rg.Write(col);
+                    }
+                    writer.CloseFile();
+                }
+                var bytes = output.ToArray();
+                File.WriteAllBytes(Path.Combine(dir2, "int96-two-row-groups.parquet"), bytes);
+                var evolution = new Plank.Reading.ParquetSchemaEvolutionOptions
+                {
+                    MissingColumns = Plank.Reading.MissingColumnEvolutionBehavior.MaterializeDefault,
+                    PhysicalTypes = Plank.Reading.SchemaTypeEvolutionBehavior.AllowCompatible,
+                };
+                var exit = 0;
+                foreach (var (workers, ahead) in new[] { (1, 0), (1, 1), (2, 0), (2, 1), (8, 1) })
+                {
+                    var options = new Plank.RowApi.RowReaderOptions { MaxReadAheadRowGroups = ahead, Execution = new Plank.ParquetExecutionOptions { WorkerCount = workers } };
+                    var line = new StringBuilder($"WorkerCount={workers} MaxReadAheadRowGroups={ahead}: ");
+                    try
+                    {
+                        using var rows = ScaleTypes.CreateRowReader(new Plank.Reading.MemoryReadSource(bytes), ScaleTypes.Projection.Id | ScaleTypes.Projection.Stamp, options, evolution);
+                        var n = 0;
+                        var wrong = 0;
+                        while (rows.MoveNext())
+                        {
+                            var got = rows.Current.Stamp;
+                            var want = stamps[n % stamps.Length];
+                            if (got.Ticks != want.Ticks) { wrong++; if (wrong <= 2) line.Append($"row {n} Stamp {got:O} (expected {want:O}); "); }
+                            n++;
+                        }
+                        line.Append($"{n} rows, {wrong} wrong");
+                        if (wrong > 0) exit = 1;
+                    }
+                    catch (Exception ex) { line.Append($"{ex.GetType().Name}: {ex.Message}"); exit = 1; }
+                    Console.WriteLine(line);
+                }
+                return exit;
+            }
             default:
                 Console.Error.WriteLine("unknown repro " + name);
                 return 2;
@@ -281,5 +443,51 @@ public static class MemProbe
             default: foreach (var b in g.Column<byte>(leaf)) list.Add(b.Count); break;
         }
         return list;
+    }
+}
+
+/// <summary>`int96file &lt;file&gt; [workers] [ahead]`: INT96 "Stamp" read through the logical DateTime projection and through ScaleTypes.Stamp.</summary>
+public static class Int96File
+{
+    public static int Run(string path, int workers, int ahead, bool all)
+    {
+        var bytes = File.ReadAllBytes(path);
+        var logical = new List<DateTime>();
+        var raws = new List<string>();
+        using (var reader = new Plank.Reading.Logical.ParquetReader())
+        {
+            reader.Reset(new Plank.Reading.MemoryReadSource(bytes));
+            foreach (Plank.Reading.Logical.RowGroup g in reader.RowGroups)
+            {
+                foreach (var b in g.Column<byte>(reader.Schema.LeafColumns[1]))
+                    for (var i = 0; i < b.Count; i++) raws.Add(Convert.ToHexString(b.GetValue(i)));
+                try { foreach (var b in g.Column<DateTime>(reader.Schema.LeafColumns[1])) foreach (var v in b.Values) logical.Add(v); }
+                catch (Exception ex) { Console.WriteLine($"logical rg{g.Index}: {ex.GetType().Name}: {ex.Message}"); }
+            }
+            Console.WriteLine($"row groups: {string.Join(",", Enumerable.Range(0, reader.RowGroups.Count).Select(i => reader.RowGroups[i].RowCount))}");
+        }
+        var evolution = new Plank.Reading.ParquetSchemaEvolutionOptions
+        {
+            MissingColumns = Plank.Reading.MissingColumnEvolutionBehavior.MaterializeDefault,
+            PhysicalTypes = Plank.Reading.SchemaTypeEvolutionBehavior.AllowCompatible,
+        };
+        var options = new Plank.RowApi.RowReaderOptions { MaxReadAheadRowGroups = ahead, Execution = new Plank.ParquetExecutionOptions { WorkerCount = workers } };
+        using var rows = ScaleTypes.CreateRowReader(new Plank.Reading.MemoryReadSource(bytes),
+            all ? ScaleTypes.Projection.All : ScaleTypes.Projection.Id | ScaleTypes.Projection.Stamp, options, evolution);
+        var r = 0;
+        var bad = 0;
+        try
+        {
+            while (rows.MoveNext())
+            {
+                var got = rows.Current.Stamp;
+                if (r < logical.Count && got != logical[r] && bad++ < 10)
+                    Console.WriteLine($"row {r}: raw {raws[r]} logical {logical[r]:O} row API {got:O}");
+                r++;
+            }
+            Console.WriteLine($"{r} rows, {bad} differ");
+        }
+        catch (Exception ex) { Console.WriteLine($"row API after {r} rows: {ex.GetType().Name}: {ex.Message}"); return 1; }
+        return bad == 0 ? 0 : 1;
     }
 }

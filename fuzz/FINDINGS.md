@@ -323,6 +323,16 @@ unedited log of the Nov 11–13 coverage work. Read it with three caveats:
 `Plank.Fuzzing.Scale` (job-driven, not AFL; see [`notes/size-thresholds.md`](notes/size-thresholds.md)) writes files that
 cross the size thresholds the AFL routes never reach (≥ 2048/16384 rows for dictionary fallback, MB pages, 1000-group
 files, 300–3000 columns, multi-MB values, 2/4 GB files) and checks them value for value with every Plank read API, multi-threaded,
+
+- **SILENT DATA CORRUPTION: the row reader's read-ahead decodes INT96 timestamps as INT64 (`WorkerCount > 1`, `MaxReadAheadRowGroups = 1`, ≥ 2 row groups).**
+  With `PhysicalTypes = AllowCompatible` an INT96 column binds to a TIMESTAMP `DateTime` row property (#275). The first row group
+  is converted correctly; the row group prefetched by the reader's workers is decoded without the INT96 conversion — its 12-byte
+  values are read as 8-byte TIMESTAMP(MICROS) values — so it either throws `CorruptParquetException: Timestamp value … is outside
+  the range` or returns wrong timestamps with no error (1970-01-01T00:00:00 read as 00:00:02.4405880 and as 2302-03-04).
+  Exact with one worker or no read-ahead; the defaults (`WorkerCount = ProcessorCount`, `MaxReadAheadRowGroups = 1`) trigger it.
+  Repro: [`repros/int96-readahead-wrong-timestamps/`](repros/int96-readahead-wrong-timestamps/) (file + `Plank.Fuzzing.Scale repro int96-readahead <dir>`).
+  Found by the `evolve` mode (schema evolution through the multi-worker row reader); no AFL route reads INT96 through the row
+  reader with workers and more than one row group.
 and with ParquetSharp.
 
 - **Binary min/max statistics are never truncated, so one large value makes the file unreadable for Arrow.** A page holding a
@@ -348,6 +358,12 @@ and with ParquetSharp.
   `Plank.Fuzzing.Scale run big 1 3` (writes 2.4 GB to `$SCALE_TMP`). Files above 4 GB with smaller chunks (5.8 GB, 12.3 GB)
   read back exactly with Plank and Arrow. The 12.3 GB file was meant to be 2.3 GB: with untruncated binary statistics (finding above)
   every 1 MB value is also stored twice in its page header and twice in the column index.
+
+- **A required `Guid` row property throws when its column is missing under `MissingColumns = MaterializeDefault`.** The
+  generated getter calls `new Guid(value.Value, bigEndian: true)` on the empty materialized value (`ArgumentException: Byte array
+  for Guid must be exactly 16 bytes long`); every other missing property, including `Guid?`, materializes its default. Repro:
+  [`repros/guid-missing-default/`](repros/guid-missing-default/) (`Plank.Fuzzing.Scale repro guid-missing-default <dir>`).
+  Found by the `evolve` mode (schema evolution at scale through the row reader).
 
 Logical-type limitations seen by the `types` mode (refusals, not wrong values): `RowGroup.Column<Guid>` is refused on purpose
 (UUID is read as bytes by the logical API; the row API maps Guid); `System.Decimal` input is refused for precision > 29 even

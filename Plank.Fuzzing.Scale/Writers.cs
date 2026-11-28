@@ -154,6 +154,7 @@ public static class Writers
         {
             s.Encodings = [];
             s.Compression = null;
+            s.CompressionLevel = null;
             s.Bloom = false;
         }
         return specs;

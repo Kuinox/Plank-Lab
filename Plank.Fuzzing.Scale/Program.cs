@@ -25,6 +25,8 @@ static class Program
     {
         if (args.Length == 3 && args[0] == "repro")
             return Repros.Run(args[1], args[2]);
+        if (args.Length >= 2 && args[0] == "int96file")
+            return Int96File.Run(args[1], args.Length > 2 ? int.Parse(args[2]) : 1, args.Length > 3 ? int.Parse(args[3]) : 1, args.Length > 4);
         if (args.Length == 2 && args[0] == "memprobe")
             return MemProbe.Run(args[1]);
         if (args.Length == 2 && args[0] == "inspect")
@@ -89,6 +91,7 @@ static class Program
                 case "types": TypesMode(rng, tier, describe); break;
                 case "nestedtypes": NestedTypes.Run(rng, tier, describe); break;
                 case "arrowtypes": ArrowTypesMode(rng, tier, describe); break;
+                case "evolve": Evolve.Run(rng, tier, describe); break;
                 case "rowtypes": RowTypesMode(rng, tier, describe, dataset: false); break;
                 case "datatypes": RowTypesMode(rng, tier, describe, dataset: true); break;
                 case "merge": Merge(rng, tier, describe); break;
