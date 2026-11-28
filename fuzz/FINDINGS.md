@@ -121,8 +121,8 @@ control byte) spins forever in `PhysicalReaderSurfaceCases.Execute` (stack: `Cur
 library frame; same with both oracles off): with a one-byte control stream every draw is the same value, so a
 draw-until-new loop never ends. 3 of 300 writer-mutant chunks hit the 30-minute timeout on such inputs.
 Structure-aware page mutator results (2026-11-28, Plank 3a6a28a): 1,188 smoke seeds + the ~13.6k-seed generated corpus and
-reader seed dirs, ~600k single-corruption mutants (default pool and `PLANK_FUZZ_POOL=2` poisoned exact-fit) plus a 2×2M-mutant
-wave in progress: **no finding** — every impossible mutant (dictionary index ≥ size, level above max, runs/values cut short,
+reader seed dirs, 4.17M single-corruption mutants (default pool and `PLANK_FUZZ_POOL=2` poisoned exact-fit; 751k accepted by
+both readers and compared through every read API): **no finding** — every impossible mutant (dictionary index ≥ size, level above max, runs/values cut short,
 DELTA width > 64, bad first prefix, BSS/FLBA/PLAIN sizes) was rejected with `CorruptParquetException`; every mutant both readers
 accepted decoded identically to Arrow through every read API. Plank is stricter than Arrow (rejects where Arrow decodes) on
 a chunk's first repetition level ≠ 0, leftover value bytes, v2 num_nulls mismatches and RLE level runs longer than num_values.
