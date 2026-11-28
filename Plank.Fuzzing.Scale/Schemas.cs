@@ -31,6 +31,8 @@ public sealed partial class ScaleNested
 public sealed partial class ScaleMany
 {
     public bool Flag { get; set; }
+    [ParquetColumn(Encodings = [EncodingKind.RleDictionary])]
     public int Small { get; set; }
+    [ParquetColumn(Encodings = [EncodingKind.RleDictionary])]
     public int? Missing { get; set; }
 }
