@@ -86,6 +86,7 @@ static class Program
                 case "manyrows": ManyRows.Run(rng, tier, describe); break;
                 case "rgwriter": RowGroupRowWriter(rng, tier, describe); break;
                 case "types": TypesMode(rng, tier, describe); break;
+                case "nestedtypes": NestedTypes.Run(rng, tier, describe); break;
                 case "rowtypes": RowTypesMode(rng, tier, describe, dataset: false); break;
                 case "datatypes": RowTypesMode(rng, tier, describe, dataset: true); break;
                 case "merge": Merge(rng, tier, describe); break;
