@@ -35,7 +35,10 @@ internal sealed class WriterFuzzPool : IParquetBufferPool, IDisposable
     }
 
     internal static WriterFuzzPool Create(WriterPoolKind kind)
-        => kind switch
+        => GuardMemory.Enabled
+            // PLANK_FUZZ_GUARD=end|start: every kind rents exact-length page-guarded buffers (dirty kinds still fill).
+            ? new WriterFuzzPool(null, new GuardBufferPool(), false, kind is WriterPoolKind.ExactDirty or WriterPoolKind.PaddedDirty, 0)
+            : kind switch
         {
             WriterPoolKind.ZeroAllocation => Own(new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.ZeroAllocation), false, false, 0),
             WriterPoolKind.AdaptiveNoRetention => Own(new DefaultParquetBufferPool(ParquetBufferRetentionPolicy.Adaptive, 0), false, false, 0),

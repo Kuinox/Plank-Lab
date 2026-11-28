@@ -104,7 +104,7 @@ internal static class LifetimeSurfaceCases
                 throw new ArgumentOutOfRangeException(nameof(minimumByteLength));
             var length = (int)minimumByteLength;
             var total = PayloadOffset + length + Guard;
-            var allocation = Marshal.AllocHGlobal(total);
+            var allocation = GuardMemory.AllocHGlobal(total);
             Fill(allocation, 0, PayloadOffset, Canary);
             Fill(allocation, PayloadOffset, length, Fresh);
             Fill(allocation, PayloadOffset + length, Guard, Canary);
@@ -147,10 +147,10 @@ internal static class LifetimeSurfaceCases
             lock (_gate)
             {
                 foreach (var allocation in _quarantine)
-                    Marshal.FreeHGlobal(allocation);
+                    GuardMemory.FreeHGlobal(allocation);
                 _quarantine.Clear();
                 foreach (var allocation in _live.Keys)
-                    Marshal.FreeHGlobal(allocation);
+                    GuardMemory.FreeHGlobal(allocation);
                 _live.Clear();
             }
         }

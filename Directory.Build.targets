@@ -1,0 +1,24 @@
+<Project>
+  <!--
+    No Roslyn compiler server: VBCSCompiler outlives the build and inherits its open file descriptors, so a
+    `flock agents/build2.lock dotnet build` left the shared lock held by an idle compiler for as long as it lived
+    (2026-11-28, ovh and nas; every other agent's build blocked behind it).
+  -->
+  <PropertyGroup>
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
+
+  <!--
+    Guard-page allocator shim (Plank.Fuzzing.Guard/README.md). Compiles two extra files INTO the Plank library
+    project (library/Plank has no Directory.Build.targets of its own, so MSBuild finds this one); no library file
+    is edited. With PLANK_FUZZ_GUARD unset the shim forwards to System.Runtime.InteropServices.NativeMemory.
+    Build with -p:PlankGuardShim=false to leave the library untouched.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankGuardShim)' != 'false'">
+    <DefineConstants>$(DefineConstants);PLANK_GUARD_SHIM</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankGuardShim)' != 'false'">
+    <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Guard/GuardCore.cs" Link="GuardShim/GuardCore.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Guard/PlankNativeMemoryShim.cs" Link="GuardShim/PlankNativeMemoryShim.cs" />
+  </ItemGroup>
+</Project>

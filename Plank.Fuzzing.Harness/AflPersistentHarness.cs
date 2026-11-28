@@ -178,6 +178,17 @@ internal static unsafe class AflPersistentHarness
         fatal = false;
         try
         {
+            if (GuardMemory.Enabled)
+            {
+                // PLANK_FUZZ_GUARD=end|start: an out-of-bounds access is a fatal AccessViolation (no exception to
+                // catch here), so the input is written first and survives the process; the input itself is handed
+                // over in a page-guarded array.
+                TryWriteAllBytes($"/tmp/plank-fuzz-{targetName}-guard-current.bin", input);
+                using var scope = GuardScope.Begin();
+                execute(GuardMemory.ToArray(input));
+                return FaultNone;
+            }
+
             execute(input);
             return FaultNone;
         }
@@ -277,6 +288,11 @@ internal static unsafe class AflPersistentHarness
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+
+    static void TryWriteAllBytes(string path, byte[] contents)
+    {
+        try { File.WriteAllBytes(path, contents); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     static void TryWriteAllBytes(string path, byte[] contents)

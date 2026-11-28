@@ -21,8 +21,13 @@ public sealed class ExactFitBufferPool(bool poison) : IParquetBufferPool
     const byte Canary = 0xCD;
     const byte Poison = 0xA5;
 
+    // PLANK_FUZZ_GUARD=end|start: serve from page-guarded memory instead, so reads past the end fault too.
+    readonly GuardBufferPool? _guard = GuardMemory.Enabled ? new GuardBufferPool() : null;
+
     public ParquetBuffer Rent(uint minimumByteLength)
     {
+        if (_guard is not null)
+            return _guard.Rent(minimumByteLength);
         if (minimumByteLength == 0)
             return default;
         if (minimumByteLength > int.MaxValue - PayloadOffset - Guard)
@@ -30,7 +35,7 @@ public sealed class ExactFitBufferPool(bool poison) : IParquetBufferPool
 
         var length = (int)minimumByteLength;
         var total = PayloadOffset + length + Guard;
-        var allocation = Marshal.AllocHGlobal(total);
+        var allocation = GuardMemory.AllocHGlobal(total);
         Fill(allocation, 0, PayloadOffset, Canary);
         Fill(allocation, PayloadOffset, length, poison ? Poison : (byte)0);
         Fill(allocation, PayloadOffset + length, Guard, Canary);
@@ -44,7 +49,7 @@ public sealed class ExactFitBufferPool(bool poison) : IParquetBufferPool
         // the payload length, so the trailing canary can be located.
         var capacity = Marshal.ReadInt32(allocation, PayloadOffset - 32 + 4);
         var bad = Mismatch(allocation, 0, PayloadOffset - 32) ?? Mismatch(allocation, PayloadOffset + capacity, Guard);
-        Marshal.FreeHGlobal(allocation);
+        GuardMemory.FreeHGlobal(allocation);
         if (bad is { } at)
             throw new InvalidOperationException($"ExactFitBufferPool: guard byte at {at} (payload {capacity}) was overwritten.");
     }

@@ -85,6 +85,13 @@ public static class PlankReaderFuzzTarget
         // tiny retention caps) because the default pool's power-of-two slack hides
         // reads/writes past the requested length.
         var variant = PoolVariant(data);
+        // PLANK_FUZZ_GUARD=end|start: every rent is an exact-length page-guarded buffer instead (GuardMemory.cs).
+        if (GuardMemory.Enabled)
+        {
+            using var guardPool = new GuardBufferPool();
+            Execute(data, guardPool);
+            return;
+        }
         if (variant == 0)
         {
             Execute(data, DefaultParquetBufferPool.Shared);
@@ -136,6 +143,11 @@ public static class PlankReaderFuzzTarget
     // shared-pool behavior for normal coverage and validation.
     public static void ExecuteWithFreshBufferPool(ReadOnlySpan<byte> data)
     {
+        if (GuardMemory.Enabled)
+        {
+            Execute(data);
+            return;
+        }
         using var bufferPool = CreatePool(PoolVariant(data));
         Execute(data, bufferPool);
     }
@@ -199,9 +211,12 @@ public static class PlankReaderFuzzTarget
             throw new InvalidOperationException("IsaFlags leaked a flipped state from a previous input.");
         using var isa = IsaFlags.Flip(IsaMaskOf(data));
         var budget = ResourceBudget.Enabled ? new ResourceBudget(data.Length) : null;
+        // Guard mode: the file bytes live in a byte[] whose end (or start) touches a PROT_NONE page, released and
+        // made PROT_NONE when the input is done.
+        using var guardScope = GuardScope.Begin();
         try
         {
-            Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : data[1..].ToArray(),
+            Run(data.IsEmpty ? (byte)0 : data[0], data.IsEmpty ? [] : GuardMemory.ToArray(data[1..]),
                 budget?.Wrap(bufferPool) ?? bufferPool);
             budget?.Check();
         }
@@ -270,7 +285,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(TruncationProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > 6000)
                 return;
-            RunTruncationProbe(payload.ToArray(), bufferPool);
+            RunTruncationProbe(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -282,7 +297,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(ConverterDeclineProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > 16 * 1024)
                 return;
-            ConverterDeclineProbe.Run(payload.ToArray(), bufferPool);
+            ConverterDeclineProbe.Run(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -311,7 +326,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(RowGroupTypeValidationProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > MaxRowGroupTypeValidationProbeFileSize)
                 return;
-            RunRowGroupTypeValidationProbe(payload.ToArray(), bufferPool);
+            RunRowGroupTypeValidationProbe(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -323,7 +338,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(RowGroupUnsupportedClrProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > MaxRowGroupTypeValidationProbeFileSize)
                 return;
-            RunRowGroupUnsupportedClrProbe(payload.ToArray(), bufferPool);
+            RunRowGroupUnsupportedClrProbe(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -335,7 +350,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(PhysicalMetadataOrdinalProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > MaxPhysicalMetadataOrdinalProbeFileSize)
                 return;
-            RunPhysicalMetadataOrdinalProbe(payload.ToArray(), bufferPool);
+            RunPhysicalMetadataOrdinalProbe(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -349,7 +364,7 @@ public static class PlankReaderFuzzTarget
             if (payload.IsEmpty || payload.Length > 8 * 1024 ||
                 !SHA256.HashData(payload).AsSpan().SequenceEqual(NestedByteStreamSplitLogicalProbeFileHash))
                 return;
-            RunNestedByteStreamSplitDateTimeOffsetProbe(payload.ToArray(), bufferPool);
+            RunNestedByteStreamSplitDateTimeOffsetProbe(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -363,7 +378,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(ByteStreamSplitSliceProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > 8 * 1024)
                 return;
-            ByteStreamSplitSliceProbe.Run(payload.ToArray(), bufferPool);
+            ByteStreamSplitSliceProbe.Run(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -376,7 +391,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(FixedDeltaByteArrayProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > 8 * 1024)
                 return;
-            FixedDeltaByteArrayProbe.Run(payload.ToArray(), bufferPool);
+            FixedDeltaByteArrayProbe.Run(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
         if (selector == FixedDeltaByteArrayProbeSelector
@@ -385,7 +400,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(FixedDeltaByteArrayNullableProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > 8 * 1024)
                 return;
-            FixedDeltaByteArrayProbe.RunNullable(payload.ToArray(), bufferPool);
+            FixedDeltaByteArrayProbe.RunNullable(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -400,7 +415,7 @@ public static class PlankReaderFuzzTarget
             if (payload.IsEmpty || payload.Length > MaxRowApiNullLeafShapeProbeFileSize
                 || !SHA256.HashData(payload).AsSpan().SequenceEqual(RowApiNullLeafShapeProbeFileHash))
                 return;
-            RunRowApiNullLeafShapeProbe(payload.ToArray(), bufferPool);
+            RunRowApiNullLeafShapeProbe(GuardMemory.ToArray(payload), bufferPool);
             return;
         }
 
@@ -436,7 +451,7 @@ public static class PlankReaderFuzzTarget
             var payload = fileBytes.AsSpan(RowApiStreamResetProbeMarker.Length);
             if (payload.IsEmpty || payload.Length > MaxRowApiStreamResetProbeFileSize)
                 return;
-            var parquetBytes = payload.ToArray();
+            var parquetBytes = GuardMemory.ToArray(payload);
             RunRowApiStreamResetProbe(parquetBytes, bufferPool);
             if (Environment.GetEnvironmentVariable("PLANK_FUZZ_ENABLE_ROW_WORKERS") == "1")
                 RunRowApiReadAheadProbe(parquetBytes, bufferPool);
@@ -978,7 +993,7 @@ public static class PlankReaderFuzzTarget
 
     static void RunBufferRetentionProbe(ReadOnlySpan<byte> fileBytes, IParquetBufferPool bufferPool)
     {
-        var sourceBytes = fileBytes.ToArray();
+        var sourceBytes = GuardMemory.ToArray(fileBytes);
         using var source = new MemoryReadSource(sourceBytes);
         using var reader = new ParquetReader(new ParquetReaderOptions
         {
@@ -1121,7 +1136,7 @@ public static class PlankReaderFuzzTarget
 
     static void RunPageIndexBloomProbe(byte route, ReadOnlySpan<byte> fileBytes)
     {
-        using var source = new MemoryReadSource(fileBytes.ToArray());
+        using var source = new MemoryReadSource(GuardMemory.ToArray(fileBytes));
         using var reader = new Plank.Reading.Physical.ParquetFileReader();
         reader.Reset(source);
         switch (route)
@@ -1149,7 +1164,7 @@ public static class PlankReaderFuzzTarget
         SHA256.HashData(fileBytes, fileHash);
         var isKnownFixture = fileHash.SequenceEqual(PageMetadataEnumeratorProbeFileHash);
 
-        using var source = new MemoryReadSource(fileBytes.ToArray());
+        using var source = new MemoryReadSource(GuardMemory.ToArray(fileBytes));
         using var reader = new ParquetReader(new ParquetReaderOptions { BufferPool = bufferPool });
         reader.Reset(source);
         if (reader.RowGroups.Count == 0 || reader.Schema.LeafColumns.Length == 0)
@@ -1185,7 +1200,7 @@ public static class PlankReaderFuzzTarget
         if (isKnownFixture && pageOrdinal != 3)
             throw new InvalidDataException("The page-metadata probe fixture no longer has three data pages.");
 
-        using (var cursorSource = new MemoryReadSource(fileBytes.ToArray()))
+        using (var cursorSource = new MemoryReadSource(GuardMemory.ToArray(fileBytes)))
         using (var physicalReader = new Plank.Reading.Physical.ParquetFileReader())
         {
             physicalReader.Reset(cursorSource);
@@ -1221,7 +1236,7 @@ public static class PlankReaderFuzzTarget
 
         // Keep the marker route's page-metadata and lifecycle probes alongside the
         // normal strict file-schema read and independent Arrow/ParquetSharp checks.
-        Run(0, fileBytes.ToArray(), bufferPool);
+        Run(0, GuardMemory.ToArray(fileBytes), bufferPool);
     }
 
     static void RequireExpectedTypeMismatch<T>(Func<T> read)

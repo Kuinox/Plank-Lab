@@ -47,6 +47,9 @@ static class Program
             return 2;
         }
 
+        if (args[0] == "guard-selftest")
+            return GuardSelfTest.Run(args[1]);
+
         var target = args[0];
         var files = new List<string>();
         foreach (var directory in args[1..])
@@ -74,7 +77,8 @@ static class Program
             }
         }
 
-        Console.WriteLine($"replaying {files.Count} inputs through '{target}'");
+        Console.WriteLine($"replaying {files.Count} inputs through '{target}'"
+            + (GuardMemory.Enabled ? $" (PLANK_FUZZ_GUARD={GuardMemory.ModeName}: page-guarded inputs and buffers)" : ""));
         var stopwatch = Stopwatch.StartNew();
         var faulted = 0;
         var mismatches = 0;
@@ -137,6 +141,14 @@ static class Program
 
     static bool Replay(string target, byte[] data, string file)
     {
+        // PLANK_FUZZ_GUARD=end|start: an out-of-bounds access kills the process with a fatal AccessViolation and its
+        // managed stack; this line names the input first. The input bytes are handed over in a page-guarded array,
+        // released (PROT_NONE) when the input is done.
+        if (GuardMemory.Enabled)
+            Console.Error.WriteLine($"GUARD-INPUT\t{file}");
+        using var guardScope = GuardScope.Begin();
+        if (GuardMemory.Enabled)
+            data = GuardMemory.ToArray(data);
         try
         {
             switch (target)

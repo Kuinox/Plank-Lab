@@ -715,7 +715,7 @@ internal static class PlankExecutionFuzzTarget
             if (length < requested || length > int.MaxValue - PayloadOffset - Guard)
                 length = requested;
             var total = PayloadOffset + length + Guard;
-            var allocation = Marshal.AllocHGlobal(total);
+            var allocation = GuardMemory.AllocHGlobal(total);
             Fill(allocation, 0, PayloadOffset, Canary);
             Fill(allocation, PayloadOffset, length, 0);
             Fill(allocation, PayloadOffset + length, Guard, Canary);
@@ -759,7 +759,7 @@ internal static class PlankExecutionFuzzTarget
                             break;
                         }
 
-                    Marshal.FreeHGlobal(allocation);
+                    GuardMemory.FreeHGlobal(allocation);
                 }
 
                 _quarantine.Clear();
@@ -768,7 +768,7 @@ internal static class PlankExecutionFuzzTarget
                 else if (requireNoLeaks && _live.Count > 0)
                     failure = $"{_live.Count} rented buffer(s) were never returned";
                 foreach (var allocation in _live.Keys)
-                    Marshal.FreeHGlobal(allocation);
+                    GuardMemory.FreeHGlobal(allocation);
                 _live.Clear();
             }
 
