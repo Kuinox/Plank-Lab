@@ -24,7 +24,20 @@ internal static class GuardArrays
     }
 
     static bool Guarding<T>(int length)
-        => GuardCore.Enabled && length > 0 && !RuntimeHelpers.IsReferenceOrContainsReferences<T>();
+        => GuardCore.Enabled && length > 0 && !RuntimeHelpers.IsReferenceOrContainsReferences<T>() &&
+           !InTypeInitializer();
+
+    // Arrays built for static fields (e.g. `static readonly ulong[] Table = CreateTable();`) outlive the input whose
+    // scope would release them, and the JIT reads static readonly arrays when it folds constants: a released one
+    // crashed the JIT. Anything allocated under a static constructor stays an ordinary array.
+    static bool InTypeInitializer()
+    {
+        var frames = new System.Diagnostics.StackTrace(2, false).GetFrames();
+        foreach (var frame in frames)
+            if (frame.GetMethod() is System.Reflection.ConstructorInfo { IsStatic: true })
+                return true;
+        return false;
+    }
 
     public static T[] New<T>(int length)
     {
@@ -51,6 +64,34 @@ internal static class GuardArrays
             array.AsSpan(0, Math.Min(array.Length, newSize)).CopyTo(resized);
         // Like Array.Resize the old array stays valid for whoever still holds it; it is released with the scope.
         array = resized;
+    }
+
+    /// <summary>
+    /// Rewritten "grow only" checks (<c>buffer.Length &lt; needed</c>): in guard mode a buffer is re-rented whenever its
+    /// length differs, so it always ends exactly where the data does and a read past it hits the guard page.
+    /// </summary>
+    public static bool Regrow(int currentLength, int neededLength)
+        => GuardCore.Enabled ? currentLength != neededLength : currentLength < neededLength;
+
+    /// <summary>Rewritten growth policies: the exact size in guard mode, the original capacity otherwise.</summary>
+    public static int Capacity(int originalCapacity, int exactLength)
+        => GuardCore.Enabled ? exactLength : originalCapacity;
+
+    /// <summary>
+    /// MemoryReadSource.TryBorrow: in guard mode the borrowed range is copied into its own exactly sized guarded array
+    /// (released with the input), so a decoder reading past a page or section faults instead of reading the next
+    /// page or the footer of the file.
+    /// </summary>
+    public static ReadOnlyMemory<byte> ExactBorrow(ReadOnlyMemory<byte> borrowed)
+    {
+        if (!GuardCore.Enabled || borrowed.IsEmpty)
+            return borrowed;
+        var owner = GuardCore.Trace ? $"plank-borrow {Environment.StackTrace.Replace('\n', '|')}" : "plank-borrow";
+        var array = GuardCore.AllocateArray<byte>(borrowed.Length, GuardCore.Mode, owner, out var region);
+        borrowed.Span.CopyTo(array);
+        lock (Gate)
+            Scoped.Add((array, region, static (a, r) => GuardCore.ReleaseArray((byte[])a, r)));
+        return array;
     }
 
     /// <summary>Releases (PROT_NONE) every guarded array allocated since the last call: the end of a fuzz input.</summary>

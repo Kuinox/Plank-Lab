@@ -71,6 +71,21 @@ static class GuardSelfTest
                 Console.WriteLine(Peek(input, end ? 3 : -25));
                 break;
             }
+            case "borrow":
+            {
+                // Needs -p:PlankGuardArrays=true: a borrowed range of an ordinary file array becomes an exact guarded
+                // copy, so reading one byte past the range (into what would be the next page) faults.
+                using var scope = GuardScope.Begin();
+                using var source = new MemoryReadSource(new byte[100]);
+                var tryBorrow = typeof(MemoryReadSource).GetMethod("TryBorrow",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+                object?[] args = [10UL, 5, null];
+                tryBorrow.Invoke(source, args);
+                var borrowed = (ReadOnlyMemory<byte>)args[2]!;
+                var span = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(borrowed.Span), borrowed.Length);
+                Console.WriteLine(Peek(span, end ? 5 : -25));
+                break;
+            }
             case "uar":
             {
                 var buffer = new GuardBufferPool().Rent(64);

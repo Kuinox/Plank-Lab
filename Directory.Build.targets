@@ -24,11 +24,13 @@
   </ItemGroup>
 
   <!--
-    -p:PlankGuardArrays=true (guard builds only): the row-API buffers are managed arrays that generated code indexes
-    with Unsafe.Add, out of reach of the page guards. This copies Plank/RowApi/*.cs and Dataset/DatasetBufferSlot.cs
-    into obj/ with `new T[n]` / `new TValue[n]` and `Array.Resize(ref x, n)` routed to Plank.GuardShim.GuardArrays,
-    and compiles the copies instead. The library sources are not edited, and the rewrite is a no-op at run time
-    without PLANK_FUZZ_GUARD.
+    -p:PlankGuardArrays=true (guard builds only): managed arrays and reused buffers are out of reach of the page
+    guards. This compiles copies (obj/guard-arrays) of the library files instead of the originals, with
+    `new T[n]` (type parameters and primitives) and `Array.Resize` in Reading/, Compression/, BloomFilters/, Schema/,
+    RowApi/ and Dataset/DatasetBufferSlot.cs routed to Plank.GuardShim.GuardArrays, MemoryReadSource.TryBorrow
+    returning exact guarded copies, and the page payload / scratch / header-probe / statistics buffers re-rented at the
+    exact size instead of reused larger. The library sources are not edited; at run time without PLANK_FUZZ_GUARD it
+    all behaves as the original.
   -->
   <UsingTask TaskName="PlankGuardArrayRewrite" TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll"
@@ -45,21 +47,62 @@
       <Code Type="Fragment" Language="cs"><![CDATA[
         var originals = new System.Collections.Generic.List<Microsoft.Build.Framework.ITaskItem>();
         var rewritten = new System.Collections.Generic.List<Microsoft.Build.Framework.ITaskItem>();
-        // Array lengths with at most two levels of nested parentheses (e.g. Math.Max(valueCount, 16)).
-        var newArray = new Regex(@"\bnew (T|TValue)\[((?:[^\[\]()]|\((?:[^()]|\([^()]*\))*\))+)\]");
+        const string G = "global::Plank.GuardShim.GuardArrays.";
+        // new T[n] for type parameters and primitives; lengths with up to two levels of nested parentheses; not
+        // array initializers (new byte[3] { ... }) nor jagged arrays (new byte[n][]).
+        var newArray = new Regex(@"\bnew (T|TValue|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|bool|char|Int128|UInt128|decimal|Half|Guid)\[((?:[^\[\]()]|\((?:[^()]|\([^()]*\))*\))+)\](?!\s*[\{\[])");
         var resize = new Regex(@"\bArray\.Resize\(ref ");
+        // Exact-size buffers instead of grow-only reuse, and exact borrowed ranges (see PlankGuardArraysShim.cs).
+        var literal = new (string File, string Old, string New)[]
+        {
+            ("/Plank/Reading/MemoryReadSource.cs", "checked(segment.Offset + (int)offset), length);", "checked(segment.Offset + (int)offset), length);\n        bytes = " + G + "ExactBorrow(bytes);"),
+            ("/Plank/Reading/Physical/ParquetPageCursor.cs", "if (_payloadBuffer.Length >= length)", "if (!" + G + "Regrow(_payloadBuffer.Length, length))"),
+            ("/Plank/Reading/Logical/Internal/ColumnReadBuffers.cs", "if (Scratch.Length < byteLength)", "if (" + G + "Regrow(Scratch.Length, byteLength))"),
+            ("/Plank/Reading/Logical/Internal/ColumnReadBuffers.cs", "if (CompactDefinitions.Length < byteLength)", "if (" + G + "Regrow(CompactDefinitions.Length, byteLength))"),
+            ("/Plank/Reading/Logical/Internal/ColumnReadBuffers.cs", "if (ExpandedDefinitions.Length < byteLength)", "if (" + G + "Regrow(ExpandedDefinitions.Length, byteLength))"),
+            ("/Plank/Reading/Logical/Internal/ColumnReadBuffers.cs", "if (IntScratch.Length < byteLength)", "if (" + G + "Regrow(IntScratch.Length, byteLength))"),
+            ("/Plank/Reading/Logical/Internal/StatisticsBufferBuilder.cs", "if (_buffer.Length >= required)", "if (!" + G + "Regrow(_buffer.Length, required))"),
+            ("/Plank/Reading/Logical/Internal/StatisticsBufferBuilder.cs", "var capacity = Math.Max(required, Math.Max(64, checked(_buffer.Length * 2)));", "var capacity = " + G + "Capacity(Math.Max(required, Math.Max(64, checked(_buffer.Length * 2))), required);"),
+            ("/Plank/Reading/PageHeaderProbe.cs", "if (wanted > buffer.Length)", "if (" + G + "Regrow(buffer.Length, wanted))"),
+            ("/Plank/Reading/PageHeaderProbe.cs", "var capacity = (uint)Math.Min(maximumLength, Math.Max((long)buffer.Length * 2, wanted));", "var capacity = (uint)" + G + "Capacity((int)Math.Min(maximumLength, Math.Max((long)buffer.Length * 2, wanted)), wanted);"),
+        };
+        var literalHits = new int[literal.Length];
         Directory.CreateDirectory(OutputDirectory);
         var total = 0;
         foreach (var item in Sources)
         {
             var path = item.GetMetadata("FullPath");
             var normalized = path.Replace('\\', '/');
-            if (!(normalized.Contains("/Plank/RowApi/") || normalized.EndsWith("/Plank/Dataset/DatasetBufferSlot.cs")))
-                continue;
+            var arrays = normalized.Contains("/Plank/RowApi/") || normalized.Contains("/Plank/Reading/")
+                || normalized.Contains("/Plank/Compression/") || normalized.Contains("/Plank/BloomFilters/")
+                || normalized.Contains("/Plank/Schema/") || normalized.EndsWith("/Plank/Dataset/DatasetBufferSlot.cs");
             var text = File.ReadAllText(path);
+            var result = text;
             var count = 0;
-            var result = newArray.Replace(text, m => { count++; return "global::Plank.GuardShim.GuardArrays.New<" + m.Groups[1].Value + ">(" + m.Groups[2].Value + ")"; });
-            result = resize.Replace(result, m => { count++; return "global::Plank.GuardShim.GuardArrays.Resize(ref "; });
+            for (var i = 0; i < literal.Length; i++)
+            {
+                if (!normalized.EndsWith(literal[i].File) || !result.Contains(literal[i].Old))
+                    continue;
+                result = result.Replace(literal[i].Old, literal[i].New);
+                literalHits[i]++;
+                count++;
+            }
+            if (arrays)
+            {
+                // Not on lines declaring statics: those outlive the input whose scope would release them.
+                var current = result;
+                result = newArray.Replace(current, m =>
+                {
+                    var lineStart = current.LastIndexOf('\n', m.Index) + 1;
+                    var lineEnd = current.IndexOf('\n', m.Index);
+                    var line = current.Substring(lineStart, (lineEnd < 0 ? current.Length : lineEnd) - lineStart);
+                    if (line.Contains("static "))
+                        return m.Value;
+                    count++;
+                    return G + "New<" + m.Groups[1].Value + ">(" + m.Groups[2].Value + ")";
+                });
+                result = resize.Replace(result, m => { count++; return G + "Resize(ref "; });
+            }
             if (count == 0)
                 continue;
             total += count;
@@ -71,8 +114,12 @@
             rewritten.Add(new Microsoft.Build.Utilities.TaskItem(target));
             Log.LogMessage(Microsoft.Build.Framework.MessageImportance.High, "PlankGuardArrays: " + count + " site(s) in " + Path.GetFileName(path));
         }
+        for (var i = 0; i < literal.Length; i++)
+            if (literalHits[i] == 0)
+                Log.LogWarning("PlankGuardArrays: exact-size rule not applied (source changed?): " + literal[i].File + ": " + literal[i].Old);
         if (total == 0)
-            Log.LogWarning("PlankGuardArrays: no allocation site rewritten; the row-API sources changed shape.");
+            Log.LogWarning("PlankGuardArrays: no allocation site rewritten; the sources changed shape.");
+        Log.LogMessage(Microsoft.Build.Framework.MessageImportance.High, "PlankGuardArrays: " + total + " site(s) rewritten in " + rewritten.Count + " file(s)");
         Originals = originals.ToArray();
         Rewritten = rewritten.ToArray();
       ]]></Code>

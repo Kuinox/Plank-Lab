@@ -98,7 +98,13 @@ def main():
             tail = err[err.rfind("GUARD-INPUT"):] if started else err[-20000:]
             open(os.path.join(d, "log.txt"), "w").write(
                 f"culprit: {culprit}\nexit: {proc.returncode}\ntarget={target} mode={mode} tier={tier}\n\n{tail[-30000:]}")
-            print(f"DEATH {culprit} rc={proc.returncode} -> {d}", flush=True)
+            # Alone in a fresh process: deterministic (the input itself) or stateful (left by earlier inputs)?
+            alone = subprocess.run([exe, target, culprit], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   timeout=900, preexec_fn=limit_memory)
+            verdict = "deterministic" if b"\ndone:" not in b"\n" + alone.stdout else "stateful"
+            with open(os.path.join(d, "log.txt"), "a") as f:
+                f.write(f"\n\n--- alone: rc={alone.returncode} -> {verdict} ---\n" + alone.stderr.decode("utf-8", "replace")[-20000:])
+            print(f"DEATH {verdict} {culprit} rc={proc.returncode} -> {d}", flush=True)
             idx = pending.index(culprit) if culprit in pending else 0
             replayed += idx + 1
             pending = pending[idx + 1:]

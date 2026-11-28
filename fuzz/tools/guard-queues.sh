@@ -12,7 +12,8 @@ tar -xzf "$TGZ" -C "$T"; RP="$T/net10.0"
 for k in reader writer; do mkdir -p "$T/q/$k"; for q in "$AFL"/$k/*/queue; do w=$(basename "$(dirname "$q")"); cp -r "$q" "$T/q/$k/$w" 2>/dev/null; done; done
 O="$OUT/$MODE-$TIER"; mkdir -p "$O"
 PY="python3 -I $ROOT/fuzz/tools/guard-replay.py $RP"
-$PY "$O/reader-queues" reader "$MODE" "$TIER" "$T/q/reader"
-$PY "$O/writer-queues" writer "$MODE" "$TIER" "$T/q/writer"
-$PY "$O/merger-queues" merger "$MODE" "$TIER" "$T/q/writer"
+want() { case " ${GUARD_TARGETS:-reader writer merger} " in *" $1 "*) return 0;; *) return 1;; esac; }
+want reader && $PY "$O/reader-queues" reader "$MODE" "$TIER" "$T/q/reader"
+want writer && $PY "$O/writer-queues" writer "$MODE" "$TIER" "$T/q/writer"
+want merger && $PY "$O/merger-queues" merger "$MODE" "$TIER" "$T/q/writer"
 cat "$O"/*/summary.txt

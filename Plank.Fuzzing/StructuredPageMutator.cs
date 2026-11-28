@@ -874,7 +874,15 @@ public static class StructuredPageMutator
                 continue;
             // The rewritten seed must read exactly like the original, or the rewriter is wrong.
             var baseline = Build(parsed.Footer, parsed.Pages);
-            var baselineVerdict = Judge(baseline, new Mutation("baseline", path, false), dumpDirectory, log, quiet: true);
+            string baselineVerdict;
+            if (GuardMemory.Enabled)
+            {
+                Directory.CreateDirectory(dumpDirectory);
+                File.WriteAllBytes(Path.Combine(dumpDirectory, "guard-current.parquet"), baseline);
+                Console.Error.WriteLine($"GUARD-INPUT\tstructured\t{path}\tbaseline\tbaseline");
+            }
+            using (GuardScope.Begin())
+                baselineVerdict = Judge(baseline, new Mutation("baseline", path, false), dumpDirectory, log, quiet: true);
             if (baselineVerdict != "both-accept")
             {
                 BaselineFailures++;
@@ -911,7 +919,15 @@ public static class StructuredPageMutator
                         m.Mutation.Impossible || n.Mutation.Impossible));
                 }
                 Mutants++;
-                Judge(m.File, m.Mutation with { Detail = $"{Path.GetFileName(path)}: {m.Mutation.Detail}" }, dumpDirectory, log, quiet: false);
+                // PLANK_FUZZ_GUARD: a guard fault kills the process, so the mutant is on disk first (and named on stderr).
+                if (GuardMemory.Enabled)
+                {
+                    Directory.CreateDirectory(dumpDirectory);
+                    File.WriteAllBytes(Path.Combine(dumpDirectory, "guard-current.parquet"), m.File);
+                    Console.Error.WriteLine($"GUARD-INPUT\tstructured\t{path}\t{i}\t{m.Mutation.Kind}");
+                }
+                using (GuardScope.Begin())
+                    Judge(m.File, m.Mutation with { Detail = $"{Path.GetFileName(path)}: {m.Mutation.Detail}" }, dumpDirectory, log, quiet: false);
             }
         }
         log.WriteLine($"structured: {Seeds} seeds ({BaselineFailures} baseline failures), {Mutants} mutants: both reject {BothReject}, "
