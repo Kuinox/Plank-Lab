@@ -76,6 +76,7 @@ static class Program
                 case "big": Big(rng, tier, describe); break;
                 case "nested": NestedMode.Run(rng, tier, describe); break;
                 case "append": Append(rng, tier, describe); break;
+                case "arrow": ArrowFiles(rng, tier, describe); break;
                 case "merge": Merge(rng, tier, describe); break;
                 default: throw new ArgumentException("unknown mode " + mode);
             }
@@ -326,6 +327,35 @@ static class Program
         {
             File.WriteAllBytes(path, store.Files["merged.parquet"].ToArray());
             VerifyAll(path, new Expected { Cols = cols, Rows = total }, rng, describe, scaleRow: false);
+        }
+        finally { Keep(path); File.Delete(path); }
+    }
+
+    /// <summary>Files written by Arrow C++ with drawn properties, read with every Plank API.</summary>
+    static void ArrowFiles(Rng rng, int tier, List<string> describe)
+    {
+        var (rows, columns) = DrawSize(rng, tier);
+        var cols = DrawColumns(rng, columns, rows, allowHuge: false);
+        foreach (var c in cols)
+        {
+            // ParquetSharp's string / byte[] columns are optional.
+            if (c.Kind is Kind.Bytes or Kind.String && !c.Optional)
+            {
+                c.Optional = true;
+                c.NullPattern = 0;
+            }
+            c.Encodings = [];
+            c.Compression = null;
+            c.Bloom = false;
+        }
+        var groups = Writers.DrawRowGroups(rng, rows);
+        describe.Add($"arrow rows={rows} cols={columns} groups={groups.Length}");
+        describe.AddRange(cols.Select(c => c.ToString()));
+        var path = TempFile("arrow");
+        try
+        {
+            ArrowWrite.Write(path, cols, groups, rng, describe);
+            VerifyAll(path, new Expected { Cols = cols, Rows = rows, RowGroupSizes = groups }, rng, describe, scaleRow: false);
         }
         finally { Keep(path); File.Delete(path); }
     }
