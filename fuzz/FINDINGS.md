@@ -220,6 +220,13 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
   dictionary decisions changing per call) either fail with a defined `InvalidOperationException` ("Page strategy returned N rows for a page with M rows remaining")
   or write exact data, never hang (30 s watchdog).
 
+## Open library defect found by triaging the NestedRowMaterializer faults (reader agent, 2026-11-28)
+
+- **Nested (repeated) columns accept impossible level pairs.** A position with repetition level >= 1 (a continuation of a list) whose definition level is below that list's element level (e.g. `rep=1, def=0` in a required list of required elements)
+  is accepted by the columnar nested reader and the row API and handed out as a row such as `rep=[0,1] def=[1,0] values=[2]`; Arrow rejects the file ("Length spanned by list offsets (4) larger than values array"). Only "first repetition level
+  must be 0", "levels <= maxima" and the dense count are validated. 61 distinct mutants of the nested seeds hit this (all faulted in `NestedRowMaterializer`, which is right for required elements).
+  Repro: `fuzz/repros/nested-levels-row-count-mismatch/levels-continuation-with-empty-def.bin` (+ README). Also noted there: the columnar reader returns more rows than the row group declares (373 vs 200), the row API truncates.
+
 ## Fuzz-harness defects (fixed)
 
 - `DecimalBinaryStatisticsCoverageCase` (`DBS1`): any control byte >= 2 drew the third value set but the expectation was only

@@ -19,6 +19,18 @@ static class Program
             return;
         }
 
+        if (args is ["--triage-nested", var triageDirectory])
+        {
+            AflPersistentHarness.PinDummyCoverageBuffer();
+            foreach (var path in Directory.GetFiles(triageDirectory).Order())
+            {
+                var bytes = File.ReadAllBytes(path);
+                Console.WriteLine($"==== {Path.GetFileName(path)} ({bytes.Length} bytes)");
+                Console.WriteLine(NestedTriage.Dump(bytes.Length > 0 ? bytes[1..] : bytes));
+            }
+            return;
+        }
+
         if (args is ["--replay", var replayDirectory])
         {
             AflPersistentHarness.PinDummyCoverageBuffer();

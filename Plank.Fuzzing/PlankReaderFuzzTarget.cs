@@ -1847,6 +1847,8 @@ public static class PlankReaderFuzzTarget
 
     // Returns null when the leaf has no describable shape, which the caller
     // treats as "skip this file's row-API pass".
+    internal static RowApiColumnDescriptor? DescriptorFor(LeafColumn leaf, int index) => CreateRowApiDescriptor(leaf, index, null);
+
     static RowApiColumnDescriptor? CreateRowApiDescriptor(LeafColumn leaf, int index,
         RowApiCollectionLevel[]? collectionLevels)
     {
