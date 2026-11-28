@@ -270,3 +270,16 @@ unedited log of the Nov 11–13 coverage work. Read it with three caveats:
 - 64 of the 129 `fuzz/` paths it cites (queues, `.coverage-work/`,
   `disagreements/`) stayed in the original fuzz worktree and are not in this
   repository.
+
+## Open library defects found by the scale driver (scale agent, 2026-11-28)
+
+`Plank.Fuzzing.Scale` (job-driven, not AFL; see [`notes/size-thresholds.md`](notes/size-thresholds.md)) writes files that
+cross the size thresholds the AFL routes never reach (≥ 2048/16384 rows for dictionary fallback, MB pages, 1000-group
+files, 300–3000 columns, multi-MB values, 2/4 GB files) and checks them value for value with every Plank read API, multi-threaded,
+and with ParquetSharp.
+
+- **Binary min/max statistics are never truncated, so one large value makes the file unreadable for Arrow.** A page holding a
+  9 MB string gets an 18.9 MB data page header (full min and max), and the footer another 18.9 MB (a 66 MB file for 9 MB of
+  data). Arrow C++ refuses page headers above 16 MB ("Deserializing page header failed"), so it cannot read the file Plank
+  wrote; Plank itself reads it back exactly. Repro: [`repros/page-header-untruncated-statistics/`](repros/page-header-untruncated-statistics/)
+  (`Plank.Fuzzing.Scale repro page-header-untruncated-statistics <dir>`). Interoperability / size defect, not data corruption.

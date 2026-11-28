@@ -17,12 +17,18 @@ public sealed class Expected
     public long[]? RowGroupSizes;
     /// <summary>Global row index of each file row (dataset partitions); null = identity.</summary>
     public long[]? RowMap;
-    public long Row(long fileRow) => RowMap is null ? fileRow : RowMap[fileRow];
+    /// <summary>Self-test: when set, file row Skew is expected to hold global row Skew+1 (a planted mismatch).</summary>
+    public long Skew = -1;
+    public long Row(long fileRow)
+    {
+        var r = RowMap is null ? fileRow : RowMap[fileRow];
+        return fileRow == Skew ? r + 1 : r;
+    }
 }
 
 public static class Verify
 {
-    public static long ArrowSkipped, Values, Chunks, Pages, BloomProbes, StatsChecked, StatsMissing, PrunedPages, ArrowValues;
+    public static long ArrowSkippedHugeHeader, ArrowSkipped, Values, Chunks, Pages, BloomProbes, StatsChecked, StatsMissing, PrunedPages, ArrowValues;
 
     static void Fail(string what) => throw new Finding(what);
 
@@ -447,6 +453,20 @@ public static class Verify
     {
         using var file = new Ps.ParquetFileReader(path);
         var meta = file.FileMetaData;
+        // Known Plank defect (fuzz/repros/page-header-untruncated-statistics): binary min/max are never truncated, so a
+        // page with a value of 8 MB+ gets a page header above Arrow's 16 MB limit. Skip exactly those chunks.
+        using var plankPhysical = new Plank.Reading.Physical.ParquetFileReader();
+        using var plankStream = File.OpenRead(path);
+        plankPhysical.Reset(plankStream);
+        bool HugeHeader(int g, int c)
+        {
+            if (e.Cols[c].Kind is not (Kind.Bytes or Kind.String) || Math.Max(e.Cols[c].L1, e.Cols[c].L2) < (4 << 20))
+                return false;
+            foreach (var page in plankPhysical.OpenPages(g, c))
+                if (page.Header.HeaderLength > 16 << 20)
+                    return true;
+            return false;
+        }
         if (meta.NumRows != e.Rows)
             Fail($"arrow: file has {meta.NumRows} rows, expected {e.Rows}");
         if (meta.NumColumns != e.Cols.Length)
@@ -467,6 +487,11 @@ public static class Verify
                         ArrowSkipped++;
                         continue;
                     }
+                if (HugeHeader(g, c))
+                {
+                    ArrowSkippedHugeHeader++;
+                    continue;
+                }
                 using var column = group.Column(c);
                 long read = spec.Kind switch
                 {

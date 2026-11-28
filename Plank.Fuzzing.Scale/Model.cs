@@ -61,6 +61,10 @@ public sealed class ColSpec
     public CompressionKind? Compression;
     public bool Bloom;
 
+    /// <summary>Byte budget for one drawn binary column (set per file by the caller; SCALE_BUDGET_MB caps the file).</summary>
+    [ThreadStatic] public static long BudgetBytes;
+    public static long FileBudgetBytes => (Environment.GetEnvironmentVariable("SCALE_BUDGET_MB") is { } mb ? long.Parse(mb) : 600) << 20;
+
     public static readonly long[] Cardinalities =
         [1, 2, 3, 127, 128, 255, 256, 257, 511, 512, 513, 1023, 1024, 1025, 2047, 2048, 2049, 4095, 4096, 4097,
          32767, 32768, 32769, 65535, 65536, 65537, 1 << 20, (1 << 20) + 1];
@@ -285,7 +289,7 @@ public sealed class ColSpec
         if (kind is Kind.Bytes or Kind.String)
         {
             // Keep the column affordable: the columnar writer holds a row group's values in memory.
-            var budget = (Environment.GetEnvironmentVariable("SCALE_BUDGET_MB") is { } mb ? long.Parse(mb) : 96) << 20;
+            var budget = BudgetBytes;
             while (c.EstimatedBytes(rows) > budget && (c.L2 > 16 || c.L1 > 16))
             {
                 c.L2 = Math.Max(16, c.L2 / 4);

@@ -21,6 +21,10 @@ static class Program
 
     static int Main(string[] args)
     {
+        if (args.Length == 3 && args[0] == "repro")
+            return Repros.Run(args[1], args[2]);
+        if (args.Length == 2 && args[0] == "inspect")
+            return Inspect.Run(args[1]);
         if (args.Length < 3)
         {
             Console.Error.WriteLine("usage: run|campaign <mode> <seed> [count] [tier] [log]");
@@ -49,7 +53,7 @@ static class Program
         }
         Console.WriteLine($"campaign {mode} tier {t} seeds {seed}..{seed + (ulong)count - 1}: {findings} findings in {sw.Elapsed}; " +
                           $"values={Verify.Values} arrow={Verify.ArrowValues} rows={RowRead.Rows} chunks={Verify.Chunks} pages={Verify.Pages} " +
-                          $"stats={Verify.StatsChecked} statsMissing={Verify.StatsMissing} bloom={Verify.BloomProbes} pruned={Verify.PrunedPages}");
+                          $"selftestCaught={s_selfTestCaught} arrowSkipped={Verify.ArrowSkipped} arrowHugeHeader={Verify.ArrowSkippedHugeHeader} stats={Verify.StatsChecked} statsMissing={Verify.StatsMissing} bloom={Verify.BloomProbes} pruned={Verify.PrunedPages}");
         return findings == 0 ? 0 : 1;
     }
 
@@ -88,11 +92,22 @@ static class Program
         }
     }
 
+    /// <summary>SCALE_KEEP=dir: keep each case's file (for triage) before it is deleted.</summary>
+    static void Keep(string path)
+    {
+        if (Environment.GetEnvironmentVariable("SCALE_KEEP") is { } dir && File.Exists(path))
+        {
+            Directory.CreateDirectory(dir);
+            File.Copy(path, Path.Combine(dir, Path.GetFileName(path)), overwrite: true);
+        }
+    }
+
     static string TempFile(string tag) => Path.Combine(Tmp, $"scale-{Environment.ProcessId}-{tag}.parquet");
 
     static ColSpec[] DrawColumns(Rng rng, int count, long rows, bool allowHuge)
     {
         var cols = new ColSpec[count];
+        ColSpec.BudgetBytes = Math.Min(96L << 20, ColSpec.FileBudgetBytes / Math.Max(1, count));
         for (var c = 0; c < count; c++)
         {
             var kind = (Kind)rng.Int(7);
@@ -102,8 +117,45 @@ static class Program
     }
 
     // Read the file back through every path. Big files skip MemoryReadSource.
+    static readonly bool SelfTest = Environment.GetEnvironmentVariable("SCALE_SELFTEST") == "1";
+
+    /// <summary>
+    /// SCALE_SELFTEST=1: plant a one-row mismatch in the expectation and require every value reader to report it,
+    /// so a silent comparison gap shows up as "SELFTEST MISSED".
+    /// </summary>
+    static void PlantedMismatch(string path, Expected e, Rng rng, bool scaleRow)
+    {
+        if (e.Rows < 2)
+            return;
+        var skew = rng.Long(e.Rows - 1);
+        var differing = Enumerable.Range(0, e.Cols.Length).Where(c => Verify.Fp(e.Cols[c], e.Row(skew)) != Verify.Fp(e.Cols[c], e.Row(skew) + 1)).ToArray();
+        if (differing.Length == 0)
+            return;
+        var bad = new Expected { Cols = e.Cols, Rows = e.Rows, RowGroupSizes = e.RowGroupSizes, RowMap = e.RowMap, Skew = skew };
+        var bytes = File.ReadAllBytes(path);
+        var readers = new List<(string, Action)>
+        {
+            ("logical", () => Verify.PlankLogical(new MemoryReadSource(bytes), bad, null, checkMetadata: false)),
+            ("arrow", () => Verify.Arrow(path, bad)),
+        };
+        if (scaleRow)
+        {
+            var all = Enumerable.Repeat(true, 8).ToArray();
+            readers.Add(("rowreader", () => RowRead.ScaleRows(new MemoryReadSource(bytes), bad, ScaleRow.Projection.All, all, RowRead.DrawOptions(rng), "selftest")));
+        }
+        foreach (var (name, read) in readers)
+        {
+            try { read(); Console.WriteLine($"SELFTEST MISSED {name}: row {skew} (columns {string.Join(",", differing)})"); }
+            catch (Finding) { Interlocked.Increment(ref s_selfTestCaught); }
+        }
+    }
+
+    static long s_selfTestCaught;
+
     static void VerifyAll(string path, Expected e, Rng rng, List<string> describe, bool scaleRow)
     {
+        if (SelfTest)
+            PlantedMismatch(path, e, new Rng(rng.Next()), scaleRow);
         var length = new FileInfo(path).Length;
         using (var fileSource = new FileReadSource(path))
             Verify.PlankLogical(fileSource, e, null, checkMetadata: true);
@@ -155,7 +207,7 @@ static class Program
                 Writers.Columnar(rng.Chance(20) ? new JitterWriteStream(output) : output, cols, groups, options, rng);
             VerifyAll(path, new Expected { Cols = cols, Rows = rows, RowGroupSizes = groups }, rng, describe, scaleRow: false);
         }
-        finally { File.Delete(path); }
+        finally { Keep(path); File.Delete(path); }
     }
 
     static long RowCount(Rng rng, int tier) => tier switch
@@ -203,7 +255,7 @@ static class Program
                 Writers.RowApi(rng.Chance(20) ? new JitterWriteStream(output) : output, specs, rows, options, rng);
             VerifyAll(path, new Expected { Cols = specs, Rows = rows }, rng, describe, scaleRow: true);
         }
-        finally { File.Delete(path); }
+        finally { Keep(path); File.Delete(path); }
     }
 
     static void Dataset(Rng rng, int tier, List<string> describe)
@@ -500,6 +552,6 @@ static class Program
                 Verify.PlankPruned(fileSource, e, rng);
             Verify.Arrow(path, e);
         }
-        finally { File.Delete(path); }
+        finally { Keep(path); File.Delete(path); }
     }
 }

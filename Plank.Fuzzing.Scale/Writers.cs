@@ -114,6 +114,7 @@ public static class Writers
 
     public static ColSpec[] ScaleRowSpecs(Rng rng, long rows, bool allowHuge)
     {
+        ColSpec.BudgetBytes = ColSpec.FileBudgetBytes / 2;
         var specs = new[]
         {
             ColSpec.Draw(rng, "Id", Kind.Int64, false, rows, allowHuge),

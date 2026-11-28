@@ -7,4 +7,8 @@ W=${W:-/session/24574813-2a30-4744-ab55-c22a19c29613/workspace}
 export DOTNET_ROOT=${DOTNET_ROOT:-$W/.tools/dotnet} DOTNET_ROLL_FORWARD=Major DOTNET_gcServer=0
 ulimit -c 0
 here=$(cd "$(dirname "$0")/.." && pwd)
-exec nice "$here/Plank.Fuzzing.Scale/bin/Release/net10.0/Plank.Fuzzing.Scale" campaign "$1" "$2" "$3" "$4" "$5"
+# Run from a private copy so a rebuild of the driver cannot change files under a running campaign.
+bin=$(mktemp -d /tmp/scale-bin.XXXXXX)
+cp -r "$here/Plank.Fuzzing.Scale/bin/Release/net10.0/." "$bin/"
+trap 'rm -rf "$bin"' EXIT
+nice "$bin/Plank.Fuzzing.Scale" campaign "$1" "$2" "$3" "$4" "$5"
