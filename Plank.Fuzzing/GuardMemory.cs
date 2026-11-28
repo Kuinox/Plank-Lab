@@ -126,6 +126,10 @@ public sealed class GuardScope : IDisposable
 
         foreach (var release in releases)
             release();
+
+        // Library row-API arrays (-p:PlankGuardArrays=true) belong to the whole input: released by the outermost scope.
+        if (_previous is null)
+            Plank.GuardShim.GuardArrays.ReleaseScoped();
     }
 }
 

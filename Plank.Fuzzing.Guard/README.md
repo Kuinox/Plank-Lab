@@ -28,6 +28,7 @@ SIGSEGV. A canary or header violation prints `GUARD-VIOLATION ...` and FailFasts
 | Harness canary pools `TrackingPool` (execution target), `PoisonPool` (lifetime cases) | `GuardMemory.AllocHGlobal`: the whole block (incl. its 64 trailing canary bytes) ends at the guard page | Past the 64-byte canary |
 | Reader input file bytes (`data[1..]`, every probe's `payload`/`fileBytes` copy) and the replay/AFL input itself | `GuardMemory.ToArray`: a **real `byte[]`** whose elements end (start) at the guard page, built outside the GC heap (sync block + MethodTable + length written by hand). `MemoryMarshal.TryGetArray` succeeds, so `MemoryReadSource`'s zero-copy borrow path is guarded too. Released at the end of the input (`GuardScope`) | Exact |
 | Writer value inputs of the generic writer route (`PlankWriterFuzzTarget.SerializeColumn`: `bool/int/long/float/double` and their nullables, `IntBox/LongBox?/DoubleBox?`, and every `byte[]` value of `byte[][]`) | `GuardMemory.ToArray<T>`: guarded fake arrays (any value type without references, `Nullable<T>` included) | Exact |
+| Row-API slot buffers: `RowApiColumnWriteState<T>.Values` (what generated setters write with `Unsafe.Add` and no bounds check), nested leaf/read-state value and level arrays, `DatasetBufferSlot` | **Build with `-p:PlankGuardArrays=true`**: `Directory.Build.targets` compiles copies of `Plank/RowApi/*.cs` and `Dataset/DatasetBufferSlot.cs` (in `obj/guard-arrays/`, 13 sites) with `new T[n]` / `Array.Resize` routed to `PlankGuardArraysShim.cs`: zeroed guarded fake arrays for `T` without references, released when the input ends. Without the property, or without `PLANK_FUZZ_GUARD`, nothing changes | Exact |
 | Native-memory sources | `GuardMemory.NativeCopy`: `ReadOnlyMemory<byte>` over a `MemoryManager<byte>` (forces the copy path) | Exact |
 
 The fake arrays were checked against forced compacting gen-2 GCs while referenced from heap objects, also after
@@ -47,6 +48,17 @@ being made PROT_NONE: the GC never touches objects outside its heap ranges.
   write Plank's (guarded) buffers.
 - Underruns of fewer than `sizeof(ParquetBufferHeader)` (32) bytes in start mode: they land in the header, which is
   checked on return (writes only).
+
+## Positive control: Plank #276
+
+#276 (the row-group row writer moves past its slot capacity) writes managed slot arrays, so the page guards alone
+never saw it: `rowapi-direct-rowgroup.bin` and `rowapi-wide{,-nullable}-direct-groups-1.bin` fault or segfault the
+same with guard on or off. With `-p:PlankGuardArrays=true` and `PLANK_FUZZ_GUARD=end` all three die with an
+AccessViolation at the first out-of-bounds store, in the generated setter (`RowFuzzFixed+Row.set_Flag`,
+`RowFuzzWide+Row.set_Seq`, `RowFuzzWideNullable+Row.set_Seq`); `start` reports `GUARD-VIOLATION overrun write at
+data+2 ... Boolean[2]` when the slot array is released. Campaign builds apply the #276 fix to the build copy only
+(`GUARD_PATCH=...` in the guard agent's build script; never committed) and run those routes with
+`PLANK_GUARD_KEEP_276=1`, so #276 does not mask other findings.
 
 ## Self-test
 

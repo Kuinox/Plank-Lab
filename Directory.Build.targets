@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <!--
-    Guard-page allocator shim (Plank.Fuzzing.Guard/README.md). Compiles two extra files INTO the Plank library
+    Guard-page allocator shim (Plank.Fuzzing.Guard/README.md). Compiles extra files INTO the Plank library
     project (library/Plank has no Directory.Build.targets of its own, so MSBuild finds this one); no library file
     is edited. With PLANK_FUZZ_GUARD unset the shim forwards to System.Runtime.InteropServices.NativeMemory.
     Build with -p:PlankGuardShim=false to leave the library untouched.
@@ -20,5 +20,74 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankGuardShim)' != 'false'">
     <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Guard/GuardCore.cs" Link="GuardShim/GuardCore.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Guard/PlankNativeMemoryShim.cs" Link="GuardShim/PlankNativeMemoryShim.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Guard/PlankGuardArraysShim.cs" Link="GuardShim/PlankGuardArraysShim.cs" />
   </ItemGroup>
+
+  <!--
+    -p:PlankGuardArrays=true (guard builds only): the row-API buffers are managed arrays that generated code indexes
+    with Unsafe.Add, out of reach of the page guards. This copies Plank/RowApi/*.cs and Dataset/DatasetBufferSlot.cs
+    into obj/ with `new T[n]` / `new TValue[n]` and `Array.Resize(ref x, n)` routed to Plank.GuardShim.GuardArrays,
+    and compiles the copies instead. The library sources are not edited, and the rewrite is a no-op at run time
+    without PLANK_FUZZ_GUARD.
+  -->
+  <UsingTask TaskName="PlankGuardArrayRewrite" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll"
+             Condition="'$(PlankGuardArrays)' == 'true'">
+    <ParameterGroup>
+      <Sources ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputDirectory Required="true" />
+      <Originals ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+      <Rewritten ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var originals = new System.Collections.Generic.List<Microsoft.Build.Framework.ITaskItem>();
+        var rewritten = new System.Collections.Generic.List<Microsoft.Build.Framework.ITaskItem>();
+        // Array lengths with at most two levels of nested parentheses (e.g. Math.Max(valueCount, 16)).
+        var newArray = new Regex(@"\bnew (T|TValue)\[((?:[^\[\]()]|\((?:[^()]|\([^()]*\))*\))+)\]");
+        var resize = new Regex(@"\bArray\.Resize\(ref ");
+        Directory.CreateDirectory(OutputDirectory);
+        var total = 0;
+        foreach (var item in Sources)
+        {
+            var path = item.GetMetadata("FullPath");
+            var normalized = path.Replace('\\', '/');
+            if (!(normalized.Contains("/Plank/RowApi/") || normalized.EndsWith("/Plank/Dataset/DatasetBufferSlot.cs")))
+                continue;
+            var text = File.ReadAllText(path);
+            var count = 0;
+            var result = newArray.Replace(text, m => { count++; return "global::Plank.GuardShim.GuardArrays.New<" + m.Groups[1].Value + ">(" + m.Groups[2].Value + ")"; });
+            result = resize.Replace(result, m => { count++; return "global::Plank.GuardShim.GuardArrays.Resize(ref "; });
+            if (count == 0)
+                continue;
+            total += count;
+            var target = Path.Combine(OutputDirectory, Path.GetFileName(path));
+            result = "#line 1 \"" + path.Replace("\\", "\\\\") + "\"\n" + result;
+            if (!File.Exists(target) || File.ReadAllText(target) != result)
+                File.WriteAllText(target, result);
+            originals.Add(item);
+            rewritten.Add(new Microsoft.Build.Utilities.TaskItem(target));
+            Log.LogMessage(Microsoft.Build.Framework.MessageImportance.High, "PlankGuardArrays: " + count + " site(s) in " + Path.GetFileName(path));
+        }
+        if (total == 0)
+            Log.LogWarning("PlankGuardArrays: no allocation site rewritten; the row-API sources changed shape.");
+        Originals = originals.ToArray();
+        Rewritten = rewritten.ToArray();
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PlankGuardArrayRewrite" BeforeTargets="CoreCompile"
+          Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankGuardArrays)' == 'true' and '$(PlankGuardShim)' != 'false'">
+    <PlankGuardArrayRewrite Sources="@(Compile)" OutputDirectory="$(IntermediateOutputPath)guard-arrays">
+      <Output TaskParameter="Originals" ItemName="_PlankGuardOriginal" />
+      <Output TaskParameter="Rewritten" ItemName="_PlankGuardRewritten" />
+    </PlankGuardArrayRewrite>
+    <ItemGroup>
+      <Compile Remove="@(_PlankGuardOriginal)" />
+      <Compile Include="@(_PlankGuardRewritten)" />
+    </ItemGroup>
+  </Target>
 </Project>
