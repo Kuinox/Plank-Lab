@@ -65,6 +65,24 @@ Plank→Plank round trips cannot see a defect that is symmetric in the writer an
   decides it — declared sorting columns against the rows. Files Plank itself rejects are left to the route.
   `PLANK_FUZZ_ORACLE_DUMP=<dir>` saves each mismatching written file; `PLANK_FUZZ_FULL_ORACLE=0` disables both hooks.
 
+**Structure-aware page mutator** (`Plank.Fuzzing/StructuredPageMutator.cs`, `ThriftCompact.cs`): byte mutation of a
+whole file mostly breaks Thrift, compression or CRCs, so decoders rarely see semantically corrupt data. This parses the
+footer and every page header (lossless Thrift compact model), decompresses every page, rewrites the file uncompressed
+with page sizes, num_values, chunk/row-group offsets and sizes recomputed (statistics, page indexes, Bloom filters, CRCs
+dropped), checks that this baseline reads identically in Plank and Arrow, then mutates one decoded stream: dictionary
+indices = / > / far past the dictionary size, index bit widths 0/32/33+, dictionary num_values shorter/longer, bit-packed
+runs cut before num_values, RLE runs far past num_values, levels above the maximum, a chunk's first repetition level
+non-zero, more/fewer present values than the levels imply, DELTA block size/miniblocks/total/first value, miniblock widths
+> 64, DELTA_LENGTH lengths negative/past the data, DELTA_BYTE_ARRAY first prefix ≠ 0, BYTE_STREAM_SPLIT size not a
+multiple of the width, PLAIN byte-array lengths past the end/negative (data and dictionary pages), PLAIN fixed-width and
+FLBA values short, v2 level byte lengths and num_nulls inconsistent, num_values skew, bit flips in the values.
+`PLANK_FUZZ_STACK=<n>` stacks up to n further mutations. Oracle: Plank throws `CorruptParquetException`, or returns exactly
+Arrow's levels and values (and every read API agrees, ReadApiMatrix); a mutant marked impossible (no correct reader can
+return values) must be rejected; any other exception is a finding. Run:
+`Plank.Fuzzing.Replay structured <per-seed> <rng-seed> <dump-dir> <seed files/dirs>` (reader seeds with a selector byte
+are accepted), with `PLANK_FUZZ_POOL=1|2` for the exact-fit guard-byte pools; `agents/oracle/run-structured.sh` shards
+the generated corpus and the committed reader seed dirs into restart-safe chunks.
+
 **Read-API matrix** (`Plank.Fuzzing/ReadApiMatrix.cs`, run by both hooks above on every file they check): each column is
 read again through every API that decodes it and every CLR type Plank accepts for it — `RowGroup.Column<T>`/`<T?>` for
 bool, sbyte, byte, short, ushort, int, uint, long, ulong, Half, float, double, decimal, DateOnly, TimeOnly, TimeSpan,
