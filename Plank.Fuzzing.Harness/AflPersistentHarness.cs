@@ -18,6 +18,15 @@ internal static unsafe class AflPersistentHarness
     private const int FaultNone = 0;
     private const int FaultCrash = 2;
     private const int SaveInterval = 10_000;
+    // PLANK_FUZZ_WATCHDOG_MS=N: an execution running longer than N ms is saved under the hang dir and the worker
+    // exits. AFL cannot do this for us: the harness is its own fork server, so an AFL timeout kills the whole
+    // worker ("Unable to request new process"), and a restarted worker replays the same deterministic stage into the
+    // same slow input forever. Inputs already in the hang dir are skipped, so each distinct hang costs one restart.
+    private static readonly int WatchdogMs =
+        int.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_WATCHDOG_MS"), out var wdMs) ? wdMs : 0;
+    private static volatile byte[]? _runningInput;
+    private static long _runningSinceTicks;
+    private static string _watchdogTarget = "";
     private static readonly int GcEvery =
         int.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_GC_EVERY"), out var gcEvery) ? gcEvery : 0;
     private static readonly bool SurviveCrash =
@@ -105,6 +114,9 @@ internal static unsafe class AflPersistentHarness
         // FS_OPT_SHDMEM_FUZZ negotiation.
         WriteU32(StFd, 0);
 
+        if (WatchdogMs > 0)
+            StartWatchdog(targetName);
+
         int execCount = 0;
         int consecutiveEmptyInputs = 0;
         bool alarmRaised = false;
@@ -142,7 +154,20 @@ internal static unsafe class AflPersistentHarness
             if (++execCount % SaveInterval == 0)
                 TryWriteAllBytes(lastInputPath, input);
 
-            uint status = ExecuteOne(targetName, execute, input, SurviveCrash, out bool fatal);
+            uint status;
+            bool fatal;
+            if (WatchdogMs > 0 && File.Exists(HangPath(targetName, input)))
+            {
+                status = FaultNone;             // known hang: skip it (counted by AFL as an empty run)
+                fatal = false;
+            }
+            else
+            {
+                _runningSinceTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+                _runningInput = input;
+                status = ExecuteOne(targetName, execute, input, SurviveCrash, out fatal);
+                _runningInput = null;
+            }
 
             // PLANK_FUZZ_GC_EVERY=N: a compacting full GC every N executions. The shared buffer pool and LOH
             // fragmentation make a long-lived worker's heap creep up until a container memory cap fails an
@@ -165,6 +190,46 @@ internal static unsafe class AflPersistentHarness
                 Environment.FailFast("fuzz target crashed");
             }
         }
+    }
+
+    static string HangDirectory()
+    {
+        var dir = Environment.GetEnvironmentVariable("PLANK_FUZZ_HANG_DIR");
+        if (!string.IsNullOrEmpty(dir)) return dir;
+        var crash = Environment.GetEnvironmentVariable("PLANK_FUZZ_CRASH_DIR");
+        return Path.Combine(string.IsNullOrEmpty(crash) ? "/tmp" : crash, "hangs");
+    }
+
+    static string HangPath(string targetName, byte[] input)
+    {
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(input));
+        return Path.Combine(HangDirectory(), $"{targetName}-{hash[..16]}.bin");
+    }
+
+    static void StartWatchdog(string targetName)
+    {
+        _watchdogTarget = targetName;
+        var thread = new Thread(() =>
+        {
+            while (true)
+            {
+                Thread.Sleep(200);
+                var input = _runningInput;
+                if (input is null) continue;
+                var elapsedMs = (System.Diagnostics.Stopwatch.GetTimestamp() - Volatile.Read(ref _runningSinceTicks))
+                                * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                if (elapsedMs < WatchdogMs || !ReferenceEquals(input, _runningInput)) continue;
+                try
+                {
+                    Directory.CreateDirectory(HangDirectory());
+                    File.WriteAllBytes(HangPath(_watchdogTarget, input), input);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                Environment.FailFast($"fuzz target hung (> {WatchdogMs} ms)");
+            }
+        }) { IsBackground = true, Name = "plank-fuzz-watchdog" };
+        thread.Start();
     }
 
     // Runs one testcase and returns the wait-status word to report to AFL.

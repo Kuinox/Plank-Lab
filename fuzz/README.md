@@ -156,3 +156,11 @@ driver never uses it. Remove an id's signature when the library bug is fixed so 
   or more than 10 s of wall time is reported as a `ResourceBudgetException` finding. Oversized rents are refused *before* allocating.
 - `fuzz/resource-seeds.py` -> `fuzz/reader-resource-seeds/`: valid pyarrow files (six codecs, v1/v2 pages) whose footer or page headers declare huge numbers, list counts and binary lengths.
 - `TRNC` route (selector 0x7e): every prefix of a valid file, and the file with the tail pages cut out but the footer kept, through memory, stream, 1-7-byte-per-read stream and `Reset(Stream)`; seeds in `fuzz/reader-truncation-seeds/`.
+
+`PLANK_FUZZ_WATCHDOG_MS=N` (set it a bit below AFL's `-t`): the harness is its own fork server, so an AFL timeout
+kills the worker (`Unable to request new process from fork server`) and a restarted worker replays the same
+deterministic stage into the same slow input forever. With the watchdog the slow input is saved to
+`$PLANK_FUZZ_HANG_DIR` (default `$PLANK_FUZZ_CRASH_DIR/hangs`) and the worker exits; inputs already in that dir are
+skipped afterwards, so each distinct hang costs one restart. `writer-codec-12.bin` (route `WCD1`) is one: ~1 s alone on
+an idle machine, 30 s on a loaded one under instrumentation. Also set `AFL_NO_STARTUP_CALIBRATION=1` when resuming a
+big queue, and delete a stale `$AFL_TMPDIR/.cur_input` after a killed worker.
