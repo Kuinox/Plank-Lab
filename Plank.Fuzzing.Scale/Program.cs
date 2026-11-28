@@ -15,6 +15,8 @@ namespace Plank.Fuzzing.Scale;
 /// </summary>
 static class Program
 {
+    static readonly System.Reflection.PropertyInfo s_nativeCount = typeof(DefaultParquetBufferPool).GetProperty("NativeAllocationCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
     static readonly bool Verbose = Environment.GetEnvironmentVariable("SCALE_VERBOSE") == "1";
 
     static string Tmp => Environment.GetEnvironmentVariable("SCALE_TMP") ?? Path.GetTempPath();
@@ -434,12 +436,12 @@ static class Program
             TargetDataPageSizeBytes = rng.Pick(1024u, 8192u, 1u << 20),
             WritePageIndexes = baseOptions.WritePageIndexes,
             DataPageVersion = baseOptions.DataPageVersion,
-            Compression = baseOptions.Compression,
+            Compression = Environment.GetEnvironmentVariable("SCALE_COMPRESSION") is { } comp ? Enum.Parse<Plank.Schema.CompressionKind>(comp) : baseOptions.Compression,
             RowApiInitialRowCapacity = baseOptions.RowApiInitialRowCapacity,
             RowApiMaxParallelism = 1,
             Execution = new Plank.ParquetExecutionOptions { WorkerCount = 1 },
         };
-        describe.Add($"concurrency rows={rows} rg={options.TargetRowGroupSizeBytes} page={options.TargetDataPageSizeBytes} cap={options.RowApiInitialRowCapacity}");
+        describe.Add($"concurrency rows={rows} rg={options.TargetRowGroupSizeBytes} page={options.TargetDataPageSizeBytes} cap={options.RowApiInitialRowCapacity} comp={options.Compression} v{(int)options.DataPageVersion}");
         describe.AddRange(specs.Select(c => c.ToString()));
         if (Verbose)
             Console.WriteLine("  " + describe[0]);
@@ -457,9 +459,14 @@ static class Program
         {
             Jitter.Percent = rng.Pick(0, 1, 5, 20, 50);
             var action = rng.Int(10);
+            if (Environment.GetEnvironmentVariable("SCALE_ACTION") is { } forced)
+                action = int.Parse(forced);
             var where = $"iteration {it} action {action} jitter {Jitter.Percent}%";
             if (Verbose)
-                Console.WriteLine($"  {DateTime.UtcNow:HH:mm:ss.fff} {where}");
+            {
+                using var self = System.Diagnostics.Process.GetCurrentProcess();
+                Console.WriteLine($"  {DateTime.UtcNow:HH:mm:ss.fff} {where} rss={self.WorkingSet64 >> 20}MB managed={GC.GetTotalMemory(false) >> 20}MB threads={self.Threads.Count} poolRetained={DefaultParquetBufferPool.Shared.RetainedBytes >> 20}MB poolAllocs={s_nativeCount.GetValue(DefaultParquetBufferPool.Shared)} gcCommitted={GC.GetGCMemoryInfo().TotalCommittedBytes >> 20}MB gcFrag={GC.GetGCMemoryInfo().FragmentedBytes >> 20}MB");
+            }
             Watchdog(where, TimeSpan.FromSeconds(300), () =>
             {
                 switch (action)
@@ -547,8 +554,26 @@ static class Program
                                 OnWorkerStarted = rng.Chance(50) ? _ => Jitter.Maybe() : null,
                             },
                         };
+                        // A counting pool on some iterations: every buffer must be back once the writer is disposed.
+                        var counting = rng.Chance(50) ? new CountingPool { CaptureStacks = Environment.GetEnvironmentVariable("SCALE_POOL_STACKS") == "1" } : null;
+                        if (counting is not null)
+                            parallel = new ParquetWriterOptions
+                            {
+                                TargetRowGroupSizeBytes = parallel.TargetRowGroupSizeBytes, TargetDataPageSizeBytes = parallel.TargetDataPageSizeBytes,
+                                WritePageIndexes = parallel.WritePageIndexes, DataPageVersion = parallel.DataPageVersion, Compression = parallel.Compression,
+                                RowApiInitialRowCapacity = parallel.RowApiInitialRowCapacity, RowApiMaxParallelism = parallel.RowApiMaxParallelism,
+                                Execution = parallel.Execution, BufferPool = counting,
+                            };
                         var output = new MemoryStream();
                         Writers.RowApi(new JitterWriteStream(output), specs, rows, parallel, new Rng(rng.Next()));
+                        if (counting is not null)
+                        {
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                            GC.Collect();
+                            if (counting.Outstanding != 0)
+                                throw new Finding($"{where}: row writer (par={parallel.RowApiMaxParallelism}, workers={parallel.Execution.WorkerCount}) disposed with {counting.Outstanding} of {counting.Rented} pool buffers ({counting.OutstandingBytes} bytes) never returned\n{counting.Describe(3)}");
+                        }
                         var written = output.ToArray();
                         Verify.PlankLogical(new MemoryReadSource(written), e, null, checkMetadata: true);
                         if (!written.AsSpan().SequenceEqual(bytes))

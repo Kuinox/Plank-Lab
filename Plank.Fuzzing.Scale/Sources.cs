@@ -125,3 +125,41 @@ public sealed class MemFiles
         public void Dispose() => Close();
     }
 }
+
+/// <summary>Native buffers with a return callback: counts what is still rented, to find buffers never returned.</summary>
+public sealed class CountingPool : IParquetBufferPool
+{
+    const int PayloadOffset = 64;
+    long _outstanding, _outstandingBytes, _rented;
+    readonly System.Collections.Concurrent.ConcurrentDictionary<nint, (int Length, string? Stack)> _live = new();
+    public bool CaptureStacks;
+
+    public long Outstanding => Interlocked.Read(ref _outstanding);
+    public long OutstandingBytes => Interlocked.Read(ref _outstandingBytes);
+    public long Rented => Interlocked.Read(ref _rented);
+
+    public ParquetBuffer Rent(uint minimumByteLength)
+    {
+        if (minimumByteLength == 0)
+            return default;
+        var length = checked((int)minimumByteLength);
+        var allocation = System.Runtime.InteropServices.Marshal.AllocHGlobal(PayloadOffset + length);
+        Interlocked.Increment(ref _outstanding);
+        Interlocked.Increment(ref _rented);
+        Interlocked.Add(ref _outstandingBytes, length);
+        _live[allocation] = (length, CaptureStacks ? Environment.StackTrace : null);
+        return ParquetBuffer.Create(allocation, PayloadOffset + length, PayloadOffset, length, Return);
+    }
+
+    void Return(nint allocation)
+    {
+        if (!_live.TryRemove(allocation, out var entry))
+            throw new InvalidOperationException("CountingPool: buffer returned twice or unknown");
+        Interlocked.Decrement(ref _outstanding);
+        Interlocked.Add(ref _outstandingBytes, -entry.Length);
+        System.Runtime.InteropServices.Marshal.FreeHGlobal(allocation);
+    }
+
+    public string Describe(int max = 5)
+        => string.Join("\n---\n", _live.Values.Take(max).Select(v => $"{v.Length} bytes\n{v.Stack}"));
+}

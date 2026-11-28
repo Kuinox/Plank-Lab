@@ -249,7 +249,8 @@ public static class Verify
         if (m.HasOffsetIndex)
         {
             long next = 0;
-            foreach (var page in m.OpenPages())
+            using var pageCollection = m.OpenPages();
+            foreach (var page in pageCollection)
             {
                 Pages++;
                 if (page.FirstRowIndex is not { } first || page.RowCount is not { } rows)
