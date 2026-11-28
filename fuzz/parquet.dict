@@ -208,3 +208,6 @@ writer_lz4_frame_magic="\x04\x22\x4D\x18"
 writer_lz4_skippable_magic="\x50\x2A\x4D\x18"
 surface_magic_lifetime="LIF1"
 surface_marker_lifetime="\xC0"
+rowapi_random_dataset_magic="RRD1"
+rowapi_random_evolution_magic="RRE1"
+

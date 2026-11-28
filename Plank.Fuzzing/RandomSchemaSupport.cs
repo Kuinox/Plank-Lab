@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Reflection;
+using Plank.Dataset;
+using Plank.Reading;
 using Plank.RowApi;
 using Plank.Schema;
 using Plank.Writing;
@@ -7,7 +9,7 @@ using Plank.Writing;
 namespace Plank.Fuzzing;
 
 /// <summary>One randomly shaped generated schema (see fuzz/tools/gen_random_schemas.py) and everything the route needs to drive it.</summary>
-public abstract class RandomSchemaCase
+internal abstract class RandomSchemaCase
 {
     public abstract string Name { get; }
     public abstract Type RowType { get; }
@@ -15,11 +17,66 @@ public abstract class RandomSchemaCase
     public abstract ParquetSchema Schema { get; }
     public abstract void SetSeq(object row, int seq);
 
+    /// <summary>A related schema (columns dropped, added, renamed, reordered, made nullable or widened), or null for the twin itself.</summary>
+    public abstract RandomSchemaCase? Twin { get; }
+    public abstract string Mutations { get; }
+    public abstract string[] Props { get; }
+    public abstract string[] ColumnNames { get; }
+    public abstract string[] Clr { get; }
+    public abstract bool[] Optional { get; }
+    public abstract string[] UnsetKinds { get; }
+    public abstract bool AppendLatestSafe { get; }
+    public abstract object? Get(object row, int index);
+    public abstract object? DefaultOf(int index);
+
+    /// <summary>Leaves the columns in <paramref name="mask"/> unassigned when the row is written; sets the expected value where one is defined.</summary>
+    public abstract void ApplyUnset(object row, int mask);
+
+    /// <summary>Reads a file written by another schema, expecting <paramref name="expected"/>[row][column] for every projected column.</summary>
+    public abstract void CheckEvolved(byte[] bytes, object?[][] expected, int mask, ParquetSchemaEvolutionOptions? evolution, RowReaderOptions options);
+
+    /// <summary>Reads every row (all columns, exact comparison against <paramref name="rows"/> by Seq) and returns the Seq values in file order.</summary>
+    public abstract List<int> ReadSeqs(byte[] bytes, object[] rows, RowReaderOptions options);
+
+    public abstract IRandomDatasetSink CreateDataset(Func<object, int> partitionOf, bool ownedPath, bool createParts, FaultingDatasetFile[] files, DatasetWriterOptions options);
+
     /// <summary>Writes the rows through one generated writer entry point: 0 pipeline GetRow, 1 pipeline cursor, 2 several direct row groups.</summary>
     public abstract byte[] Write(object[] rows, ParquetWriterOptions options, int route, int groups);
 
     /// <summary>Reads the file back through the generated reader, projected to the columns in <paramref name="mask"/>, comparing every row.</summary>
     public abstract void Check(byte[] bytes, object[] rows, int mask, RowReaderOptions options, bool viaSource, bool reuse);
+}
+
+/// <summary>Type-erased queue/dispose of a generated dataset writer.</summary>
+public interface IRandomDatasetSink : IDisposable
+{
+    void Queue(object row);
+}
+
+/// <summary>Partition keys and file paths for the random-schema dataset route.</summary>
+public static class RandomDatasetKeys
+{
+    static readonly byte[][] Keys = [.. Enumerable.Range(0, 8).Select(static i => System.Text.Encoding.UTF8.GetBytes($"part{i}"))];
+
+    public static ReadOnlySpan<byte> Select(int partition, bool owned, IParquetBufferPool pool, out ParquetBuffer? allocation)
+    {
+        var key = Keys[partition];
+        if (!owned)
+        {
+            allocation = null;
+            return key;
+        }
+        var buffer = pool.Rent(checked((uint)(key.Length + 1)));
+        allocation = buffer;
+        key.CopyTo(buffer.Span[1..]);
+        return buffer.Span[1..(key.Length + 1)];
+    }
+
+    public static ReadOnlySpan<byte> FilePath(ReadOnlySpan<byte> key, ulong index, out ParquetBuffer? allocation)
+    {
+        allocation = null;
+        return System.Text.Encoding.UTF8.GetBytes($"{System.Text.Encoding.UTF8.GetString(key)}-{index}");
+    }
 }
 
 /// <summary>Draws fuzzer-chosen values for any CLR shape a generated schema can hold, honouring nullability annotations.</summary>
@@ -177,6 +234,15 @@ public static class DeepEq
             .Where(static p => p.GetMethod is not null && p.GetIndexParameters().Length == 0)
             .All(p => Of(p.GetValue(actual), p.GetValue(expected)));
     }
+
+    public static string Describe(object? value) => value switch
+    {
+        null => "null",
+        byte[] b => $"byte[{b.Length}]",
+        string s => $"string \"{s}\"",
+        IEnumerable e when value is not string => value.GetType().Name + "[" + e.Cast<object?>().Count() + "]",
+        _ => $"{value.GetType().Name} {value}"
+    };
 
     static byte[]? Bytes(object value) => value switch
     {

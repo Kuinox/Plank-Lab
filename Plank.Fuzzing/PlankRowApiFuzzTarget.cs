@@ -64,6 +64,20 @@ public static partial class PlankRowApiFuzzTarget
             return;
         }
 
+        if (data.StartsWith(RandomDatasetMagic))
+        {
+            var randomDatasetCursor = new Cursor(data[RandomDatasetMagic.Length..]);
+            RunRandomDataset(ref randomDatasetCursor);
+            return;
+        }
+
+        if (data.StartsWith(RandomEvolutionMagic))
+        {
+            var randomEvolutionCursor = new Cursor(data[RandomEvolutionMagic.Length..]);
+            RunRandomEvolution(ref randomEvolutionCursor);
+            return;
+        }
+
         if (data.StartsWith(RandomSchemaMagic))
         {
             var randomCursor = new Cursor(data[RandomSchemaMagic.Length..]);

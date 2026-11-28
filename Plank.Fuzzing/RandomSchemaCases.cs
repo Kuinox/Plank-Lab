@@ -30,6 +30,10 @@ public static partial class PlankRowApiFuzzTarget
             rows[i] = Activator.CreateInstance(kase.RowType)!;
             source.Fill(rows[i]);
             kase.SetSeq(rows[i], i);
+            // Some rows leave columns unassigned: nullable reference columns, collections and maps must read null,
+            // and an unassigned scalar has no defined value (it keeps what the reused slot held), so the comparison skips it.
+            if (c.NextInt(0, 5) == 0)
+                kase.ApplyUnset(rows[i], c.NextInt32());
         }
 
         try
