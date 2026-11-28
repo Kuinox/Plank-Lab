@@ -22,6 +22,18 @@ static class Program
 {
     static int Main(string[] args)
     {
+        // Structure-aware page mutation (StructuredPageMutator): structured <per-seed> <rng-seed> <dump-dir> <file|dir>...
+        if (args.Length >= 5 && args[0] == "structured")
+        {
+            var seeds = new List<string>();
+            foreach (var input in args[4..])
+                if (File.Exists(input)) seeds.Add(input);
+                else if (Directory.Exists(input)) seeds.AddRange(Directory.EnumerateFiles(input, "*", SearchOption.AllDirectories));
+            StructuredPageMutator.Run(seeds, int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture),
+                int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), args[3], Console.Out);
+            return 0;
+        }
+
         // Cross-writer seeds (Arrow-written plans) without building the instrumented writer target.
         if (args is ["--generate-cross-writer", var crossDirectory])
         {
