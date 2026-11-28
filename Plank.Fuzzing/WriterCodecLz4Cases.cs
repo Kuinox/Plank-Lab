@@ -31,7 +31,7 @@ internal static partial class WriterCodecCases
 
     // A payload written by an EXTERNAL LZ4 implementation (python `lz4`: frames with every option, Hadoop records,
     // bare blocks, concatenations; see fuzz/tools/gen-lz4-external-seeds.py). Layout after the mode bytes:
-    //   u32 original length | u32 payload length | u32 CRC-32 of the payload | 32 bytes SHA-256 of the original | payload
+    //   u32 original length | u32 payload length | u32 CRC-32 of (original length, SHA-256, payload) | 32 bytes SHA-256 of the original | payload
     // While the payload still matches its CRC the decoder must reproduce the original exactly; once a fuzzer mutates
     // it, the only requirement is decoded bytes or CorruptParquetException.
     static void Lz4ExternalPayload(ReadOnlySpan<byte> input)
@@ -45,7 +45,14 @@ internal static partial class WriterCodecCases
             return;
         var hash = input.Slice(12, 32).ToArray();
         var payload = input[44..].ToArray();
-        var pristine = Crc32(payload) == payloadCrc;
+        // The CRC covers the declared original length and the expected SHA-256 as well as the payload: a mutated length or
+        // hash must not make the input "pristine", or a correct decoder is blamed for refusing / differing from a header
+        // the fuzzer corrupted (AFL: 195 such false faults in five minutes).
+        var covered = new byte[4 + hash.Length + payload.Length];
+        input[..4].CopyTo(covered);
+        hash.CopyTo(covered, 4);
+        payload.CopyTo(covered, 4 + hash.Length);
+        var pristine = Crc32(covered) == payloadCrc;
         var destination = new byte[originalLength];
         try
         {

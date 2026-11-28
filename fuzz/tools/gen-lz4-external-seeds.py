@@ -49,8 +49,10 @@ def hadoop(data, piece, level):
 
 
 def seed(name, original, payload):
-    body = (struct.pack("<iIII", 6, len(original), len(payload), zlib.crc32(payload) & 0xFFFFFFFF)
-            + hashlib.sha256(original).digest() + payload)
+    digest = hashlib.sha256(original).digest()
+    # The CRC covers the declared length and the SHA-256 too (see WriterCodecLz4Cases.Lz4ExternalPayload).
+    crc = zlib.crc32(struct.pack("<I", len(original)) + digest + payload) & 0xFFFFFFFF
+    body = (struct.pack("<iIII", 6, len(original), len(payload), crc) + digest + payload)
     with open(os.path.join(out, f"writer-codec-lz4ext-{name}.bin"), "wb") as f:
         f.write(b"\xdbWCD1" + body)
 

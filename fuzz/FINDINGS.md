@@ -296,6 +296,12 @@ mutants, AFL queues; results in `agents/checked/runs/c1/<tier>/*/{summary,oob}.t
 
 ## Fuzz-harness defects (fixed)
 
+- `WCD1` mode 6 (external LZ4 payloads, `WriterCodecLz4Cases.Lz4ExternalPayload`): "pristine" was decided by the payload CRC only, but the
+  input also carries the declared original length and the expected SHA-256. AFL mutated those header fields (195 inputs in 5 minutes:
+  181 "decoded to bytes with a different SHA-256", 14 "was refused: Lz4Legacy decompression produced 5000 bytes but 60552 were expected")
+  and the correct decoder was blamed. Every one of the 195 is an unchanged seed payload with a corrupted header (checked against the
+  seeds). The CRC now covers length + SHA-256 + payload; `fuzz/tools/gen-lz4-external-seeds.py` and the 50 seeds were updated.
+  Not a library defect.
 - `DecimalBinaryStatisticsCoverageCase` (`DBS1`): any control byte >= 2 drew the third value set but the expectation was only
   applied for exactly 2, so mutated inputs (AFL found control `04`) faulted with "Decimal binary statistics changed." on a
   correct library. The control byte is now normalised once. Seed: `corpus/writer-decimal-binary-statistics-control-4.bin`.
