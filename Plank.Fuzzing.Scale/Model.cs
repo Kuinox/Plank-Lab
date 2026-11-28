@@ -34,7 +34,12 @@ public sealed class Rng(ulong seed)
     }
 }
 
-public enum Kind { Int32, Int64, Double, Float, Bool, Bytes, String }
+public enum Kind { Int32, Int64, Double, Float, Bool, Bytes, String, Fixed }
+
+public static class KindExt
+{
+    public static bool IsBinary(this Kind k) => k is Kind.Bytes or Kind.String or Kind.Fixed;
+}
 
 /// <summary>
 /// One column of a drawn shape. Every value is a pure function of (column seed, global row index), so a
@@ -221,6 +226,7 @@ public sealed class ColSpec
         Kind.Double => ParquetPhysicalType.Double,
         Kind.Float => ParquetPhysicalType.Float,
         Kind.Bool => ParquetPhysicalType.Boolean,
+        Kind.Fixed => ParquetPhysicalType.FixedLenByteArray,
         _ => ParquetPhysicalType.ByteArray,
     };
 
@@ -272,6 +278,11 @@ public sealed class ColSpec
                 _ => 0,
             };
             c.N2 = rng.Pick(1L, 64L, 4096L, 1L << 18);
+        }
+        if (kind == Kind.Fixed)
+        {
+            c.LenMode = 0;
+            c.L1 = rng.Pick(1, 2, 3, 4, 8, 12, 16, 16, 17, 100);
         }
         if (kind is Kind.Bytes or Kind.String)
         {
@@ -333,6 +344,15 @@ public sealed class ColSpec
                 7 => [EncodingKind.RleDictionary, EncodingKind.Alp],
                 _ => [EncodingKind.RleDictionary, EncodingKind.Plain],
             },
+            Kind.Fixed => choice switch
+            {
+                0 or 1 or 2 => [],
+                3 => [EncodingKind.Plain],
+                4 or 5 => [EncodingKind.RleDictionary],
+                6 when !optional => [EncodingKind.ByteStreamSplit],
+                7 => [EncodingKind.RleDictionary, EncodingKind.Plain],
+                _ => [EncodingKind.PlainDictionary],
+            },
             Kind.Bool => choice switch
             {
                 0 or 1 or 2 => [],
@@ -356,7 +376,7 @@ public sealed class ColSpec
     public ColumnDefinition Definition()
     {
         var bloom = Bloom ? new ParquetBloomFilterOptions() : null;
-        var options = new ColumnOptions(encodings: Encodings, compression: Compression, bloomFilter: bloom);
+        var options = new ColumnOptions(encodings: Encodings, typeLength: Kind == Kind.Fixed ? (uint)L1 : 0, compression: Compression, bloomFilter: bloom);
         LogicalType? logical = Kind == Kind.String ? new LogicalType.String() : null;
         return Optional
             ? ColumnDefinition.OptionalLeaf(Name, Physical, options, logical)

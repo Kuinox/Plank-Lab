@@ -115,7 +115,7 @@ static class Program
         ColSpec.BudgetBytes = Math.Min(96L << 20, ColSpec.FileBudgetBytes / Math.Max(1, count));
         for (var c = 0; c < count; c++)
         {
-            var kind = (Kind)rng.Int(7);
+            var kind = (Kind)rng.Int(8);
             cols[c] = ColSpec.Draw(rng, $"c{c}", kind, rng.Chance(50), rows, allowHuge);
         }
         return cols;
@@ -339,6 +339,11 @@ static class Program
         foreach (var c in cols)
         {
             // ParquetSharp's string / byte[] columns are optional.
+            if (c.Kind == Kind.Fixed)
+            {
+                c.Kind = Kind.Bytes; // ParquetSharp's typed columns have no FLBA without a custom node
+                c.LenMode = 0;
+            }
             if (c.Kind is Kind.Bytes or Kind.String && !c.Optional)
             {
                 c.Optional = true;

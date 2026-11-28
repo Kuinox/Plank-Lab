@@ -306,9 +306,9 @@ public static class Verify
             Fail($"{where}: null_count {nulls}, expected {acc.Nulls}");
         if (!s.HasMinimum || !s.HasMaximum)
         {
-            if (acc.Has && !(spec.Kind is Kind.Bytes or Kind.String))
+            if (acc.Has && !spec.Kind.IsBinary())
                 StatsMissing++;
-            if (acc.Has && (spec.Kind is Kind.Bytes or Kind.String))
+            if (acc.Has && spec.Kind.IsBinary())
                 StatsMissing++;
             return;
         }
@@ -323,7 +323,7 @@ public static class Verify
         }
         var min = s.Minimum;
         var max = s.Maximum;
-        if (spec.Kind is Kind.Bytes or Kind.String)
+        if (spec.Kind.IsBinary())
         {
             var cMin = min.SequenceCompareTo(acc.Min);
             var cMax = max.SequenceCompareTo(acc.Max);
@@ -505,6 +505,8 @@ public static class Verify
                     Kind.Double => ArrowRead((Ps.ColumnReader<double>)column, spec, e, start, where, static (s, r, v) => BitConverter.DoubleToInt64Bits(s.Double(r)) == BitConverter.DoubleToInt64Bits(v)),
                     Kind.Float => ArrowRead((Ps.ColumnReader<float>)column, spec, e, start, where, static (s, r, v) => BitConverter.SingleToInt32Bits(s.Float(r)) == BitConverter.SingleToInt32Bits(v)),
                     Kind.Bool => ArrowRead((Ps.ColumnReader<bool>)column, spec, e, start, where, static (s, r, v) => s.Bool(r) == v),
+                    Kind.Fixed => ArrowRead((Ps.ColumnReader<Ps.FixedLenByteArray>)column, spec, e, start, where,
+                        static (s, r, v) => new ReadOnlySpan<byte>((void*)v.Pointer, s.L1).SequenceEqual(ExpectedBytes(s, r))),
                     _ => ArrowRead((Ps.ColumnReader<Ps.ByteArray>)column, spec, e, start, where,
                         static (s, r, v) => new ReadOnlySpan<byte>((void*)v.Pointer, v.Length).SequenceEqual(ExpectedBytes(s, r))),
                 };
