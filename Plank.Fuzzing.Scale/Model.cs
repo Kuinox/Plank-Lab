@@ -321,7 +321,7 @@ public sealed class ColSpec
         if (c.Bloom && rng.Chance(60))
         {
             c.BloomFpp = rng.Pick(0.5, 0.1, 0.01, 0.001, 1e-6);
-            c.BloomNdv = rng.Chance(50) ? rng.Pick(1u, 2u, 1000u, 1u << 20, 100_000_000u) : null;
+            c.BloomNdv = rng.Chance(50) ? rng.Pick(1u, 2u, 1000u, 1u << 20, 1u << 22) : null; // a hint sizes every chunk's filter
             c.BloomMaxBytes = rng.Pick(32u, 1024u, 65536u, 1u << 20, 128u << 20);
         }
         if (c.Compression is { } comp && rng.Chance(40))

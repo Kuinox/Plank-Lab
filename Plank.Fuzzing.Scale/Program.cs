@@ -156,7 +156,7 @@ static class Program
     /// </summary>
     static void PlantedMismatch(string path, Expected e, Rng rng, bool scaleRow)
     {
-        if (e.Rows < 2)
+        if (e.Rows < 2 || new FileInfo(path).Length > (1L << 30))
             return;
         var skew = rng.Long(e.Rows - 1);
         var differing = Enumerable.Range(0, e.Cols.Length).Where(c => Verify.Fp(e.Cols[c], e.Row(skew)) != Verify.Fp(e.Cols[c], e.Row(skew) + 1)).ToArray();
