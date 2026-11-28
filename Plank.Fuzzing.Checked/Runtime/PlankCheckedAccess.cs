@@ -74,6 +74,10 @@ public static class PlankChecked
     static readonly bool FailFast = Environment.GetEnvironmentVariable("PLANK_CHECKED_FAILFAST") == "1";
     static readonly bool WeakThrows = Environment.GetEnvironmentVariable("PLANK_CHECKED_WEAK") == "throw";
     static readonly bool Stats = Environment.GetEnvironmentVariable("PLANK_CHECKED_STATS") == "1";
+    // PLANK_CHECKED_TRACE=<substring of a site>: every check at matching sites prints base, address, size and the region.
+    static readonly string? TraceSite = Environment.GetEnvironmentVariable("PLANK_CHECKED_TRACE") is { Length: > 0 } t ? t : null;
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> s_unknownSites = new();
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> s_weakSitesSeen = new();
 
     public static long Checked;
     public static long CheckedWeak;
@@ -88,8 +92,15 @@ public static class PlankChecked
     static PlankChecked()
     {
         if (Stats)
-            AppDomain.CurrentDomain.ProcessExit += (_, _) => Console.Error.WriteLine(
-                $"PLANK-CHECKED-STATS checked={Checked} weak={CheckedWeak} unknown={Unknown} violations={Violations} weakViolations={WeakViolations}");
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                Console.Error.WriteLine(
+                    $"PLANK-CHECKED-STATS checked={Checked} weak={CheckedWeak} unknown={Unknown} violations={Violations} weakViolations={WeakViolations}");
+                foreach (var (site, n) in s_unknownSites.OrderByDescending(static k => k.Value).Take(40))
+                    Console.Error.WriteLine($"PLANK-CHECKED-UNKNOWN-SITE\t{n}\t{site}");
+                foreach (var (site, n) in s_weakSitesSeen.OrderByDescending(static k => k.Value).Take(40))
+                    Console.Error.WriteLine($"PLANK-CHECKED-WEAK-SITE\t{n}\t{site}");
+            };
     }
 
     static int Epoch => GC.CollectionCount(0);
@@ -245,18 +256,38 @@ public static class PlankChecked
     {
         if (!Enabled)
             return;
-        if (!Find(baseAddress, out var region))
+        var found = Find(baseAddress, out var region);
+        if (TraceSite is not null && site.Contains(TraceSite, StringComparison.Ordinal))
+            Trace(kind, site, baseAddress, address, size, found, region);
+        if (!found)
         {
             Unknown++;
+            if (Stats)
+                s_unknownSites.AddOrUpdate(site, 1, static (_, c) => c + 1);
             return;
         }
 
         if (region.Weak)
+        {
             CheckedWeak++;
+            if (Stats)
+                s_weakSitesSeen.AddOrUpdate(site, 1, static (_, c) => c + 1);
+        }
         else
             Checked++;
         if (address < region.Lo || address + size > region.Hi || address + size < address)
             Violation(kind, site, address, size, region);
+    }
+
+    static unsafe void Trace(string kind, string site, nuint baseAddress, nuint address, nuint size, bool found, in Region region)
+    {
+        var marker = 0;
+        var sp = (nuint)(&marker);
+        var onStack = address > sp - (1 << 16) && address < sp + (8 << 20);
+        Console.Error.WriteLine(found
+            ? $"PLANK-TRACE {kind} at {site}: base=0x{baseAddress:x} address=0x{address:x} size={size} offset={(long)address - (long)region.Lo} " +
+              $"span=[0x{region.Lo:x}, +{region.Hi - region.Lo}) from {region.Site} {(region.Weak ? "WEAK" : "strong")} end-ok={address + size <= region.Hi} stack={onStack}"
+            : $"PLANK-TRACE {kind} at {site}: base=0x{baseAddress:x} address=0x{address:x} size={size} span=none stack={onStack}");
     }
 
     /// <summary>Like <see cref="Access"/>, with the base looked up among native roots only (named buffer bases).</summary>
@@ -411,6 +442,17 @@ public static unsafe class C
         var span = new ReadOnlySpan<T>(pointer, length);
         PlankChecked.Register((nuint)pointer, (nuint)(uint)length * Size<T>(), site);
         return span;
+    }
+
+    // PLANK_CHECKED_LOCALS=0: do not register locals (triage: shows what the address table alone resolves).
+    static readonly bool NoLocals = Environment.GetEnvironmentVariable("PLANK_CHECKED_LOCALS") == "0";
+
+    /// <summary>`ref x` of a by-value local or parameter: the variable is its own span (sizeof(T) bytes).</summary>
+    public static ref T Local<T>(ref T variable, string site)
+    {
+        if (PlankChecked.Enabled && !NoLocals)
+            PlankChecked.Register(PlankChecked.Addr(ref variable), Size<T>(), site);
+        return ref variable;
     }
 
     // ---- hand-rewritten roots (Plank.Fuzzing.Checked/hand-rewrites.txt) ------------------------------------

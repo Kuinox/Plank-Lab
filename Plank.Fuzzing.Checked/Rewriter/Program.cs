@@ -584,6 +584,26 @@ sealed class CheckedRewriter : CSharpSyntaxRewriter
         if (!node.RefKindKeyword.IsKind(SyntaxKind.None) && node.Expression is ElementAccessExpressionSyntax original
             && ElementRef(original, visited.Expression) is { } replaced)
             return visited.WithExpression(replaced);
+        // `ref x` of a by-value local or parameter handed to an unchecked API: the variable itself is the span
+        // ([&x, &x + sizeof(x))), registered so the access is a strong check instead of an address-table guess.
+        if ((node.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) || node.RefKindKeyword.IsKind(SyntaxKind.InKeyword))
+            && node.Expression is IdentifierNameSyntax identifier
+            && _model.GetSymbolInfo(identifier).Symbol is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None }
+            && _model.GetTypeInfo(identifier).Type is { IsRefLikeType: false } variableType
+            && variableType.TypeKind != TypeKind.Pointer
+            && node.Parent?.Parent is InvocationExpressionSyntax invocation
+            && _model.GetSymbolInfo(invocation).Symbol is IMethodSymbol target
+            && ContainingTypeName(target) is { } targetType
+            && (ShimTypes.Contains(targetType) || targetType.StartsWith("System.Runtime.Intrinsics.", StringComparison.Ordinal))
+            && target.Name is not ("SizeOf" or "SkipInit" or "AreSame" or "IsAddressLessThan" or "IsAddressGreaterThan" or "ByteOffset")
+            && !(target.Name == "As" && target.TypeArguments.Any(t => t.IsRefLikeType)))
+        {
+            Report(node, "ref local/parameter", "register (the variable itself)", identifier.Identifier.Text);
+            Count++;
+            return visited.WithExpression(SyntaxFactory.ParseExpression(
+                $"{Shim}Local(ref {visited.Expression}, \"{Site(node)}\")").WithTriviaFrom(visited.Expression));
+        }
+
         return visited;
     }
 
