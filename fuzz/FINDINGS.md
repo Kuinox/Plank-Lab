@@ -254,8 +254,16 @@ AccessViolation. `fuzz/tools/guard-selftest.sh` proves each layer fires.
   ~3,000 writer/merger program mutants per mode in the ISA-flip tier and ~10,000 end-mode in the default tier (v6,
   guarded value arrays).
 
-Still running at the time of writing (`job-24574813-guard-v7-*`, results in `agents/guard/runs/{v7,q7}`): all of the
-above again on the final build for every tier/mode with more writer mutants, and the AFL campaign's queues (~18k).
+- the AFL campaign's queues in end mode: reader 8,770, writer 11,221, merger 11,221 inputs (run q7).
+
+**Positive control (#276).** The row-API slot buffers are managed arrays written by generated setters with
+`Unsafe.Add` (no bounds check), so the page guards alone did not see #276: its seeds failed identically with guard on
+and off. Built with `-p:PlankGuardArrays=true` (row-API allocations rewritten to guarded fake arrays in a build copy),
+`rowapi-direct-rowgroup.bin` and `rowapi-wide{,-nullable}-direct-groups-1.bin` die with an AccessViolation at the
+first out-of-bounds store in the generated setter (end mode) or a `GUARD-VIOLATION overrun write` on release (start
+mode). With the #276 fix applied to the build copy only, the 17 #276-route seeds pass in every mode. The runs above
+predate the array guard, so the v8 campaign (`job-24574813-guard-v8-*`, results in `agents/guard/runs/{v8,q8}`)
+repeats everything with it, the local #276 fix and the #276 routes included.
 
 Found on the way, none of them a Plank bug:
 
