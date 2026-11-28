@@ -336,6 +336,16 @@ and with ParquetSharp.
   (7.8 GB for a 2,047-row, 1,000-group, 6-column file). Repro: [`repros/serialized-column-per-row-group-retained/`](repros/serialized-column-per-row-group-retained/)
   (`Plank.Fuzzing.Scale repro serialized-column-per-row-group-retained <dir>`). Resource defect, no data impact.
 
+- **TIME(NANOS) values -1 … -99 are read as `TimeOnly` 00:00:00 instead of refused.** The range check runs after truncating to
+  100 ns ticks; -100 and below and every negative TIME(MICROS) value are refused with `CorruptParquetException`. Wrong value for
+  invalid input, low severity. Repro: [`repros/time-nanos-negative-accepted/`](repros/time-nanos-negative-accepted/)
+  (`Plank.Fuzzing.Scale repro time-nanos-negative <dir>`). Found by the `types` mode (every logical type at scale).
+
+Logical-type limitations seen by the `types` mode (refusals, not wrong values): `RowGroup.Column<Guid>` is refused on purpose
+(UUID is read as bytes by the logical API; the row API maps Guid); `System.Decimal` input is refused for precision > 29 even
+when every value fits; BYTE_ARRAY decimals in DELTA_LENGTH_BYTE_ARRAY / DELTA_BYTE_ARRAY pages cannot be read as `decimal`
+("cannot be decoded into pooled values of type System.Decimal") while PLAIN / dictionary pages of the same column can.
+
 Triaged as not Plank defects (scale driver, 2026-11-28): Arrow C++ writes `±FLT_MAX`/`±DBL_MAX` as the float/double bound when the
 extreme value is an infinity (a valid, inexact bound that Plank reports exactly as stored; the `arrow` mode checks bounds, not
 equality); `BufferChunkSizeBytes` of 1–4095 bytes with large initial buffer sizes makes segment tables of

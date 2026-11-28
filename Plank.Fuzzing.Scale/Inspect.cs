@@ -156,6 +156,80 @@ public static class Repros
                 }
                 return exit;
             }
+            case "time-nanos-negative":
+            {
+                // TIME(NANOS) and TIME(MICROS) columns holding the same raw values; read as TimeOnly one value at a time.
+                long[] raws = [-1, -5, -99, -100, -101, 0, 99, 86_399_999_999_999, 86_400_000_000_000, 86_400_000_000_099];
+                var exit = 0;
+                foreach (var unit in new[] { Plank.Schema.TimeUnit.Nanos, Plank.Schema.TimeUnit.Micros })
+                    foreach (var raw in raws)
+                    {
+                        var schema = new Plank.Schema.ParquetSchema([Plank.Schema.ColumnDefinition.RequiredLeaf("t",
+                            Plank.Schema.ParquetPhysicalType.Int64, logicalType: new Plank.Schema.LogicalType.Time(unit, false))]);
+                        var output = new MemoryStream();
+                        using (var writer = schema.CreateWriter(output))
+                        {
+                            var column = writer.CreateSerializedColumn<long>(schema.LeafColumns[0]);
+                            var rg = writer.StartRowGroup();
+                            column.Serialize([raw]);
+                            rg.Write(column);
+                            writer.CloseFile();
+                        }
+                        using var reader = new Plank.Reading.Logical.ParquetReader();
+                        reader.Reset(new Plank.Reading.MemoryReadSource(output.ToArray()));
+                        string result;
+                        try
+                        {
+                            TimeOnly? got = null;
+                            foreach (Plank.Reading.Logical.RowGroup g in reader.RowGroups)
+                                foreach (var b in g.Column<TimeOnly>(reader.Schema.LeafColumns[0]))
+                                    got = b.Values[0];
+                            result = $"TimeOnly {got:HH:mm:ss.fffffff} ({got?.Ticks} ticks)";
+                            var perDay = unit == Plank.Schema.TimeUnit.Nanos ? 86_400_000_000_000L : 86_400_000_000L;
+                            if (raw < 0 || raw >= perDay) { result += "  <-- invalid time of day accepted"; exit = 1; }
+                        }
+                        catch (Exception ex) { result = $"{ex.GetType().Name}: {ex.Message}"; }
+                        Console.WriteLine($"TIME({unit}) raw {raw,20}: {result}");
+                    }
+                return exit;
+            }
+            case "int96-negative-nanos":
+            {
+                // INT96 values with a valid Julian day (2440588 = 1970-01-01) and out-of-range nanoseconds of day.
+                long[] nanos = [-1, -99, -100, -86_400_000_000_000, 0, 86_399_999_999_999, 86_400_000_000_000, long.MaxValue];
+                var exit = 0;
+                foreach (var n in nanos)
+                {
+                    var schema = new Plank.Schema.ParquetSchema([Plank.Schema.ColumnDefinition.RequiredLeaf("t", Plank.Schema.ParquetPhysicalType.Int96)]);
+                    var output = new MemoryStream();
+                    var raw = new byte[12];
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(raw, n);
+                    System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(8), 2440588);
+                    using (var writer = schema.CreateWriter(output))
+                    {
+                        var column = writer.CreateSerializedColumn<byte[]>(schema.LeafColumns[0]);
+                        var rg = writer.StartRowGroup();
+                        column.Serialize([raw]);
+                        rg.Write(column);
+                        writer.CloseFile();
+                    }
+                    using var reader = new Plank.Reading.Logical.ParquetReader();
+                    reader.Reset(new Plank.Reading.MemoryReadSource(output.ToArray()));
+                    string result;
+                    try
+                    {
+                        DateTime? got = null;
+                        foreach (Plank.Reading.Logical.RowGroup g in reader.RowGroups)
+                            foreach (var b in g.Column<DateTime>(reader.Schema.LeafColumns[0]))
+                                got = b.Values[0];
+                        result = $"DateTime {got:O}";
+                        if (n < 0 || n >= 86_400_000_000_000L) { result += "  <-- nanoseconds outside the day accepted"; exit = 1; }
+                    }
+                    catch (Exception ex) { result = $"{ex.GetType().Name}: {ex.Message}"; }
+                    Console.WriteLine($"INT96 day 2440588 nanos {n,20}: {result}");
+                }
+                return exit;
+            }
             default:
                 Console.Error.WriteLine("unknown repro " + name);
                 return 2;

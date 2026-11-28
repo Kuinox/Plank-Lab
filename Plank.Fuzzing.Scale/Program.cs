@@ -57,7 +57,9 @@ static class Program
         }
         Console.WriteLine($"campaign {mode} tier {t} seeds {seed}..{seed + (ulong)count - 1}: {findings} findings in {sw.Elapsed}; " +
                           $"values={Verify.Values} arrow={Verify.ArrowValues} rows={RowRead.Rows} chunks={Verify.Chunks} pages={Verify.Pages} " +
-                          $"selftestCaught={s_selfTestCaught} arrowSkipped={Verify.ArrowSkipped} arrowHugeHeader={Verify.ArrowSkippedHugeHeader} stats={Verify.StatsChecked} statsMissing={Verify.StatsMissing} bloom={Verify.BloomProbes} pruned={Verify.PrunedPages}");
+                           $"semantic={TypesVerify.SemanticValues} refusals={TypesVerify.SemanticRefusals} selftestCaught={s_selfTestCaught} arrowSkipped={Verify.ArrowSkipped} arrowHugeHeader={Verify.ArrowSkippedHugeHeader} stats={Verify.StatsChecked} statsMissing={Verify.StatsMissing} bloom={Verify.BloomProbes} pruned={Verify.PrunedPages}");
+        foreach (var (key, n) in TypesVerify.Refused.OrderBy(kv => kv.Key))
+            Console.WriteLine($"REFUSED {n} x {key}");
         return findings == 0 ? 0 : 1;
     }
 
@@ -81,6 +83,7 @@ static class Program
                 case "arrow": ArrowFiles(rng, tier, describe); break;
                 case "manyrows": ManyRows.Run(rng, tier, describe); break;
                 case "rgwriter": RowGroupRowWriter(rng, tier, describe); break;
+                case "types": TypesMode(rng, tier, describe); break;
                 case "merge": Merge(rng, tier, describe); break;
                 default: throw new ArgumentException("unknown mode " + mode);
             }
@@ -459,6 +462,36 @@ static class Program
                 writer.CloseFile();
             }
             VerifyAll(path, new Expected { Cols = specs, Rows = rows, RowGroupSizes = [.. groups] }, rng, describe, scaleRow: true);
+        }
+        finally { Keep(path); File.Delete(path); }
+    }
+
+    /// <summary>Every logical type (decimal in all layouts and precisions, timestamps in all units, INT96, DATE, TIME, UUID,
+    /// FLOAT16, INTERVAL, ENUM/JSON/BSON, INT(n, signed/unsigned)), required and optional, at sizes crossing the thresholds.</summary>
+    static void TypesMode(Rng rng, int tier, List<string> describe)
+    {
+        var (rows, columns) = tier switch
+        {
+            0 => (rng.Pick(1L, 2L, 1025L, 2047L, 2048L, 2049L, 16383L, 16384L, 16385L, 32769L, rng.Long(40_000)), 1 + rng.Int(10)),
+            1 => (rng.Pick(65537L, 200_000L, 262_145L, rng.Long(500_000)), 1 + rng.Int(6)),
+            _ => (rng.Pick(1L << 20, 3_000_000L), 1 + rng.Int(3)),
+        };
+        var types = Enumerable.Range(0, columns).Select(i => LType.Draw(rng, $"t{i}", rows, rng.Chance(50))).ToArray();
+        var groups = Writers.DrawRowGroups(rng, rows);
+        var options = Writers.DrawOptions(rng, rows, tier, rowApi: false, columns);
+        describe.Add($"types rows={rows} cols={columns} groups={groups.Length} page={options.TargetDataPageSizeBytes} v{(int)options.DataPageVersion} idx={options.WritePageIndexes}");
+        describe.AddRange(types.Select(t => t.ToString()));
+        var path = TempFile("types");
+        try
+        {
+            string[] modes;
+            using (var output = File.Create(path))
+                modes = TypesWriter.Write(output, types, groups, options, rng);
+            describe.Add("input: " + string.Join(",", modes));
+            var e = new Expected { Cols = [.. types.Select(t => t.Spec)], Rows = rows, RowGroupSizes = groups };
+            VerifyAll(path, e, rng, describe, scaleRow: false);
+            using (var source = new FileReadSource(path))
+                TypesVerify.Check(source, types, e);
         }
         finally { Keep(path); File.Delete(path); }
     }

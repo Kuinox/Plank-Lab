@@ -78,13 +78,27 @@ public static class Verify
             if (spec.IsNull(r)) { Nulls++; return; }
             if (spec.Kind == Kind.Double && double.IsNaN(spec.Double(r))) return;
             if (spec.Kind == Kind.Float && float.IsNaN(spec.Float(r))) return;
-            OnlyNaN = false;
             var v = spec.PlainBytes(r);
+            if (spec.Order == StatOrder.Half && Half.IsNaN(BitConverter.UInt16BitsToHalf(BinaryPrimitives.ReadUInt16LittleEndian(v)))) return;
+            OnlyNaN = false;
             if (!Has) { Min = Max = v; Has = true; return; }
-            if (Cmp(spec.Kind, v, Min!) < 0) Min = v;
-            if (Cmp(spec.Kind, v, Max!) > 0) Max = v;
+            if (CmpSpec(spec, v, Min!) < 0) Min = v;
+            if (CmpSpec(spec, v, Max!) > 0) Max = v;
         }
     }
+
+    /// <summary>Compare two plain values in the column's type-defined order.</summary>
+    public static int CmpSpec(ColSpec s, ReadOnlySpan<byte> a, ReadOnlySpan<byte> b) => s.Order switch
+    {
+        StatOrder.Unsigned when s.Kind == Kind.Int32 => BinaryPrimitives.ReadUInt32LittleEndian(a).CompareTo(BinaryPrimitives.ReadUInt32LittleEndian(b)),
+        StatOrder.Unsigned when s.Kind == Kind.Int64 => BinaryPrimitives.ReadUInt64LittleEndian(a).CompareTo(BinaryPrimitives.ReadUInt64LittleEndian(b)),
+        StatOrder.SignedBigEndian => new System.Numerics.BigInteger(a, isUnsigned: false, isBigEndian: true)
+            .CompareTo(new System.Numerics.BigInteger(b, isUnsigned: false, isBigEndian: true)),
+        StatOrder.Half => HalfOf(a) == HalfOf(b) ? 0 : HalfOf(a).CompareTo(HalfOf(b)),
+        _ => Cmp(s.Kind, a, b),
+    };
+
+    static float HalfOf(ReadOnlySpan<byte> v) => (float)BitConverter.UInt16BitsToHalf(BinaryPrimitives.ReadUInt16LittleEndian(v));
 
     public static int Cmp(Kind kind, ReadOnlySpan<byte> a, ReadOnlySpan<byte> b) => kind switch
     {
@@ -195,6 +209,8 @@ public static class Verify
 
     public static ReadOnlySpan<byte> ExpectedBytes(ColSpec spec, long r)
     {
+        if (spec.RawBytes is { } raw)
+            return raw(r);
         var b = spec.Base(r);
         var length = spec.ByteLength(b);
         var scratch = t_scratch;
@@ -314,17 +330,30 @@ public static class Verify
                 StatsMissing++;
             return;
         }
+        if (spec.Order == StatOrder.None)
+        {
+            // No defined order (INT96, INTERVAL): a writer must not claim bounds.
+            Fail($"{where}: min/max written for a column without a defined sort order");
+        }
         StatsChecked++;
         if (!acc.Has)
         {
             if (acc.OnlyNaN && acc.Nulls == 0 && spec.Kind is Kind.Double or Kind.Float)
                 return; // all-NaN chunks: bound policy left to the writer
-            if (acc.OnlyNaN && spec.Kind is Kind.Double or Kind.Float)
+            if (acc.OnlyNaN && (spec.Kind is Kind.Double or Kind.Float || spec.Order == StatOrder.Half))
                 return;
             Fail($"{where}: min/max present for a chunk with no non-null values");
         }
         var min = s.Minimum;
         var max = s.Maximum;
+        if (spec.Order is StatOrder.SignedBigEndian or StatOrder.Half)
+        {
+            if (CmpSpec(spec, min, acc.Min) != 0)
+                Fail($"{where}: min {Hex(min)} != actual {Hex(acc.Min)} ({spec.Order})");
+            if (CmpSpec(spec, max, acc.Max!) != 0)
+                Fail($"{where}: max {Hex(max)} != actual {Hex(acc.Max!)} ({spec.Order})");
+            return;
+        }
         if (spec.Kind.IsBinary())
         {
             var cMin = min.SequenceCompareTo(acc.Min);
@@ -337,9 +366,9 @@ public static class Verify
         }
         if (min.Length != acc.Min!.Length || max.Length != acc.Max!.Length)
             Fail($"{where}: bound widths {min.Length}/{max.Length}");
-        if (boundsOnly ? Cmp(spec.Kind, min, acc.Min) > 0 : Cmp(spec.Kind, min, acc.Min) != 0)
+        if (boundsOnly ? CmpSpec(spec, min, acc.Min) > 0 : CmpSpec(spec, min, acc.Min) != 0)
             Fail($"{where}: min {Hex(min)} != actual {Hex(acc.Min)}{(boundsOnly ? " (not a lower bound)" : "")}");
-        if (boundsOnly ? Cmp(spec.Kind, max, acc.Max!) < 0 : Cmp(spec.Kind, max, acc.Max!) != 0)
+        if (boundsOnly ? CmpSpec(spec, max, acc.Max!) < 0 : CmpSpec(spec, max, acc.Max!) != 0)
             Fail($"{where}: max {Hex(max)} != actual {Hex(acc.Max!)}{(boundsOnly ? " (not an upper bound)" : "")}");
     }
 
@@ -507,6 +536,8 @@ public static class Verify
                     Kind.Double => ArrowRead((Ps.ColumnReader<double>)column, spec, e, start, where, static (s, r, v) => BitConverter.DoubleToInt64Bits(s.Double(r)) == BitConverter.DoubleToInt64Bits(v)),
                     Kind.Float => ArrowRead((Ps.ColumnReader<float>)column, spec, e, start, where, static (s, r, v) => BitConverter.SingleToInt32Bits(s.Float(r)) == BitConverter.SingleToInt32Bits(v)),
                     Kind.Bool => ArrowRead((Ps.ColumnReader<bool>)column, spec, e, start, where, static (s, r, v) => s.Bool(r) == v),
+                    Kind.Int96 => ArrowRead((Ps.ColumnReader<Ps.Int96>)column, spec, e, start, where,
+                        static (s, r, v) => System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<Ps.Int96>(in v)).SequenceEqual(ExpectedBytes(s, r))),
                     Kind.Fixed => ArrowRead((Ps.ColumnReader<Ps.FixedLenByteArray>)column, spec, e, start, where,
                         static (s, r, v) => new ReadOnlySpan<byte>((void*)v.Pointer, s.L1).SequenceEqual(ExpectedBytes(s, r))),
                     _ => ArrowRead((Ps.ColumnReader<Ps.ByteArray>)column, spec, e, start, where,

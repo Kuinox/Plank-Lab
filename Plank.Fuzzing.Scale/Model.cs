@@ -34,11 +34,14 @@ public sealed class Rng(ulong seed)
     }
 }
 
-public enum Kind { Int32, Int64, Double, Float, Bool, Bytes, String, Fixed }
+public enum Kind { Int32, Int64, Double, Float, Bool, Bytes, String, Fixed, Int96 }
+
+/// <summary>Sort order of a column's statistics (Parquet TypeDefinedOrder by logical type).</summary>
+public enum StatOrder { Default, Unsigned, SignedBigEndian, Half, None }
 
 public static class KindExt
 {
-    public static bool IsBinary(this Kind k) => k is Kind.Bytes or Kind.String or Kind.Fixed;
+    public static bool IsBinary(this Kind k) => k is Kind.Bytes or Kind.String or Kind.Fixed or Kind.Int96;
 }
 
 /// <summary>
@@ -65,6 +68,13 @@ public sealed class ColSpec
     public ImmutableArray<EncodingKind> Encodings = [];
     public CompressionKind? Compression;
     public bool Bloom;
+    // Logical-type columns (types mode): the physical value comes from these instead of the base pattern.
+    public Func<long, int>? Raw32;
+    public Func<long, long>? Raw64;
+    public Func<long, byte[]>? RawBytes;
+    public LogicalType? Logical;
+    public StatOrder Order;
+    public string? TypeName;
     public double BloomFpp = 0.01;
     public uint? BloomNdv;
     public uint BloomMaxBytes = 128 << 20;
@@ -79,7 +89,7 @@ public sealed class ColSpec
          32767, 32768, 32769, 65535, 65536, 65537, 1 << 20, (1 << 20) + 1];
 
     public override string ToString()
-        => $"{Name}:{Kind}{(Optional ? "?" : "")} pat={Pattern}({P1},{P2},{P3}) null={NullPattern}({N1},{N2}) len={LenMode}({L1},{L2},{L3}) sp={SpecialEvery} enc=[{string.Join(",", Encodings)}] comp={Compression}{(CompressionLevel is { } l ? "/" + l : "")} bloom={Bloom}{(Bloom ? $"(fpp={BloomFpp},ndv={BloomNdv},max={BloomMaxBytes})" : "")}";
+        => $"{Name}:{TypeName ?? Kind.ToString()}{(Optional ? "?" : "")} pat={Pattern}({P1},{P2},{P3}) null={NullPattern}({N1},{N2}) len={LenMode}({L1},{L2},{L3}) sp={SpecialEvery} enc=[{string.Join(",", Encodings)}] comp={Compression}{(CompressionLevel is { } l ? "/" + l : "")} bloom={Bloom}{(Bloom ? $"(fpp={BloomFpp},ndv={BloomNdv},max={BloomMaxBytes})" : "")}";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ulong H(long r, ulong salt = 0) => Rng.Mix(Seed ^ salt ^ (ulong)r * 0xD6E8FEB86659FD93UL);
@@ -127,11 +137,13 @@ public sealed class ColSpec
 
     public int Int32(long r)
     {
+        if (Raw32 is { } raw32)
+            return raw32(r);
         var b = Base(r);
         return Pattern == 8 ? (H(r) % 5) switch { 0 => int.MinValue, 1 => int.MaxValue, 2 => 0, 3 => -1, _ => 1 } : unchecked((int)b);
     }
 
-    public long Int64(long r) => Base(r);
+    public long Int64(long r) => Raw64 is { } raw64 ? raw64(r) : Base(r);
 
     public double Double(long r)
     {
@@ -194,6 +206,8 @@ public sealed class ColSpec
 
     public byte[] Bytes(long r)
     {
+        if (RawBytes is { } raw)
+            return raw(r);
         var b = Base(r);
         var length = ByteLength(b);
         var bytes = new byte[length];
@@ -231,6 +245,7 @@ public sealed class ColSpec
         Kind.Float => ParquetPhysicalType.Float,
         Kind.Bool => ParquetPhysicalType.Boolean,
         Kind.Fixed => ParquetPhysicalType.FixedLenByteArray,
+        Kind.Int96 => ParquetPhysicalType.Int96,
         _ => ParquetPhysicalType.ByteArray,
     };
 
@@ -396,7 +411,7 @@ public sealed class ColSpec
         var bloom = Bloom ? new ParquetBloomFilterOptions { FalsePositiveProbability = BloomFpp, ExpectedDistinctValueCount = BloomNdv, MaximumBytes = BloomMaxBytes } : null;
         var options = new ColumnOptions(encodings: Encodings, typeLength: Kind == Kind.Fixed ? (uint)L1 : 0, compression: Compression,
             compressionLevel: CompressionLevel, bloomFilter: bloom);
-        LogicalType? logical = Kind == Kind.String ? new LogicalType.String() : null;
+        var logical = Logical ?? (Kind == Kind.String ? new LogicalType.String() : null);
         return Optional
             ? ColumnDefinition.OptionalLeaf(Name, Physical, options, logical)
             : ColumnDefinition.RequiredLeaf(Name, Physical, options, logical);
