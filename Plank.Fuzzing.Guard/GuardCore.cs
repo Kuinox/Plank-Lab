@@ -60,6 +60,8 @@ internal static unsafe class GuardCore
     internal const byte Canary = 0xCD;
     internal const byte Poison = 0xDB;
     const long QuarantineLimitBytes = 64L * 1024 * 1024;
+    const int FillWindow = 64 * 1024;
+    const int MapFixed = 0x10;
     const int QuarantineLimitCount = 1024;
 
     internal static readonly int PageSize = Environment.SystemPageSize;
@@ -166,8 +168,17 @@ internal static unsafe class GuardCore
         }
 
         // Canary everything, the data included: pooled and native memory is never zero, and a decoder that relies
-        // on zeroed memory should be seen doing it.
-        new Span<byte>((void*)rw, (int)rwBytes).Fill(Canary);
+        // on zeroed memory should be seen doing it. Large buffers get it on their first and last FillWindow bytes
+        // only (the rest stays fresh zero pages): touching all of it commits memory a real allocator would not.
+        if (rwBytes <= 2 * FillWindow)
+        {
+            new Span<byte>((void*)rw, (int)rwBytes).Fill(Canary);
+        }
+        else
+        {
+            new Span<byte>((void*)rw, FillWindow).Fill(Canary);
+            new Span<byte>((void*)(rw + (nint)rwBytes - FillWindow), FillWindow).Fill(Canary);
+        }
 
         var region = new GuardRegion
         {
@@ -264,9 +275,18 @@ internal static unsafe class GuardCore
             return;
         }
 
-        new Span<byte>((void*)region.RwStart, region.RwLength).Fill(Poison);
-        if (Mprotect(region.RwStart, (nuint)region.RwLength, ProtNone) != 0)
-            throw new InvalidOperationException($"guard mprotect failed (errno {Marshal.GetLastPInvokeError()})");
+        if (region.RwLength <= 2 * FillWindow)
+        {
+            new Span<byte>((void*)region.RwStart, region.RwLength).Fill(Poison);
+            if (Mprotect(region.RwStart, (nuint)region.RwLength, ProtNone) != 0)
+                throw new InvalidOperationException($"guard mprotect failed (errno {Marshal.GetLastPInvokeError()})");
+        }
+        else if (Mmap(region.RwStart, (nuint)region.RwLength, ProtNone, MapPrivate | MapAnonymous | MapFixed, -1, 0) !=
+                 region.RwStart)
+        {
+            // A fresh PROT_NONE mapping over a large buffer drops its pages but keeps the range reserved.
+            throw new InvalidOperationException($"guard remap failed (errno {Marshal.GetLastPInvokeError()})");
+        }
 
         lock (QuarantineGate)
         {

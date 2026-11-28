@@ -12,7 +12,14 @@ GUARD-VIOLATION FailFast), the last `GUARD-INPUT` line names the culprit: it is 
 <out>/deaths/, and the batch resumes after it. FAULT/CRASH/MISMATCH lines are collected in <out>/faults.tsv.
 A summary line goes to <out>/summary.txt. Restart-safe: finished batches are recorded in <out>/done.txt.
 """
-import hashlib, os, shutil, subprocess, sys
+import hashlib, os, resource, shutil, subprocess, sys
+
+# Committed writable memory per replay process (RLIMIT_DATA counts private writable mappings, not the GC's PROT_NONE
+# reservations): an input that wants more gets OutOfMemory (a FAULT line) instead of the kernel OOM-killing the shard.
+DATA_LIMIT = int(os.environ.get("GUARD_DATA_LIMIT_MB", "2304")) * 1024 * 1024
+
+def limit_memory():
+    resource.setrlimit(resource.RLIMIT_DATA, (DATA_LIMIT, DATA_LIMIT))
 
 TIERS = {
     "default": {},
@@ -68,7 +75,8 @@ def main():
         pending = files[b:b + BATCH]
         while pending:
             proc = subprocess.run(["nice", "-n", "10", exe, target, *pending], env=env,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3600)
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=3600,
+                                  preexec_fn=limit_memory)
             err = proc.stderr.decode("utf-8", "replace")
             outp = proc.stdout.decode("utf-8", "replace")
             for line in err.splitlines():
