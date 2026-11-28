@@ -320,11 +320,13 @@ internal static unsafe class GuardCore
     const int ArrayHeader = 24;
 
     internal static T[] AllocateArray<T>(int count, GuardMode mode, string owner, out GuardRegion region)
-        where T : unmanaged
+        // No constraint: Nullable<T> must be allowed; references are refused at run time.
     {
         if (IntPtr.Size != 8)
             throw new PlatformNotSupportedException("guard arrays need a 64-bit runtime");
-        var elementSize = sizeof(T);
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            throw new ArgumentException($"{typeof(T)} contains references: the GC must see its elements.");
+        var elementSize = Unsafe.SizeOf<T>();
         region = Allocate((long)count * elementSize, ArrayHeader, Math.Min(8, elementSize), mode, owner + $" {typeof(T).Name}[{count}]");
         var objectStart = region.Data - 16;
         *(long*)(region.Data - 24) = 0;
@@ -333,11 +335,11 @@ internal static unsafe class GuardCore
         return Unsafe.As<nint, T[]>(ref objectStart);
     }
 
-    internal static void ReleaseArray<T>(T[] array, GuardRegion region) where T : unmanaged
+    internal static void ReleaseArray<T>(T[] array, GuardRegion region)
     {
         var typeHandle = *(nint*)(region.Data - 16);
         var length = *(long*)(region.Data - 8);
-        if (typeHandle != typeof(T[]).TypeHandle.Value || length != region.Length / sizeof(T))
+        if (typeHandle != typeof(T[]).TypeHandle.Value || length != region.Length / Unsafe.SizeOf<T>())
             Report($"guard array header overwritten (underrun write?) mt=0x{typeHandle:x} length={length} {region}");
         GC.KeepAlive(array);
         Release(region);

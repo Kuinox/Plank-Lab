@@ -2666,51 +2666,67 @@ public static class PlankWriterFuzzTarget
         : spec.ClrType == typeof(DoubleBox?) ? writer.CreateSerializedColumn<DoubleBox?>(column)
         : writer.CreateSerializedColumn<byte[]>(column);
 
+    // PLANK_FUZZ_GUARD=end|start: the value arrays handed to Serialize live in page-guarded memory (each binary value
+    // in its own guarded byte[]), so an encoder reading past a caller's values faults. Released with the input's scope.
+    static T[] Guarded<T>(Array values)
+        => GuardMemory.Enabled ? GuardMemory.ToArray<T>((T[])values) : (T[])values;
+
+    static byte[][] GuardedBinary(Array values)
+    {
+        var source = (byte[][])values;
+        if (!GuardMemory.Enabled)
+            return source;
+        var guarded = new byte[source.Length][];
+        for (var i = 0; i < source.Length; i++)
+            guarded[i] = source[i] is null ? null! : GuardMemory.ToArray(source[i]);
+        return guarded;
+    }
+
     static void SerializeColumn(object serializedColumn, Array values)
     {
         switch (serializedColumn)
         {
             case SerializedColumn<bool> typed:
-                typed.Serialize((bool[])values);
+                typed.Serialize(Guarded<bool>(values));
                 return;
             case SerializedColumn<bool?> typed:
-                typed.Serialize((bool?[])values);
+                typed.Serialize(Guarded<bool?>(values));
                 return;
             case SerializedColumn<int> typed:
-                typed.Serialize((int[])values);
+                typed.Serialize(Guarded<int>(values));
                 return;
             case SerializedColumn<int?> typed:
-                typed.Serialize((int?[])values);
+                typed.Serialize(Guarded<int?>(values));
                 return;
             case SerializedColumn<long> typed:
-                typed.Serialize((long[])values);
+                typed.Serialize(Guarded<long>(values));
                 return;
             case SerializedColumn<long?> typed:
-                typed.Serialize((long?[])values);
+                typed.Serialize(Guarded<long?>(values));
                 return;
             case SerializedColumn<double> typed:
-                typed.Serialize((double[])values);
+                typed.Serialize(Guarded<double>(values));
                 return;
             case SerializedColumn<double?> typed:
-                typed.Serialize((double?[])values);
+                typed.Serialize(Guarded<double?>(values));
                 return;
             case SerializedColumn<float> typed:
-                typed.Serialize((float[])values);
+                typed.Serialize(Guarded<float>(values));
                 return;
             case SerializedColumn<float?> typed:
-                typed.Serialize((float?[])values);
+                typed.Serialize(Guarded<float?>(values));
                 return;
             case SerializedColumn<IntBox> typed:
-                typed.Serialize((IntBox[])values);
+                typed.Serialize(Guarded<IntBox>(values));
                 return;
             case SerializedColumn<LongBox?> typed:
-                typed.Serialize((LongBox?[])values);
+                typed.Serialize(Guarded<LongBox?>(values));
                 return;
             case SerializedColumn<DoubleBox?> typed:
-                typed.Serialize((DoubleBox?[])values);
+                typed.Serialize(Guarded<DoubleBox?>(values));
                 return;
             case SerializedColumn<byte[]> typed:
-                typed.Serialize((byte[][])values);
+                typed.Serialize(GuardedBinary(values));
                 return;
             default:
                 throw new InvalidOperationException($"Unsupported serialized column type '{serializedColumn.GetType()}'.");

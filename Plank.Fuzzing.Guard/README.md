@@ -27,6 +27,7 @@ SIGSEGV. A canary or header violation prints `GUARD-VIOLATION ...` and FailFasts
 | Reader target pool (`PlankReaderFuzzTarget.Execute`), `ExactFitBufferPool`, `WriterFuzzPool` (all kinds) | `GuardBufferPool`: every rent is a fresh mapping of exactly the requested length, header right before it; on return the header is checked, the buffer poisoned and PROT_NONE'd | Exact (end mode) |
 | Harness canary pools `TrackingPool` (execution target), `PoisonPool` (lifetime cases) | `GuardMemory.AllocHGlobal`: the whole block (incl. its 64 trailing canary bytes) ends at the guard page | Past the 64-byte canary |
 | Reader input file bytes (`data[1..]`, every probe's `payload`/`fileBytes` copy) and the replay/AFL input itself | `GuardMemory.ToArray`: a **real `byte[]`** whose elements end (start) at the guard page, built outside the GC heap (sync block + MethodTable + length written by hand). `MemoryMarshal.TryGetArray` succeeds, so `MemoryReadSource`'s zero-copy borrow path is guarded too. Released at the end of the input (`GuardScope`) | Exact |
+| Writer value inputs of the generic writer route (`PlankWriterFuzzTarget.SerializeColumn`: `bool/int/long/float/double` and their nullables, `IntBox/LongBox?/DoubleBox?`, and every `byte[]` value of `byte[][]`) | `GuardMemory.ToArray<T>`: guarded fake arrays (any value type without references, `Nullable<T>` included) | Exact |
 | Native-memory sources | `GuardMemory.NativeCopy`: `ReadOnlyMemory<byte>` over a `MemoryManager<byte>` (forces the copy path) | Exact |
 
 The fake arrays were checked against forced compacting gen-2 GCs while referenced from heap objects, also after
@@ -38,8 +39,8 @@ being made PROT_NONE: the GC never touches objects outside its heap ranges.
   BloomFilterBuilder, ByteStreamSplitEncoding, DeltaBinaryPackedEncoding, PhysicalSchemaBinder),
   `ParquetDecompressor` (`new byte[expectedLength]`), and all `stackalloc` buffers (~60 sites, all fixed small sizes or
   `<= 256` guards). The CLR bounds-checks safe span indexing; only `Unsafe`/pointer access past them goes unseen.
-- Value arrays the writer targets build (`int[]`, `long[]`, `string[]` …): routed through the targets' own code;
-  `GuardMemory.ToArray<T>` exists for unmanaged ones but is not wired into each case file yet.
+- Value arrays the ~270 other `Serialize(...)` call sites in the writer case files build (only the generic writer
+  route's `SerializeColumn` is wired); `string[]`/`object` values (references cannot live outside the GC heap).
 - Writer output read back from `MemoryStream.ToArray()` by writer/merger/dataset round trips (reads of it go
   through pool buffers, which are guarded; the borrow path over those arrays is not).
 - K4os.Compression.LZ4's own state (`Mem.Alloc` = AllocHGlobal, `ArrayPool<byte>.Shared`); its decoders read and

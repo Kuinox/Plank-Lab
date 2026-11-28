@@ -39,8 +39,11 @@ public static class GuardMemory
         return array;
     }
 
-    /// <summary>Same as <see cref="ToArray(ReadOnlySpan{byte}, GuardScope?)"/> for unmanaged values (writer inputs).</summary>
-    public static T[] ToArray<T>(ReadOnlySpan<T> values, GuardScope? scope = null) where T : unmanaged
+    /// <summary>
+    /// Same as <see cref="ToArray(ReadOnlySpan{byte}, GuardScope?)"/> for value types without references (including
+    /// nullable primitives), for writer inputs.
+    /// </summary>
+    public static T[] ToArray<T>(ReadOnlySpan<T> values, GuardScope? scope = null)
     {
         if (!GuardCore.Enabled)
             return values.ToArray();
