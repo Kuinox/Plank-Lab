@@ -227,6 +227,9 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
   must be 0", "levels <= maxima" and the dense count are validated. 61 distinct mutants of the nested seeds hit this (all faulted in `NestedRowMaterializer`, which is right for required elements).
   Repro: `fuzz/repros/nested-levels-row-count-mismatch/levels-continuation-with-empty-def.bin` (+ README). Also noted there: the columnar reader returns more rows than the row group declares (373 vs 200), the row API truncates.
 
+- **Boolean RLE (batched decoder) ignores the 4-byte section length** (low severity, reader agent 2026-11-28): the columnar reader decodes bytes beyond the declared RLE section, the row API's whole-page decoder rejects the same page, ParquetSharp rejects it.
+  Repro: `fuzz/repros/boolean-rle-declared-length/`. The `NestedRowMaterializer` level model needed no change: master already derives collection levels from the schema tree (`SchemaCollectionLevels`); 450 valid nested seeds (optional elements included) give no fault while the 61 impossible-level mutants still do.
+
 ## Fuzz-harness defects (fixed)
 
 - `DecimalBinaryStatisticsCoverageCase` (`DBS1`): any control byte >= 2 drew the third value set but the expectation was only
