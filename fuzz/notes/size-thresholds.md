@@ -87,3 +87,25 @@ otherwise); `inspect <file>` and `repro <name> <dir>` are triage helpers. Each f
 `MemoryReadSource` (values, nulls, chunk statistics, offset/column index per page, Bloom no-false-negative), a projected read
 with a random page pruner (values must equal exactly the kept pages' rows), the generated row reader (random projection,
 WorkerCount, read-ahead) and typed reader, and ParquetSharp (Arrow C++).
+
+## Results so far (2026-11-28, Plank 3a6a28a)
+
+Campaign logs: `agents/scale/runs/<tag>.log` / `.findings` in the shared workspace (not committed). No silent data corruption,
+no memory unsafety, no hang and no concurrency difference was found in any of:
+
+| Mode / tier | Cases | Checked |
+|---|---|---|
+| columnar t0 / t1 / t2 | ~250 / 105 / 6 | 0.5 G values, 4M Bloom probes, 600k pages of column/offset index; up to 6M rows, 3000 columns, 1000 row groups |
+| row t0 / t1 | ~80 / 20 | 9M rows through the multi-worker row reader, 4M chunks; onFlush counts = row groups |
+| rgwriter t0 / t1 | 30 / 5 | row-group row writer up to 1M-row groups (within capacity) |
+| nested t0 / t1 | 6 / 20 | lists of up to 300k elements per row (logical levels, row reader, Arrow levels) |
+| append / merge t0 | ~1500 / 60 | AppendToLatestRowGroup sessions, copying and in-place merger |
+| arrow t0 / t1 | 1530 / 15 | 155M values in files written by Arrow C++ (dictionary fallback, DELTA/BSS, v1/v2, page index) |
+| manyrows | 3 | 2^31+7 … 2^32+3 rows per file (4.8 GB): logical, multi-worker row reader, Arrow |
+| concurrency t0 | ~25 × 200 iterations | row reader workers 1–16, read-ahead, jittering custom/stream sources, Reset mid-file, 2–8 parallel readers on one source, parallel row writer (RowApiMaxParallelism/WorkerCount up to 16) with a counting pool |
+| self-test | ~4700 planted mismatches | every one reported by every reader (no "SELFTEST MISSED") |
+
+Findings: untruncated binary statistics (page headers > 16 MB, Arrow cannot read) and the writer retaining every
+SerializedColumn (unbounded memory with per-row-group columns); see `FINDINGS.md`. Observation: the row reader over files with
+thousands of tiny row groups (TargetRowGroupSizeBytes = 1000) spends 20–60 s per 50k-row read with workers (per-row-group
+overhead), a performance note only.
