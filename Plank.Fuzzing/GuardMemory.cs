@@ -99,6 +99,7 @@ public sealed class GuardScope : IDisposable
     {
         _previous = _current;
         _current = this;
+        Plank.GuardShim.GuardArrays.EnterScope();
     }
 
     public static GuardScope? Current
@@ -127,7 +128,8 @@ public sealed class GuardScope : IDisposable
         foreach (var release in releases)
             release();
 
-        // Library row-API arrays (-p:PlankGuardArrays=true) belong to the whole input: released by the outermost scope.
+        // Library arrays (-p:PlankGuardArrays=true) belong to the whole input: released by the outermost scope.
+        Plank.GuardShim.GuardArrays.ExitScope();
         if (_previous is null)
             Plank.GuardShim.GuardArrays.ReleaseScoped();
     }

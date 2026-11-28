@@ -23,9 +23,19 @@ internal static class GuardArrays
         }
     }
 
+    // Open harness scopes (Plank.Fuzzing.GuardScope). Memory allocated outside any scope has no end of input to be
+    // released at (e.g. a seed parsed once and mutated many times), so it stays an ordinary array.
+    static int _scopeDepth;
+
+    internal static void EnterScope()
+        => Interlocked.Increment(ref _scopeDepth);
+
+    internal static void ExitScope()
+        => Interlocked.Decrement(ref _scopeDepth);
+
     static bool Guarding<T>(int length)
-        => GuardCore.Enabled && length > 0 && !RuntimeHelpers.IsReferenceOrContainsReferences<T>() &&
-           !InTypeInitializer();
+        => GuardCore.Enabled && Volatile.Read(ref _scopeDepth) > 0 && length > 0 &&
+           !RuntimeHelpers.IsReferenceOrContainsReferences<T>() && !InTypeInitializer();
 
     // Arrays built for static fields (e.g. `static readonly ulong[] Table = CreateTable();`) outlive the input whose
     // scope would release them, and the JIT reads static readonly arrays when it folds constants: a released one
@@ -84,7 +94,7 @@ internal static class GuardArrays
     /// </summary>
     public static ReadOnlyMemory<byte> ExactBorrow(ReadOnlyMemory<byte> borrowed)
     {
-        if (!GuardCore.Enabled || borrowed.IsEmpty)
+        if (!GuardCore.Enabled || borrowed.IsEmpty || Volatile.Read(ref _scopeDepth) == 0)
             return borrowed;
         var owner = GuardCore.Trace ? $"plank-borrow {Environment.StackTrace.Replace('\n', '|')}" : "plank-borrow";
         var array = GuardCore.AllocateArray<byte>(borrowed.Length, GuardCore.Mode, owner, out var region);
