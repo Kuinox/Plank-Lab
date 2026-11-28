@@ -78,6 +78,7 @@ static class Program
                 case "row": Row(rng, tier, describe, rollover: false); break;
                 case "rollover": Row(rng, tier, describe, rollover: true); break;
                 case "dataset": Dataset(rng, tier, describe); break;
+                case "dataconc": DatasetConcurrency(rng, tier, describe); break;
                 case "concurrency": Concurrency(rng, tier, describe); break;
                 case "big": Big(rng, tier, describe); break;
                 case "nested": NestedMode.Run(rng, tier, describe); break;
@@ -144,7 +145,8 @@ static class Program
         }
     }
 
-    static string TempFile(string tag) => Path.Combine(Tmp, $"scale-{Environment.ProcessId}-{tag}.parquet");
+    static int s_tempCounter;
+    static string TempFile(string tag) => Path.Combine(Tmp, $"scale-{Environment.ProcessId}-{tag}-{Interlocked.Increment(ref s_tempCounter)}.parquet");
 
     static ColSpec[] DrawColumns(Rng rng, int count, long rows, bool allowHuge)
     {
@@ -655,6 +657,11 @@ static class Program
         describe.Add($"dataset rows={rows} page={options.TargetDataPageSizeBytes} rg={options.TargetRowGroupSizeBytes} cap={options.RowApiInitialRowCapacity} par={options.RowApiMaxParallelism}");
         describe.AddRange(specs.Select(c => c.ToString()));
         var files = Writers.Dataset(specs, rows, options, rng, out var partitionOf);
+        VerifyDataset(files, specs, rows, partitionOf, rng, arrow: true, "dataset");
+    }
+
+    static void VerifyDataset(Dictionary<string, byte[]> files, ColSpec[] specs, long rows, Func<long, string> partitionOf, Rng rng, bool arrow, string where)
+    {
         var seen = new bool[rows];
         long total = 0;
         foreach (var (name, bytes) in files)
@@ -671,24 +678,83 @@ static class Program
             foreach (var id in ids)
             {
                 if (id < 0 || id >= rows)
-                    throw new Finding($"dataset {name}: Id {id} out of range");
+                    throw new Finding($"{where} {name}: Id {id} out of range");
                 if (seen[id])
-                    throw new Finding($"dataset {name}: Id {id} written twice");
+                    throw new Finding($"{where} {name}: Id {id} written twice");
                 seen[id] = true;
                 if (partitionOf(id) != name)
-                    throw new Finding($"dataset {name}: Id {id} belongs to {partitionOf(id)}");
+                    throw new Finding($"{where} {name}: Id {id} belongs to {partitionOf(id)}");
             }
             total += ids.Count;
             var e = new Expected { Cols = specs, Rows = ids.Count, RowMap = [.. ids] };
             Verify.PlankLogical(new MemoryReadSource(bytes), e, null, checkMetadata: true);
             var (projection, selected) = RowRead.DrawProjection(rng);
-            RowRead.ScaleRows(new MemoryReadSource(bytes), e, projection, selected, RowRead.DrawOptions(rng), $"dataset {name} rowreader");
-            var tmp = TempFile("ds");
-            try { File.WriteAllBytes(tmp, bytes); Verify.Arrow(tmp, e); }
-            finally { File.Delete(tmp); }
+            RowRead.ScaleRows(new MemoryReadSource(bytes), e, projection, selected, RowRead.DrawOptions(rng), $"{where} {name} rowreader");
+            if (arrow)
+            {
+                var tmp = TempFile("ds");
+                try { File.WriteAllBytes(tmp, bytes); Verify.Arrow(tmp, e); }
+                finally { File.Delete(tmp); }
+            }
         }
         if (total != rows)
-            throw new Finding($"dataset files hold {total} rows, expected {rows}");
+            throw new Finding($"{where} files hold {total} rows, expected {rows}");
+    }
+
+    /// <summary>
+    /// The dataset writer under parallel jitter: RowApiMaxParallelism / Execution.WorkerCount 2-16, jittering sources and
+    /// worker callbacks, CPU and thread-pool pressure, and two dataset writers at once on the shared pool, many iterations.
+    /// </summary>
+    static void DatasetConcurrency(Rng rng, int tier, List<string> describe)
+    {
+        var rows = tier == 0 ? rng.Pick(1000L, 4097L, 10_000L) : rng.Pick(50_000L, 100_000L);
+        var specs = Writers.ScaleRowSpecs(rng, rows, allowHuge: false);
+        describe.Add($"dataconc rows={rows}");
+        describe.AddRange(specs.Select(c => c.ToString()));
+        var iterations = tier == 0 ? 40 : 8;
+        using var pressure = new Pressure(rng.Int(4), rng.Chance(50));
+        for (var it = 0; it < iterations; it++)
+        {
+            Jitter.Percent = rng.Pick(0, 1, 5, 20, 50);
+            var writers = rng.Chance(30) ? 2 : 1;
+            var seeds = Enumerable.Range(0, writers).Select(_ => rng.Next()).ToArray();
+            var where = $"iteration {it} writers={writers} jitter={Jitter.Percent}%";
+            if (Verbose)
+                Console.WriteLine($"  {DateTime.UtcNow:HH:mm:ss.fff} {where}");
+            Watchdog(where, TimeSpan.FromSeconds(600), () =>
+            {
+                var errors = new Exception?[writers];
+                var threads = Enumerable.Range(0, writers).Select(w => new Thread(() =>
+                {
+                    try
+                    {
+                        var local = new Rng(seeds[w]);
+                        var drawn = Writers.DrawOptions(local, rows, 0, rowApi: true, 8);
+                        var options = new Plank.Writing.ParquetWriterOptions
+                        {
+                            TargetRowGroupSizeBytes = local.Pick(65536UL, 1UL << 20, 16UL << 20),
+                            TargetDataPageSizeBytes = drawn.TargetDataPageSizeBytes, WritePageIndexes = drawn.WritePageIndexes,
+                            DataPageVersion = drawn.DataPageVersion, Compression = drawn.Compression,
+                            RowApiInitialRowCapacity = drawn.RowApiInitialRowCapacity,
+                            RowApiMaxParallelism = local.Pick(2u, 3u, 4u, 8u, 16u),
+                            Execution = new Plank.ParquetExecutionOptions
+                            {
+                                WorkerCount = local.Pick(2, 4, 8, 16),
+                                OnWorkerStarted = local.Chance(50) ? _ => Jitter.Maybe() : null,
+                            },
+                        };
+                        var files = Writers.Dataset(specs, rows, options, local, out var partitionOf, lowChurn: true);
+                        VerifyDataset(files, specs, rows, partitionOf, local, arrow: it % 10 == 0, $"{where} writer {w}");
+                    }
+                    catch (Exception ex) { errors[w] = ex; }
+                }, 16 << 20)).ToArray();
+                foreach (var t in threads) t.Start();
+                foreach (var t in threads) t.Join();
+                foreach (var err in errors)
+                    if (err is not null)
+                        throw err is Finding ? err : new Finding($"{where}: {err.GetType().Name}: {err.Message}");
+            });
+        }
     }
 
     // ---------------- concurrency ----------------

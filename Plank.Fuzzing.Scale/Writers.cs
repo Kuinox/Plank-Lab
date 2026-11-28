@@ -259,10 +259,10 @@ public static class Writers
     // ---------------- dataset ----------------
 
     public static Dictionary<string, byte[]> Dataset(ColSpec[] s, long rows, ParquetWriterOptions options, Rng rng,
-        out Func<long, string> partitionOf)
+        out Func<long, string> partitionOf, bool lowChurn = false)
     {
-        var partitions = rng.Pick(1, 2, 3, 7, 64, 300);
-        var open = Math.Max(1, Math.Min(partitions, rng.Pick(1, 2, 3, 8, 1000)));
+        var partitions = lowChurn ? rng.Pick(1, 2, 3, 7, 16) : rng.Pick(1, 2, 3, 7, 64, 300);
+        var open = Math.Max(1, Math.Min(partitions, lowChurn ? rng.Pick(partitions, partitions / 2 + 1, 4) : rng.Pick(1, 2, 3, 8, 1000)));
         var salt = rng.Next();
         var names = Enumerable.Range(0, partitions).Select(p => Encoding.UTF8.GetBytes($"p={p:D3}/data.parquet")).ToArray();
         partitionOf = id => $"p={(int)(Rng.Mix((ulong)id ^ salt) % (ulong)partitions):D3}/data.parquet";
@@ -271,7 +271,7 @@ public static class Writers
         var datasetOptions = new DatasetWriterOptions
         {
             WriterOptions = options,
-            PendingRowCapacity = rng.Pick(1u, 2u, 100u, 4095u, 4096u, 4097u, 65536u),
+            PendingRowCapacity = lowChurn ? rng.Pick(100u, 4096u, 65536u) : rng.Pick(1u, 2u, 100u, 4095u, 4096u, 4097u, 65536u),
             AppendOptions = new ParquetAppendOptions
             {
                 AppendToLatestRowGroup = rng.Chance(40),
