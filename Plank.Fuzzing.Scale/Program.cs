@@ -438,9 +438,17 @@ static class Program
         var path = TempFile("row");
         try
         {
+            List<int>? flushes;
             using (var output = File.Create(path))
-                Writers.RowApi(rng.Chance(20) ? new JitterWriteStream(output) : output, specs, rows, options, rng);
-            VerifyAll(path, new Expected { Cols = specs, Rows = rows }, rng, describe, scaleRow: true);
+                flushes = Writers.RowApi(rng.Chance(20) ? new JitterWriteStream(output) : output, specs, rows, options, rng);
+            if (flushes is not null)
+            {
+                describe.Add($"onFlush counts: {string.Join(",", flushes.Take(20))} ({flushes.Count})");
+                if (flushes.Sum(c => (long)c) != rows)
+                    throw new Finding($"onFlush reported {flushes.Sum(c => (long)c)} rows in {flushes.Count} flushes, {rows} were written");
+            }
+            // Each flush is one row group, in order.
+            VerifyAll(path, new Expected { Cols = specs, Rows = rows, RowGroupSizes = flushes?.Select(c => (long)c).ToArray() }, rng, describe, scaleRow: true);
         }
         finally { Keep(path); File.Delete(path); }
     }

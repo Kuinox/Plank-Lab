@@ -171,12 +171,23 @@ public static class Writers
         Label = s[7].Str(r),
     };
 
-    public static void RowApi(Stream output, ColSpec[] s, long rows, ParquetWriterOptions options, Rng rng)
+    /// <summary>Row-API write; returns the onFlush row counts when the flush-callback overload was drawn, else null.</summary>
+    public static List<int>? RowApi(Stream output, ColSpec[] s, long rows, ParquetWriterOptions options, Rng rng)
     {
         var parallel = rng.Chance(30) ? rng.Pick(1u, 2u, 4u, 8u) : 0u;
-        using var writer = parallel != 0
-            ? ScaleRow.CreateRowWriter(output, parallel, options)
-            : ScaleRow.CreateRowWriter(output, options);
+        List<int>? flushes = rng.Chance(30) ? [] : null;
+        Action<int>? onFlush = flushes is null ? null : count =>
+        {
+            Jitter.Maybe();
+            lock (flushes) flushes.Add(count);
+        };
+        using var writer = (parallel, onFlush) switch
+        {
+            (0, null) => ScaleRow.CreateRowWriter(output, options),
+            (0, _) => ScaleRow.CreateRowWriter(output, onFlush, options),
+            (_, null) => ScaleRow.CreateRowWriter(output, parallel, options),
+            _ => ScaleRow.CreateRowWriter(output, parallel, onFlush, options),
+        };
         var useCursor = rng.Chance(50);
         if (useCursor)
         {
@@ -210,6 +221,7 @@ public static class Writers
             }
         }
         writer.Complete();
+        return flushes;
     }
 
     /// <summary>Row writer with file rollover (TargetFileSizeBytes) into in-memory files; returns them in order.</summary>
