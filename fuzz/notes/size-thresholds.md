@@ -109,3 +109,20 @@ Findings: untruncated binary statistics (page headers > 16 MB, Arrow cannot read
 SerializedColumn (unbounded memory with per-row-group columns); see `FINDINGS.md`. Observation: the row reader over files with
 thousands of tiny row groups (TargetRowGroupSizeBytes = 1000) spends 20–60 s per 50k-row read with workers (per-row-group
 overhead), a performance note only.
+
+## Results, second round (2026-11-28 afternoon)
+
+New modes: `types` (every logical type: decimal INT32/INT64/FLBA/BYTE_ARRAY p1–38 incl. padded widths, TIMESTAMP and TIME in
+all units with/without UTC, INT96, DATE, UUID, FLOAT16, INTERVAL, ENUM/JSON/BSON, INT(8/16/32/64, signed/unsigned); raw and
+semantic CLR input; statistics in the type-defined order; semantic reads vs an independent conversion; `SCALE_LKIND` /
+`SCALE_DOMAIN=1` force a type / out-of-range raw values), `rowtypes` / `datatypes` (decimal, DateTime, DateTimeOffset, DateOnly,
+TimeOnly, Guid, unsigned, JSON through the generated row writer / dataset writer, raw bytes vs an independent encoding, row reader,
+Arrow logical readers), `nestedtypes` (List<DateTime|Guid|DateOnly|uint|TimeOnly>), `arrowtypes` (logical types written by Arrow,
+read by Plank), `dataconc` (dataset writer with 2–16 workers, jitter, two writers at once), `evolve` (schema evolution through the
+multi-worker row reader: missing/extra/reordered/re-annotated/required-to-optional columns, INT96 → TIMESTAMP).
+
+Findings of this round (details in `FINDINGS.md`): **row reader read-ahead decodes INT96 timestamps as INT64 (silent wrong
+timestamps with `WorkerCount > 1`, `MaxReadAheadRowGroups = 1`, ≥ 2 row groups)**; TIME(NANOS) -1…-99 read as 00:00; a required
+Guid property throws for a missing column; Plank writes > 2 GB column chunks its reader refuses. Observations: UUID chunks carry no
+chunk-level min/max (page index has them); dataset partitions reopened for append re-parse a growing footer (slow with many
+partitions and few open files); limitations listed under "Logical-type limitations".

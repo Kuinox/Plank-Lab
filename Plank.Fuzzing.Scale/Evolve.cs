@@ -134,6 +134,8 @@ public static class Evolve
             PhysicalTypes = SchemaTypeEvolutionBehavior.AllowCompatible,
         };
         var options = RowRead.DrawOptions(rng);
+        if (Environment.GetEnvironmentVariable("SCALE_STRICT") != "1" && options.Execution.WorkerCount > 1 && options.MaxReadAheadRowGroups > 0)
+            options = new Plank.RowApi.RowReaderOptions { Execution = options.Execution, MaxReadAheadRowGroups = 0 }; // fuzz/repros/int96-readahead-wrong-timestamps
         if (Environment.GetEnvironmentVariable("SCALE_KEEP") is { } keep)
         {
             Directory.CreateDirectory(keep);
