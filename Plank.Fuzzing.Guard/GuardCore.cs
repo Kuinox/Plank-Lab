@@ -41,6 +41,7 @@ internal sealed class GuardRegion
     internal GuardMode Mode;
     internal string Owner = "";
     internal int Released;
+    internal bool Unguarded;
 
     internal unsafe Span<byte> Span
         => new((void*)Data, Length);
@@ -112,6 +113,9 @@ internal static unsafe class GuardCore
         if (alignment <= 0 || (alignment & (alignment - 1)) != 0 || alignment > PageSize)
             throw new ArgumentOutOfRangeException(nameof(alignment));
 
+        if (LiveByData.Count >= MaxLiveGuarded)
+            return AllocateUnguarded(length, prefix, alignment, mode, owner);
+
         long page = PageSize;
         long rwBytes = (prefix + length + (alignment - 1) + page - 1) / page * page;
         if (rwBytes == 0)
@@ -168,6 +172,33 @@ internal static unsafe class GuardCore
         return region;
     }
 
+    // Two VMAs per guarded buffer; vm.max_map_count is 65530 by default and the runtime needs its own. Inputs that
+    // keep more buffers than this alive at once (e.g. a fuzzed 16-byte BufferChunkSizeBytes over a large column)
+    // get canary-only heap memory past this point instead of failing (logged once per process).
+    const int MaxLiveGuarded = 25_000;
+    static int _degradedWarned;
+
+    static GuardRegion AllocateUnguarded(long length, int prefix, int alignment, GuardMode mode, string owner)
+    {
+        if (Interlocked.Exchange(ref _degradedWarned, 1) == 0)
+            Console.Error.WriteLine($"GUARD-DEGRADED\t{MaxLiveGuarded} guard buffers alive: further ones are canary-only heap memory");
+        const int Tail = 64;
+        var rwBytes = (int)(prefix + length + alignment + Tail);
+        var rw = (nint)System.Runtime.InteropServices.NativeMemory.AlignedAlloc((nuint)rwBytes, 64);
+        if (rw == 0)
+            throw new OutOfMemoryException();
+        new Span<byte>((void*)rw, rwBytes).Fill(Canary);
+        var data = (rw + prefix + (alignment - 1)) & ~(nint)(alignment - 1);
+        var region = new GuardRegion
+        {
+            MapBase = rw, MapLength = (nuint)rwBytes, RwStart = rw, RwLength = rwBytes, Data = data,
+            Length = (int)length, Prefix = prefix, Mode = mode, Owner = owner + " (unguarded)", Unguarded = true,
+        };
+        LiveByData[data] = region;
+        Interlocked.Increment(ref _allocations);
+        return region;
+    }
+
     static nint MapWithRetry(nuint total)
     {
         var map = Mmap(0, total, ProtNone, MapPrivate | MapAnonymous, -1, 0);
@@ -209,6 +240,14 @@ internal static unsafe class GuardCore
             Console.Error.WriteLine($"GUARD-FREE\t{region}");
 
         var violation = CheckCanaries(region);
+        if (region.Unguarded)
+        {
+            System.Runtime.InteropServices.NativeMemory.AlignedFree((void*)region.RwStart);
+            if (violation is not null)
+                Report(violation);
+            return;
+        }
+
         new Span<byte>((void*)region.RwStart, region.RwLength).Fill(Poison);
         if (Mprotect(region.RwStart, (nuint)region.RwLength, ProtNone) != 0)
             throw new InvalidOperationException($"guard mprotect failed (errno {Marshal.GetLastPInvokeError()})");
