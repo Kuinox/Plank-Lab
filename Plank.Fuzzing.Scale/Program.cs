@@ -96,7 +96,7 @@ static class Program
             }
             message = "";
             using var self = System.Diagnostics.Process.GetCurrentProcess();
-            Console.WriteLine($"OK {mode} {seed} t{tier} {sw.Elapsed.TotalSeconds:F1}s rss={self.WorkingSet64 >> 20}MB peak={self.PeakWorkingSet64 >> 20}MB {string.Join(" | ", describe.Take(1))}");
+            Console.WriteLine($"OK {mode} {seed} t{tier} {sw.Elapsed.TotalSeconds:F1}s rss={self.WorkingSet64 >> 20}MB peak={self.PeakWorkingSet64 >> 20}MB managed={GC.GetTotalMemory(false) >> 20}MB committed={GC.GetGCMemoryInfo().TotalCommittedBytes >> 20}MB pool={DefaultParquetBufferPool.Shared.RetainedBytes >> 20}MB threads={self.Threads.Count} {string.Join(" | ", describe.Take(1))}");
             return true;
         }
         catch (Exception ex)
