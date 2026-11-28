@@ -843,6 +843,7 @@ public static class StructuredPageMutator
     // ---- Driver ------------------------------------------------------------------------
 
     static string? LastPlankError;
+    static readonly int Stack = int.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_STACK"), out var stack) ? stack : 0;
 
     public static long Mutants, BothReject, PlankOnlyReject, ArrowOnlyReject, BothAccept, Findings, BaselineFailures, Seeds;
 
@@ -894,6 +895,21 @@ public static class StructuredPageMutator
                 }
                 if (mutant is not { } m)
                     break;
+                // Stacked corruption: mutate the mutant again (each re-parse keeps the envelope valid).
+                for (var extra = rng.Next(Stack + 1); extra > 0; extra--)
+                {
+                    (byte[] File, Mutation Mutation)? next;
+                    try { next = Mutate(m.File, rng); }
+                    catch (Exception error) when (error is InvalidDataException or ArgumentException or OverflowException
+                                                      or InvalidOperationException or CorruptParquetException or NotSupportedException)
+                    {
+                        break;
+                    }
+                    if (next is not { } n)
+                        break;
+                    m = (n.File, new Mutation(m.Mutation.Kind + "+" + n.Mutation.Kind, m.Mutation.Detail + " | " + n.Mutation.Detail,
+                        m.Mutation.Impossible || n.Mutation.Impossible));
+                }
                 Mutants++;
                 Judge(m.File, m.Mutation with { Detail = $"{Path.GetFileName(path)}: {m.Mutation.Detail}" }, dumpDirectory, log, quiet: false);
             }
@@ -917,6 +933,7 @@ public static class StructuredPageMutator
         var counts = quiet ? new long[4] : PerKind.TryGetValue(mutation.Kind, out var existing) ? existing : PerKind[mutation.Kind] = new long[4];
 
         // Plank: every column through the physical read (levels + values).
+        LastPlankError = null;
         List<ColumnTrace?[]>? plankTraces = new();
         Exception? plankError = null;
         ParquetReader? plank = null;
@@ -933,7 +950,7 @@ public static class StructuredPageMutator
             }
         }
         catch (CorruptParquetException error) { plankError = error; LastPlankError = error.Message; }
-        catch (NotSupportedException error) { plankError = error; }
+        catch (NotSupportedException error) { plankError = error; LastPlankError = "NotSupported: " + error.Message; }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             plank?.Dispose();
