@@ -125,7 +125,8 @@ restart. Native crashes still kill the worker; run workers in a restart loop (se
 
 `PLANK_FUZZ_KNOWN_FINDINGS=all` (or a comma list of ids: `276`, `distinct-count-zero-unordered`,
 `uint-ulong-signed-stats`, `chunk-info-equality`, `decimal-without-annotation`, `page-size-int-max`,
-`dataset-append-latest-converter`, `stale-scalar-slot-reuse`, `negative-workercount`) makes the AFL harness
+`dataset-append-latest-converter`, `stale-scalar-slot-reuse`, `negative-workercount`, `pending-row-capacity-oom`,
+`default-struct-nre`, `page-metadata-scan-overflow`, and the writer-only artifact `writer-oom-memory-cap`) makes the AFL harness
 treat a fault that matches a documented finding's narrow signature (`Plank.Fuzzing.Harness/KnownFindings.cs`,
 matched against the full exception text) as a pass: it is not an AFL crash and no crash file is saved; the
 counts go to `$PLANK_FUZZ_CRASH_DIR/known-findings-<target>-<pid>.txt`. It is off by default and the replay

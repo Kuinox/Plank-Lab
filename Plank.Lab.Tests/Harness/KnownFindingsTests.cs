@@ -10,9 +10,9 @@ public class KnownFindingsTests
 {
     [Test]
     [Arguments("repros/rowapi-unset-column-stale-value/RUS1-stale-id.bin", "stale-scalar-slot-reuse")]
-    [Arguments("repros/statistics-ulong-in-signed-int64-order/wtm1-uint-in-signed-int32-plain.bin", "uint-ulong-signed-stats")]
-    [Arguments("repros/statistics-ulong-in-signed-int64-order/wtm1-ulong-optional-in-signed-int64-plain-dictionary.bin", "uint-ulong-signed-stats")]
     [Arguments("writer-gap-seeds/delta-binary-packed-int32/public-generic-dispatch.bin", "uint-ulong-signed-stats")]
+    [Arguments("repros/statistics-ulong-in-signed-int64-order/wtm1-converter-uint-physical-in-signed-int32-delta.bin", "uint-ulong-signed-stats")]
+    [Arguments("repros/statistics-ulong-in-signed-int64-order/wtm1-converter-ulong-physical-in-signed-int64-plain.bin", "uint-ulong-signed-stats")]
     [Arguments("corpus/encoding-plain-int96.bin", "distinct-count-zero-unordered")]
     [Arguments("repros/statistics-distinct-count-zero-unordered/append-sorting-geometry-key.bin", "distinct-count-zero-unordered")]
     public async Task ReproInputIsRecognisedAsItsKnownFinding(string relativePath, string expectedId)
@@ -64,6 +64,19 @@ public class KnownFindingsTests
         await Assert.That(KnownFindings.Match(new OutOfMemoryException(), all, "writer")).IsEqualTo("writer-oom-memory-cap");
         await Assert.That(KnownFindings.Match(new OutOfMemoryException(), all, "reader")).IsNull();
         await Assert.That(KnownFindings.Match(new InvalidOperationException("x", new OutOfMemoryException()), all, "writer")).IsEqualTo("writer-oom-memory-cap");
+    }
+
+    [Test]
+    public async Task NewSurfaceFindingSignaturesAreNarrow()
+    {
+        var all = KnownFindings.ParseIds("all");
+        // PendingRowCapacity = int.MaxValue: dataset OOM with the array-dimension message (not any OOM, which the writer artifact id covers separately).
+        await Assert.That(KnownFindings.Match(new OutOfMemoryException("Array dimensions exceeded supported range.",
+            new InvalidOperationException("at DatasetWriter.Enqueue")), all, "reader")).IsEqualTo("pending-row-capacity-oom");
+        await Assert.That(KnownFindings.Match(new OutOfMemoryException("Array dimensions exceeded supported range."), all, "reader")).IsNull();
+        try { _ = ((object?)null)!.ToString(); } catch (NullReferenceException) { }
+        await Assert.That(KnownFindings.Match(new NullReferenceException(), all)).IsNull(); // no NestedRowGroupColumn frame
+        await Assert.That(KnownFindings.Match(new OverflowException("x"), all)).IsNull();   // no ScanPageLocations frame
     }
 
     static string FuzzDirectory()

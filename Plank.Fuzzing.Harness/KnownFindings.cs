@@ -24,6 +24,9 @@ internal static class KnownFindings
         "dataset-append-latest-converter",      // AppendToLatestRowGroup on a converter column
         "stale-scalar-slot-reuse",              // unassigned scalar column keeps the previous row group's value
         "negative-workercount",                 // WorkerCount < 0 -> OverflowException instead of ArgumentOutOfRange
+        "pending-row-capacity-oom",             // DatasetWriterOptions.PendingRowCapacity = int.MaxValue passes Validate, then OOMs on the first row
+        "default-struct-nre",                   // default(NestedRowGroupColumn<T>) enumerator throws NullReferenceException
+        "page-metadata-scan-overflow",          // PageMetadataReader.ScanPageLocations overflows on compressed_page_size = int.MaxValue
         "writer-oom-memory-cap",                // not a library finding: the writer target's drawn buffer options need a few GB;
                                                 // under a container memory cap (heap limit = 75%) a long-lived worker OOMs. Writer only:
                                                 // an OOM while reading an untrusted file would be a real finding.
@@ -90,6 +93,8 @@ internal static class KnownFindings
                         || Has("'logical-metadata' (ByteArray, none,") || Has("'key' (ByteArray, none,"));
             case "uint-ulong-signed-stats":
                 return (Has("annotatedUnsigned=False clr=unsigned") && Has("statistics"))
+                    // converters whose physical CLR type is uint/ulong on an unannotated column (WTM1 converter-unsigned-physical)
+                    || (Has("converter-unsigned-physical") && Has("annotated=False") && Has("statistics: chunk m"))
                     || (Has("chunk statistics m") && Has("differs from the values") && (Has("(Int32, None") || Has("(Int64, None"))
                         && (Has("-uint'") || Has("-ulong'") || Has("uint-") || Has("ulong-")));
             case "chunk-info-equality":
@@ -102,6 +107,13 @@ internal static class KnownFindings
                 return Chain<InvalidOperationException>() && Has("uses a converter for") && Has("cannot be read as");
             case "stale-scalar-slot-reuse":
                 return Has("RowApiRoundTripException") && Has("'unset ") && Has(" read ") && Has(", expected ");
+            case "pending-row-capacity-oom":
+                return Chain<OutOfMemoryException>() && Has("Array dimensions exceeded supported range")
+                    && (Has("PendingRow") || Has("DatasetWriter") || Has("Dataset"));
+            case "default-struct-nre":
+                return Chain<NullReferenceException>() && Has("NestedRowGroupColumn");
+            case "page-metadata-scan-overflow":
+                return Chain<OverflowException>() && Has("ScanPageLocations");
             case "writer-oom-memory-cap":
                 return targetName == "writer" && Chain<OutOfMemoryException>();
             case "negative-workercount":
