@@ -51,3 +51,32 @@ being made PROT_NONE: the GC never touches objects outside its heap ranges.
 
 `fuzz/tools/guard-selftest.sh <replay bin dir>` makes one deliberate out-of-bounds access per layer and mode and
 expects each to kill the process (`ok` must survive).
+
+## Running it
+
+Replay (any route, any seed or queue directory; survives deaths and resumes after the culprit):
+
+```
+python3 -I fuzz/tools/guard-replay.py <replay bin dir> <out dir> <reader|writer|merger|both> <end|start> \
+    <default|avx2|sse|scalar|isaflip> <dir-or-file>...
+bash fuzz/tools/guard-campaign.sh <replay.tgz> <out> <end|start> <tier> <reader mutants> <writer mutants> <seed base>
+```
+
+Deaths land in `<out>/deaths/<target>-<mode>-<tier>-<hash>/` (`input.bin`, `log.txt` with the AccessViolation stack).
+Routes of the known #276 bug (`RWG1/RWN1/RWW1/RWD1`) are skipped: they corrupt memory even without guard mode.
+
+AFL (`Plank.Fuzzing.Target`, `Plank.Fuzzing.Reader.Target` built from this tree): export `PLANK_FUZZ_GUARD=end`
+(or `start`) and `PLANK_FUZZ_GUARD_TAG=<worker name>`. Before each execution the harness writes the input to
+`/tmp/plank-fuzz-<target>-<tag>-guard-current.bin` and empties it afterwards. A guard fault kills the worker (AFL
+reports the fork server gone and the job loop restarts it); on start-up a non-empty file is saved to
+`PLANK_FUZZ_CRASH_DIR` as `guard-<target>-<hash>.bin` (`GUARD-DEATH-RECOVERED` on stderr). Hangs that AFL kills
+mid-input land there too: replay to tell them apart. Expect 2-5x slower executions (one mmap/mprotect per buffer).
+
+Inputs that keep more than 25,000 buffers alive at once (vm.max_map_count is 65,530; each guarded buffer is two
+mappings) get canary-only heap memory past that point: `GUARD-DEGRADED` on stderr, once per process.
+
+## Known false positive: the JIT with hardware intrinsics off
+
+With `DOTNET_EnableHWIntrinsic=0`, the JIT over-reads a by-value struct whose size is 4 mod 8 (Plank's 92-byte
+`ParquetSchemaNodeInfo`) by 4 bytes, which faults on an exactly placed buffer. Reproduced without Plank in
+`fuzz/repros/dotnet-jit-struct-overread/`. `guard-replay.py`'s scalar tier therefore sets `PLANK_FUZZ_GUARD_SLACK=8` (overruns of up to 8 bytes go unseen in that tier).

@@ -20,11 +20,11 @@ $PY "$O/reader-seeds" reader "$MODE" "$TIER" $READER_DIRS
 $PY "$O/writer-seeds" writer "$MODE" "$TIER" $WRITER_DIRS
 $PY "$O/merger-seeds" merger "$MODE" "$TIER" $F/corpus $F/writer-gap-seeds $F/repros
 if [ "$RM" -gt 0 ]; then
-  python3 -I "$F/mutate-decoder-seeds.py" "$T/rm" "$RM" "$BASE" $F/reader-gap-generated $F/reader-corpus $F/reader-pyarrow-seeds $F/reader-pqt-seeds $F/reader-focused-seeds $F/reader-footer-seeds $F/reader-resource-seeds >/dev/null
+  python3 -I "$F/mutate-decoder-seeds.py" "$T/rm" "$RM" "$BASE" $(find $F/reader-gap-generated $F/reader-corpus $F/reader-pyarrow-seeds $F/reader-pqt-seeds $F/reader-focused-seeds $F/reader-footer-seeds $F/reader-resource-seeds -type f -size -6001c | sort) >/dev/null
   $PY "$O/reader-mutants-$BASE" reader "$MODE" "$TIER" "$T/rm"
 fi
 if [ "$WM" -gt 0 ]; then
-  python3 -I "$F/mutate-decoder-seeds.py" "$T/wm" "$WM" "$((BASE + 7))" $F/corpus $F/writer-gap-seeds $F/nested-gap-seeds $F/execution-seeds $F/buffer-capacity-seeds >/dev/null
+  python3 -I "$ROOT/fuzz/tools/guard-mutate-writer.py" "$T/wm" "$WM" "$((BASE + 7))" $(find $F/corpus $F/writer-gap-seeds $F/nested-gap-seeds $F/execution-seeds $F/buffer-capacity-seeds -type f | sort) >/dev/null
   $PY "$O/writer-mutants-$BASE" writer "$MODE" "$TIER" "$T/wm"
   $PY "$O/merger-mutants-$BASE" merger "$MODE" "$TIER" "$T/wm"
 fi

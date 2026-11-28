@@ -18,7 +18,8 @@ TIERS = {
     "default": {},
     "avx2": {"DOTNET_EnableAVX512": "0"},
     "sse": {"DOTNET_EnableAVX2": "0"},
-    "scalar": {"DOTNET_EnableHWIntrinsic": "0"},
+    # Slack 8: with HW intrinsics off the JIT over-reads by-value structs of size 4 mod 8 (Plank.Fuzzing.Guard/README.md).
+    "scalar": {"DOTNET_EnableHWIntrinsic": "0", "PLANK_FUZZ_GUARD_SLACK": "8"},
     "isaflip": {"PLANK_FUZZ_ISA_MASK": "all"},
 }
 BATCH = 400
@@ -52,7 +53,9 @@ def main():
     files = [f for f in files if not known_276(f)]
     os.makedirs(os.path.join(out, "deaths"), exist_ok=True)
     env = dict(os.environ, PLANK_FUZZ_GUARD=mode, PLANK_FUZZ_CONTINUE_ON_CRASH="1",
-               DOTNET_DbgEnableMiniDump="0", DOTNET_EnableCrashReport="0", **TIERS[tier])
+               DOTNET_DbgEnableMiniDump="0", DOTNET_EnableCrashReport="0",
+               # W^X double-maps every code page: fewer runtime mappings left for guard buffers (vm.max_map_count).
+               DOTNET_EnableWriteXorExecute="0", **TIERS[tier])
     exe = os.path.join(rp, "Plank.Fuzzing.Replay")
     done_path = os.path.join(out, "done.txt")
     done = set(open(done_path).read().split()) if os.path.exists(done_path) else set()

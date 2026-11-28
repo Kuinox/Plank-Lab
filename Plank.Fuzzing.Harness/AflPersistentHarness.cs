@@ -40,6 +40,7 @@ internal static unsafe class AflPersistentHarness
         ArgumentNullException.ThrowIfNull(execute);
 
         var lastInputPath = $"/tmp/plank-fuzz-{targetName}-last-input.bin";
+        RecoverGuardDeath(targetName);
 
         if (!TryGetEnvInt("__AFL_SHM_ID", out int shmId))
         {
@@ -183,9 +184,11 @@ internal static unsafe class AflPersistentHarness
                 // PLANK_FUZZ_GUARD=end|start: an out-of-bounds access is a fatal AccessViolation (no exception to
                 // catch here), so the input is written first and survives the process; the input itself is handed
                 // over in a page-guarded array.
-                TryWriteAllBytes($"/tmp/plank-fuzz-{targetName}-guard-current.bin", input);
-                using var scope = GuardScope.Begin();
-                execute(GuardMemory.ToArray(input));
+                var current = GuardCurrentPath(targetName);
+                TryWriteAllBytes(current, input);
+                using (GuardScope.Begin())
+                    execute(GuardMemory.ToArray(input));
+                TryWriteAllBytes(current, []);
                 return FaultNone;
             }
 
@@ -271,6 +274,30 @@ internal static unsafe class AflPersistentHarness
 
     // PLANK_FUZZ_CRASH_DIR lets every worker on a machine funnel crashes into
     // one durable directory that outlives the AFL output dir.
+    // PLANK_FUZZ_GUARD: the input being executed, emptied once it returns. One file per worker: set
+    // PLANK_FUZZ_GUARD_TAG to the AFL worker name when several workers share /tmp.
+    static string GuardCurrentPath(string targetName)
+        => $"/tmp/plank-fuzz-{targetName}-{Environment.GetEnvironmentVariable("PLANK_FUZZ_GUARD_TAG") ?? "w"}-guard-current.bin";
+
+    // A guard fault kills the process (AFL then only sees the fork server go away). On the restart, a non-empty
+    // current-input file is that input (or one AFL killed as a hang): saved like a crash, as guard-<target>.
+    static void RecoverGuardDeath(string targetName)
+    {
+        if (!GuardMemory.Enabled)
+            return;
+        var current = GuardCurrentPath(targetName);
+        try
+        {
+            if (!File.Exists(current) || new FileInfo(current).Length == 0)
+                return;
+            var input = File.ReadAllBytes(current);
+            Console.Error.WriteLine($"GUARD-DEATH-RECOVERED\t{targetName}\t{input.Length} bytes (guard fault or hang in the previous process)");
+            SaveCrashInput($"guard-{targetName}", input);
+            File.WriteAllBytes(current, []);
+        }
+        catch (IOException) { }
+    }
+
     static void SaveCrashInput(string targetName, byte[] input)
     {
         var dir = Environment.GetEnvironmentVariable("PLANK_FUZZ_CRASH_DIR");

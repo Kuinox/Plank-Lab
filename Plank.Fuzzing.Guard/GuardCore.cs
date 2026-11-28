@@ -60,11 +60,27 @@ internal static unsafe class GuardCore
     internal const byte Canary = 0xCD;
     internal const byte Poison = 0xDB;
     const long QuarantineLimitBytes = 64L * 1024 * 1024;
-    const int QuarantineLimitCount = 4096;
+    const int QuarantineLimitCount = 1024;
 
     internal static readonly int PageSize = Environment.SystemPageSize;
     internal static readonly GuardMode Mode = ParseMode(Environment.GetEnvironmentVariable("PLANK_FUZZ_GUARD"));
     internal static readonly bool Trace = Environment.GetEnvironmentVariable("PLANK_FUZZ_GUARD_TRACE") == "1";
+
+    // PLANK_FUZZ_GUARD_SLACK=n (0..64, default 0): end-mode buffers end n bytes before the guard page. For
+    // DOTNET_EnableHWIntrinsic=0 only: there the JIT copies a struct whose size is 4 mod 8 (Plank's 92-byte
+    // ParquetSchemaNodeInfo) passed by value with an 8-byte load that reads 4 bytes past its end, which faults on an
+    // exactly placed buffer (a runtime issue, reproduced without Plank: fuzz/repros/dotnet-jit-struct-overread/).
+    static readonly int Slack = ParseSlack(Environment.GetEnvironmentVariable("PLANK_FUZZ_GUARD_SLACK"));
+
+    static int ParseSlack(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return 0;
+        var slack = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        if (slack < 0 || slack > 64)
+            throw new InvalidOperationException("PLANK_FUZZ_GUARD_SLACK must be 0..64.");
+        return slack;
+    }
 
     static readonly ConcurrentDictionary<nint, GuardRegion> LiveByData = new();
     static readonly Queue<GuardRegion> Quarantine = new();
@@ -117,7 +133,7 @@ internal static unsafe class GuardCore
             return AllocateUnguarded(length, prefix, alignment, mode, owner);
 
         long page = PageSize;
-        long rwBytes = (prefix + length + (alignment - 1) + page - 1) / page * page;
+        long rwBytes = (prefix + length + Slack + (alignment - 1) + page - 1) / page * page;
         if (rwBytes == 0)
             rwBytes = page;
         // One guard page, on the guarded side only: two VMAs per buffer (vm.max_map_count is 65530 by default and a
@@ -140,7 +156,7 @@ internal static unsafe class GuardCore
         nint data;
         if (mode == GuardMode.End)
         {
-            data = rw + (nint)rwBytes - (nint)length;
+            data = rw + (nint)rwBytes - (nint)(length + Slack);
             data &= ~(nint)(alignment - 1);
         }
         else
@@ -175,7 +191,7 @@ internal static unsafe class GuardCore
     // Two VMAs per guarded buffer; vm.max_map_count is 65530 by default and the runtime needs its own. Inputs that
     // keep more buffers than this alive at once (e.g. a fuzzed 16-byte BufferChunkSizeBytes over a large column)
     // get canary-only heap memory past this point instead of failing (logged once per process).
-    const int MaxLiveGuarded = 25_000;
+    const int MaxLiveGuarded = 12_000;
     static int _degradedWarned;
 
     static GuardRegion AllocateUnguarded(long length, int prefix, int alignment, GuardMode mode, string owner)
