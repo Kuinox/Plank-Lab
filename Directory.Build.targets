@@ -42,6 +42,14 @@
     <DefineConstants>$(DefineConstants);PLANK_CHECKED_ACCESS</DefineConstants>
     <_PlankCheckedRewriterProject>$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Rewriter/Plank.Fuzzing.Checked.Rewriter.csproj</_PlankCheckedRewriterProject>
   </PropertyGroup>
+  <!-- -p:PlankCheckedCanaryProbe=true: also compile the canary probe (Plank.Fuzzing.Checked/Probe), which exposes the
+       private dictionary literal decoder so the checked build can be proven to catch the canary over-read directly. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedCanaryProbe)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLANK_CHECKED_CANARY_PROBE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedCanaryProbe)' == 'true'">
+    <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Probe/CanaryProbe.cs" Link="Checked/CanaryProbe.cs" />
+  </ItemGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedAccess)' == 'true'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Runtime/Plank.Fuzzing.Checked.Runtime.csproj"
                       GlobalPropertiesToRemove="PlankCheckedAccess" />
