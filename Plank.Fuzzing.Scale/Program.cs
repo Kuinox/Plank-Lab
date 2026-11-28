@@ -78,6 +78,7 @@ static class Program
                 case "append": Append(rng, tier, describe); break;
                 case "arrow": ArrowFiles(rng, tier, describe); break;
                 case "manyrows": ManyRows.Run(rng, tier, describe); break;
+                case "rgwriter": RowGroupRowWriter(rng, tier, describe); break;
                 case "merge": Merge(rng, tier, describe); break;
                 default: throw new ArgumentException("unknown mode " + mode);
             }
@@ -393,6 +394,63 @@ static class Program
             ArrowWrite.Write(path, cols, groups, rng, describe);
             // Arrow C++ stores +-FLT_MAX/DBL_MAX as the bound when the extreme value is an infinity: valid, not exact.
             VerifyAll(path, new Expected { Cols = cols, Rows = rows, RowGroupSizes = groups, BoundsOnly = true }, rng, describe, scaleRow: false);
+        }
+        finally { Keep(path); File.Delete(path); }
+    }
+
+    /// <summary>
+    /// The row-group row writer (CreateRowWriter(RowGroupWriter)) over many / large row groups. Rows per group stay
+    /// within RowApiInitialRowCapacity: past it the known #276 overrun corrupts memory (fuzz/FINDINGS.md).
+    /// </summary>
+    static void RowGroupRowWriter(Rng rng, int tier, List<string> describe)
+    {
+        var rows = RowCount(rng, tier);
+        var specs = Writers.ScaleRowSpecs(rng, rows, allowHuge: tier == 0 && rows <= 5000);
+        var capacity = tier == 0 ? rng.Pick(1, 2, 1000, 1024, 2048, 2049, 20_000) : rng.Pick(65536, 300_000, 1 << 20);
+        var drawn = Writers.DrawOptions(rng, rows, tier, rowApi: true, 8);
+        var options = new ParquetWriterOptions
+        {
+            TargetDataPageSizeBytes = drawn.TargetDataPageSizeBytes, WritePageIndexes = drawn.WritePageIndexes,
+            DataPageVersion = drawn.DataPageVersion, Compression = drawn.Compression, RowApiInitialRowCapacity = capacity,
+        };
+        var groups = new List<long>();
+        for (long left = rows; left > 0;)
+        {
+            var n = Math.Min(left, rng.Pick(1L, capacity - 1L, capacity, capacity, rng.Long(capacity) + 1));
+            n = Math.Max(1, n);
+            groups.Add(n);
+            left -= n;
+        }
+        describe.Add($"rgwriter rows={rows} capacity={capacity} groups={groups.Count} page={options.TargetDataPageSizeBytes}");
+        describe.AddRange(specs.Select(c => c.ToString()));
+        var path = TempFile("rgw");
+        try
+        {
+            using (var output = File.Create(path))
+            using (var writer = ScaleRow.Schema.CreateWriter(output, options))
+            {
+                long r = 0;
+                foreach (var n in groups)
+                {
+                    var rg = writer.StartRowGroup();
+                    var rows2 = ScaleRow.CreateRowWriter(rg, options);
+                    for (long i = 0; i < n; i++, r++)
+                    {
+                        var row = rows2.GetRow();
+                        row.Id = specs[0].Int64(r);
+                        row.Category = specs[1].Int32(r);
+                        row.HighCard = specs[2].IsNull(r) ? null : specs[2].Int64(r);
+                        row.Measure = specs[3].Double(r);
+                        row.Ratio = specs[4].IsNull(r) ? null : specs[4].Float(r);
+                        row.Flag = specs[5].Bool(r);
+                        row.Payload = specs[6].IsNull(r) ? null : specs[6].Bytes(r);
+                        row.Label = specs[7].Str(r);
+                    }
+                    rows2.Write();
+                }
+                writer.CloseFile();
+            }
+            VerifyAll(path, new Expected { Cols = specs, Rows = rows, RowGroupSizes = [.. groups] }, rng, describe, scaleRow: true);
         }
         finally { Keep(path); File.Delete(path); }
     }
