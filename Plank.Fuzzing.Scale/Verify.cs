@@ -19,6 +19,8 @@ public sealed class Expected
     public long[]? RowMap;
     /// <summary>Self-test: when set, file row Skew is expected to hold global row Skew+1 (a planted mismatch).</summary>
     public long Skew = -1;
+    /// <summary>Statistics written by another writer: require valid bounds (min &lt;= actual, max &gt;= actual), not exact ones.</summary>
+    public bool BoundsOnly;
     public long Row(long fileRow)
     {
         var r = RowMap is null ? fileRow : RowMap[fileRow];
@@ -244,7 +246,7 @@ public static class Verify
         var acc = new Acc(spec);
         for (long i = 0; i < count; i++)
             acc.Add(e.Row(start + i));
-        CheckStats(m.Statistics, acc, spec, where + " chunk");
+        CheckStats(m.Statistics, acc, spec, where + " chunk", e.BoundsOnly);
 
         if (m.HasOffsetIndex)
         {
@@ -267,7 +269,7 @@ public static class Verify
                     if (page.IsNullPage is true && pageAcc.Has)
                         Fail($"{where}: page {page.PageOrdinal} flagged null page but has values");
                     if (m.HasColumnIndex)
-                        CheckStats(page.Statistics, pageAcc, spec, $"{where} page {page.PageOrdinal} [{first},+{rows})");
+                        CheckStats(page.Statistics, pageAcc, spec, $"{where} page {page.PageOrdinal} [{first},+{rows})", e.BoundsOnly);
                     next += (long)rows;
                 }
             }
@@ -300,7 +302,7 @@ public static class Verify
         }
     }
 
-    static void CheckStats(ParquetStatistics s, Acc acc, ColSpec spec, string where)
+    static void CheckStats(ParquetStatistics s, Acc acc, ColSpec spec, string where, bool boundsOnly = false)
     {
         if (s.NullCount is { } nulls && nulls != acc.Nulls)
             Fail($"{where}: null_count {nulls}, expected {acc.Nulls}");
@@ -335,10 +337,10 @@ public static class Verify
         }
         if (min.Length != acc.Min!.Length || max.Length != acc.Max!.Length)
             Fail($"{where}: bound widths {min.Length}/{max.Length}");
-        if (Cmp(spec.Kind, min, acc.Min) != 0)
-            Fail($"{where}: min {Hex(min)} != actual {Hex(acc.Min)}");
-        if (Cmp(spec.Kind, max, acc.Max!) != 0)
-            Fail($"{where}: max {Hex(max)} != actual {Hex(acc.Max!)}");
+        if (boundsOnly ? Cmp(spec.Kind, min, acc.Min) > 0 : Cmp(spec.Kind, min, acc.Min) != 0)
+            Fail($"{where}: min {Hex(min)} != actual {Hex(acc.Min)}{(boundsOnly ? " (not a lower bound)" : "")}");
+        if (boundsOnly ? Cmp(spec.Kind, max, acc.Max!) < 0 : Cmp(spec.Kind, max, acc.Max!) != 0)
+            Fail($"{where}: max {Hex(max)} != actual {Hex(acc.Max!)}{(boundsOnly ? " (not an upper bound)" : "")}");
     }
 
     // ---------------- pruned + projected read ----------------

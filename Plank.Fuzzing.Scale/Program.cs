@@ -99,6 +99,29 @@ static class Program
     }
 
     /// <summary>SCALE_KEEP=dir: keep each case's file (for triage) before it is deleted.</summary>
+    /// <summary>Managed bytes allocated by the columnar writer for each column alone (triage of writer memory).</summary>
+    static void AllocProbe(ColSpec[] cols, long[] groups, ParquetWriterOptions options)
+    {
+        Console.WriteLine($"  allocprobe: rows={groups.Sum()} groups={groups.Length} page={options.TargetDataPageSizeBytes} chunk={options.BufferChunkSizeBytes} initCol={options.InitialColumnBufferBytes} initPage={options.InitialPageBufferBytes} pageCap={options.InitialPageCapacity} v{(int)options.DataPageVersion} idx={options.WritePageIndexes}");
+        foreach (var c in cols)
+        {
+            GC.Collect();
+            var before = GC.GetTotalAllocatedBytes(true);
+            var output = new MemoryStream();
+            Writers.Columnar(output, [c], groups, options, new Rng(1));
+            var after = GC.GetTotalAllocatedBytes(true);
+            Console.WriteLine($"  allocprobe {c}: {(after - before) >> 20} MB allocated, file {output.ToArray().Length} bytes");
+        }
+    }
+
+    static void Mem(string stage)
+    {
+        if (!Verbose) return;
+        using var self = System.Diagnostics.Process.GetCurrentProcess();
+        self.Refresh();
+        Console.WriteLine($"  mem {stage}: rss={self.WorkingSet64 >> 20}MB peak={self.PeakWorkingSet64 >> 20}MB managed={GC.GetTotalMemory(false) >> 20}MB gcCommitted={GC.GetGCMemoryInfo().TotalCommittedBytes >> 20}MB poolRetained={DefaultParquetBufferPool.Shared.RetainedBytes >> 20}MB");
+    }
+
     static void Keep(string path)
     {
         if (Environment.GetEnvironmentVariable("SCALE_KEEP") is { } dir && File.Exists(path))
@@ -236,11 +259,15 @@ static class Program
         var sizes = new List<long>(Writers.DrawRowGroups(rng, rows0));
         describe.Add($"append rows0={rows0} cols={columns} groups0={sizes.Count} page={options.TargetDataPageSizeBytes} idx={options.WritePageIndexes}");
         describe.AddRange(cols.Select(c => c.ToString()));
+        Mem("drawn");
+        if (Environment.GetEnvironmentVariable("SCALE_ALLOCPROBE") == "1")
+            AllocProbe(cols, [.. sizes], options);
         var path = TempFile("app");
         try
         {
             using (var output = File.Create(path))
                 Writers.Columnar(output, cols, [.. sizes], options, rng);
+            Mem("written");
             long total = rows0;
             var sessions = 1 + rng.Int(3);
             for (var s = 0; s < sessions; s++)
@@ -257,9 +284,11 @@ static class Program
                 using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
                 using (var appender = schema.CreateAppender(stream, appendOptions))
                 {
+                    Mem($"appender {s} open");
                     Writers.WriteGroups(appender, schema, cols, more, total, rng);
                     appender.CloseFile();
                 }
+                Mem($"appender {s} closed");
                 // Expected row groups: with AppendToLatestRowGroup the first new group extends the last existing one.
                 var rest = more.AsEnumerable();
                 if (latest && more.Length > 0 && sizes.Count > 0)
@@ -271,6 +300,7 @@ static class Program
                 total += more.Sum();
             }
             VerifyAll(path, new Expected { Cols = cols, Rows = total, RowGroupSizes = [.. sizes] }, rng, describe, scaleRow: false);
+            Mem("verified");
         }
         finally { Keep(path); File.Delete(path); }
     }
@@ -361,7 +391,8 @@ static class Program
         try
         {
             ArrowWrite.Write(path, cols, groups, rng, describe);
-            VerifyAll(path, new Expected { Cols = cols, Rows = rows, RowGroupSizes = groups }, rng, describe, scaleRow: false);
+            // Arrow C++ stores +-FLT_MAX/DBL_MAX as the bound when the extreme value is an infinity: valid, not exact.
+            VerifyAll(path, new Expected { Cols = cols, Rows = rows, RowGroupSizes = groups, BoundsOnly = true }, rng, describe, scaleRow: false);
         }
         finally { Keep(path); File.Delete(path); }
     }

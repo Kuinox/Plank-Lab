@@ -74,14 +74,17 @@ public static class Writers
     {
         var schema = Schema(cols);
         using var writer = schema.CreateWriter(output, options);
-        WriteGroups(writer, schema, cols, groups, 0, rng);
+        WriteGroups(writer, schema, cols, groups, 0, rng, options.InitialPageCapacity);
         writer.CloseFile();
     }
 
     /// <summary>Writes row groups of global rows [start, start + sum(groups)) into an open writer (no CloseFile).</summary>
-    public static void WriteGroups(ParquetWriter writer, ParquetSchema schema, ColSpec[] cols, long[] groups, long start, Rng rng)
+    public static void WriteGroups(ParquetWriter writer, ParquetSchema schema, ColSpec[] cols, long[] groups, long start, Rng rng, uint initialPageCapacity = 4096)
     {
-        var perGroupColumns = rng.Chance(30);
+        // Columns created per row group are all kept by the writer until it is disposed (known defect,
+        // fuzz/repros/serialized-column-per-row-group-retained): keep that retention affordable.
+        var perGroupColumns = rng.Chance(30)
+            && (double)groups.Length * cols.Length * Math.Max(4u, initialPageCapacity) * 400 < 1e9;
         var shared = new object?[cols.Length];
         foreach (var n in groups)
         {

@@ -124,6 +124,38 @@ public static class Repros
                     return 1;
                 }
             }
+            case "serialized-column-per-row-group-retained":
+            {
+                // One int column, 1000 rows per row group. Variant A creates the SerializedColumn once (writer level);
+                // variant B creates it from each RowGroupWriter. B's live memory (after a full GC, writer still open)
+                // grows with every row group: the writer keeps every SerializedColumn it ever created.
+                var schema = new Plank.Schema.ParquetSchema([Plank.Schema.ColumnDefinition.RequiredLeaf("v", Plank.Schema.ParquetPhysicalType.Int32)]);
+                var values = Enumerable.Range(0, 1000).ToArray();
+                var exit = 0;
+                foreach (var perGroup in new[] { false, true })
+                {
+                    using var writer = schema.CreateWriter(Stream.Null, new Plank.Writing.ParquetWriterOptions());
+                    Plank.Writing.SerializedColumn<int>? shared = perGroup ? null : writer.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+                    long first = 0;
+                    for (var g = 1; g <= 2000; g++)
+                    {
+                        var rg = writer.StartRowGroup();
+                        var column = shared ?? rg.CreateSerializedColumn<int>(schema.LeafColumns[0]);
+                        column.Serialize(values);
+                        rg.Write(column);
+                        if (g is 10 or 500 or 1000 or 2000)
+                        {
+                            var live = GC.GetTotalMemory(forceFullCollection: true);
+                            if (g == 10) first = live;
+                            Console.WriteLine($"{(perGroup ? "per-row-group column" : "shared column")}: after {g} row groups, live managed memory {live >> 10} KB");
+                            if (perGroup && g == 2000 && live > first * 8)
+                                exit = 1;
+                        }
+                    }
+                    writer.CloseFile();
+                }
+                return exit;
+            }
             default:
                 Console.Error.WriteLine("unknown repro " + name);
                 return 2;

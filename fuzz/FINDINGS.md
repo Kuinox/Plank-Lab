@@ -322,3 +322,13 @@ and with ParquetSharp.
   data). Arrow C++ refuses page headers above 16 MB ("Deserializing page header failed"), so it cannot read the file Plank
   wrote; Plank itself reads it back exactly. Repro: [`repros/page-header-untruncated-statistics/`](repros/page-header-untruncated-statistics/)
   (`Plank.Fuzzing.Scale repro page-header-untruncated-statistics <dir>`). Interoperability / size defect, not data corruption.
+- **A writer keeps every `SerializedColumn` it created, so columns created per row group grow memory without bound.**
+  `ParquetWriter.CreateSerializedColumn` (also behind `RowGroupWriter.CreateSerializedColumn`) adds each column to `_serializedColumns`
+  for the writer's lifetime: ~2.2 KB per column per row group with default options, ~1.25 MB with `InitialPageCapacity = 4096`
+  (7.8 GB for a 2,047-row, 1,000-group, 6-column file). Repro: [`repros/serialized-column-per-row-group-retained/`](repros/serialized-column-per-row-group-retained/)
+  (`Plank.Fuzzing.Scale repro serialized-column-per-row-group-retained <dir>`). Resource defect, no data impact.
+
+Triaged as not Plank defects (scale driver, 2026-11-28): Arrow C++ writes `±FLT_MAX`/`±DBL_MAX` as the float/double bound when the
+extreme value is an infinity (a valid, inexact bound that Plank reports exactly as stored; the `arrow` mode checks bounds, not
+equality); `BufferChunkSizeBytes` of 1–4095 bytes with large initial buffer sizes makes segment tables of
+`initial / chunk` entries per buffer (GBs per writer; a drawn-options artefact, the driver keeps the product small).
