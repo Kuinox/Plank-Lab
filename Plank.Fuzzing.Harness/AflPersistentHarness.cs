@@ -158,7 +158,10 @@ internal static unsafe class AflPersistentHarness
             bool fatal;
             if (WatchdogMs > 0 && File.Exists(HangPath(targetName, input)))
             {
-                status = FaultNone;             // known hang: skip it (counted by AFL as an empty run)
+                // Known hang: skip it. AFL aborts a calibration run with a completely empty map ("No instrumentation
+                // detected"), so leave one fixed byte set.
+                coveragePtr[1] = 1;
+                status = FaultNone;
                 fatal = false;
             }
             else

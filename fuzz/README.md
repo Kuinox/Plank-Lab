@@ -164,3 +164,8 @@ deterministic stage into the same slow input forever. With the watchdog the slow
 skipped afterwards, so each distinct hang costs one restart. `writer-codec-12.bin` (route `WCD1`) is one: ~1 s alone on
 an idle machine, 30 s on a loaded one under instrumentation. Also set `AFL_NO_STARTUP_CALIBRATION=1` when resuming a
 big queue, and delete a stale `$AFL_TMPDIR/.cur_input` after a killed worker.
+
+Do not use `AFL_NO_STARTUP_CALIBRATION=1` with this harness on AFL++ 4.40c: calibration is where the fork server is started, so the
+first fuzzing execution writes to a pipe that does not exist ("Unable to request new process ... Bad file descriptor") and every
+restart dies at once. Use `AFL_FAST_CAL=1` (2,300 reader entries calibrate in ~2 minutes). Keep the watchdog below AFL's `-t`
+(writer `-t 10000` + `PLANK_FUZZ_WATCHDOG_MS=8000`, reader `-t 1100` + 1000), or AFL kills the worker first.
