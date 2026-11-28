@@ -162,3 +162,50 @@ public static class Repros
         }
     }
 }
+
+/// <summary>`memprobe &lt;file&gt;`: managed bytes allocated reading each column through each read source.</summary>
+public static class MemProbe
+{
+    public static int Run(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        foreach (var kind in new[] { "memory", "file", "stream" })
+        {
+            using var reader = new Plank.Reading.Logical.ParquetReader();
+            Plank.Reading.IParquetReadSource source = kind switch
+            {
+                "memory" => new Plank.Reading.MemoryReadSource(bytes),
+                "file" => new Plank.Reading.FileReadSource(path),
+                _ => new Plank.Reading.StreamReadSource(new MemoryStream(bytes)),
+            };
+            reader.Reset(source);
+            foreach (var leaf in reader.Schema.LeafColumns)
+            {
+                var before = GC.GetTotalAllocatedBytes(true);
+                long n = 0;
+                foreach (Plank.Reading.Logical.RowGroup g in reader.RowGroups)
+                    foreach (var b in Count(g, leaf))
+                        n += b;
+                var after = GC.GetTotalAllocatedBytes(true);
+                Console.WriteLine($"{kind} {leaf.Path} {leaf.PhysicalType} {leaf.Options.Repetition}: {(after - before) >> 10} KB allocated, {n} values");
+            }
+        }
+        return 0;
+    }
+
+    static IEnumerable<long> Count(Plank.Reading.Logical.RowGroup g, Plank.Schema.LeafColumn leaf)
+    {
+        var list = new List<long>();
+        var optional = leaf.Options.Repetition == Plank.Schema.ParquetRepetition.Optional;
+        switch (leaf.PhysicalType)
+        {
+            case Plank.Schema.ParquetPhysicalType.Boolean: if (optional) foreach (var b in g.Column<bool?>(leaf)) list.Add(b.Count); else foreach (var b in g.Column<bool>(leaf)) list.Add(b.Count); break;
+            case Plank.Schema.ParquetPhysicalType.Int32: if (optional) foreach (var b in g.Column<int?>(leaf)) list.Add(b.Count); else foreach (var b in g.Column<int>(leaf)) list.Add(b.Count); break;
+            case Plank.Schema.ParquetPhysicalType.Int64: if (optional) foreach (var b in g.Column<long?>(leaf)) list.Add(b.Count); else foreach (var b in g.Column<long>(leaf)) list.Add(b.Count); break;
+            case Plank.Schema.ParquetPhysicalType.Float: if (optional) foreach (var b in g.Column<float?>(leaf)) list.Add(b.Count); else foreach (var b in g.Column<float>(leaf)) list.Add(b.Count); break;
+            case Plank.Schema.ParquetPhysicalType.Double: if (optional) foreach (var b in g.Column<double?>(leaf)) list.Add(b.Count); else foreach (var b in g.Column<double>(leaf)) list.Add(b.Count); break;
+            default: foreach (var b in g.Column<byte>(leaf)) list.Add(b.Count); break;
+        }
+        return list;
+    }
+}

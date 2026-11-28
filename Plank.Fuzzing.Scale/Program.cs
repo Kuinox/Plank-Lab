@@ -25,6 +25,8 @@ static class Program
     {
         if (args.Length == 3 && args[0] == "repro")
             return Repros.Run(args[1], args[2]);
+        if (args.Length == 2 && args[0] == "memprobe")
+            return MemProbe.Run(args[1]);
         if (args.Length == 2 && args[0] == "inspect")
             return Inspect.Run(args[1]);
         if (args.Length < 3)
@@ -156,7 +158,7 @@ static class Program
     /// </summary>
     static void PlantedMismatch(string path, Expected e, Rng rng, bool scaleRow)
     {
-        if (e.Rows < 2 || new FileInfo(path).Length > (1L << 30))
+        if (e.Rows < 2 || new FileInfo(path).Length > (256L << 20))
             return;
         var skew = rng.Long(e.Rows - 1);
         var differing = Enumerable.Range(0, e.Cols.Length).Where(c => Verify.Fp(e.Cols[c], e.Row(skew)) != Verify.Fp(e.Cols[c], e.Row(skew) + 1)).ToArray();
@@ -190,11 +192,14 @@ static class Program
         var length = new FileInfo(path).Length;
         using (var fileSource = new FileReadSource(path))
             Verify.PlankLogical(fileSource, e, null, checkMetadata: true);
+        Mem("verify logical+metadata");
         using (var stream = File.OpenRead(path))
             Verify.PlankLogical(new StreamReadSource(stream), e, new ParquetReaderOptions { VerifyPageCrc = rng.Chance(50) }, checkMetadata: false);
+        Mem("verify stream");
         using (var fileSource = new FileReadSource(path))
             Verify.PlankPruned(fileSource, e, rng);
-        if (length < (1L << 30))
+        Mem("verify pruned");
+        if (length < (256L << 20))
         {
             var bytes = File.ReadAllBytes(path);
             Verify.PlankLogical(new MemoryReadSource(bytes), e, null, checkMetadata: false);
@@ -211,7 +216,9 @@ static class Program
             using var fileSource = new FileReadSource(path);
             RowRead.ScaleRows(fileSource, e, projection, selected, RowRead.DrawOptions(rng), "rowreader(file)");
         }
+        Mem("verify memory/rows");
         Verify.Arrow(path, e);
+        Mem("verify arrow");
     }
 
     static void Columnar(Rng rng, int tier, List<string> describe)
