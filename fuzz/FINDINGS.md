@@ -116,6 +116,14 @@ mismatch is one of the two findings above. Reader target over every reader seed 
 47k mutants: 9.5k accepted files fully compared (schema, counts, statistics vs raw footer, KV, sorting, Bloom probes,
 13k nested logical values) — no mismatch left after the triage below. Segfaults seen only on `0xFF RWG1/RWN1` row-group
 row-writer inputs and their mutants (the known #276 overrun; they crash with the oracle disabled too).
+Harness hang noticed (surface-owned, not fixed here): the 6-byte writer input `C5 50 48 59 31 33` (`PHY1` + one
+control byte) spins forever in `PhysicalReaderSurfaceCases.Execute` (stack: `Cur.Int` / `SortedSet.AddIfNotPresent`, no
+library frame; same with both oracles off): with a one-byte control stream every draw is the same value, so a
+draw-until-new loop never ends. 3 of 300 writer-mutant chunks hit the 30-minute timeout on such inputs.
+Read-API matrix scale results (2026-11-28, Plank 3a6a28a): 106k writer mutants → 81.7k Plank-written files, 11.4M
+column reads + 446k row-reader passes, 344M values; ≥90k cross-writer mutants → ≈75k Arrow-written files through every
+read API; 202k reader mutants + 8k seeds. No value mismatch on any read API beyond the findings above; writer mutants
+also re-hit the append-sorting −0/+0 harness bug already fixed in 6dbfcbd (the binary predated it).
 Harness bug noticed (writer-owned, not fixed here): `DecimalBinaryStatisticsCoverageCase` picks the `_` value set for
 any control byte ≥ 2 but expects the `order == 2` statistics only for exactly 2, so mutated `DBS1` inputs fault with
 "Decimal binary statistics changed." although Plank's statistics are right (the oracle checks them).
