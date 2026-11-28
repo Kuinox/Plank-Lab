@@ -43,14 +43,18 @@ public static class Verify
             Fail($"leaf count {leaves.Length} != {e.Cols.Length}");
         long start = 0;
         var groups = reader.RowGroups;
-        if (e.RowGroupSizes is { } sizes && groups.Count != sizes.Count(s => s > 0) && groups.Count != sizes.Length)
-            Fail($"row group count {groups.Count} != expected {sizes.Length}");
+        // Row groups without rows may or may not be written: compare the non-empty groups in order.
+        long[]? nonEmpty = e.RowGroupSizes?.Where(s => s > 0).ToArray();
+        var actualNonEmpty = new List<long>();
+        foreach (RowGroup group in groups)
+            if (group.RowCount > 0)
+                actualNonEmpty.Add((long)group.RowCount);
+        if (nonEmpty is not null && !nonEmpty.SequenceEqual(actualNonEmpty))
+            Fail($"non-empty row groups [{string.Join(",", actualNonEmpty.Take(12))}..] ({actualNonEmpty.Count}) != expected [{string.Join(",", nonEmpty.Take(12))}..] ({nonEmpty.Length})");
         var g = 0;
         foreach (RowGroup group in groups)
         {
             var count = (long)group.RowCount;
-            if (e.RowGroupSizes is { } s2 && groups.Count == s2.Length && s2[g] != count)
-                Fail($"row group {g} has {count} rows, expected {s2[g]}");
             for (var c = 0; c < leaves.Length; c++)
                 Column(group, leaves[c], e.Cols[c], e, start, count, checkMetadata, $"rg{g} col{c}({e.Cols[c].Name})");
             start += count;

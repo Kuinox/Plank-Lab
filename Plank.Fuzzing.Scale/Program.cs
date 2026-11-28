@@ -73,6 +73,8 @@ static class Program
                 case "concurrency": Concurrency(rng, tier, describe); break;
                 case "big": Big(rng, tier, describe); break;
                 case "nested": NestedMode.Run(rng, tier, describe); break;
+                case "append": Append(rng, tier, describe); break;
+                case "merge": Merge(rng, tier, describe); break;
                 default: throw new ArgumentException("unknown mode " + mode);
             }
             message = "";
@@ -206,6 +208,122 @@ static class Program
             using (var output = File.Create(path))
                 Writers.Columnar(rng.Chance(20) ? new JitterWriteStream(output) : output, cols, groups, options, rng);
             VerifyAll(path, new Expected { Cols = cols, Rows = rows, RowGroupSizes = groups }, rng, describe, scaleRow: false);
+        }
+        finally { Keep(path); File.Delete(path); }
+    }
+
+    static (long Rows, int Columns) DrawSize(Rng rng, int tier) => tier switch
+    {
+        0 => (rng.Pick(1L, 2L, 100L, 2047L, 2048L, 2049L, 16384L, 16385L, rng.Long(30_000)), 1 + rng.Int(8)),
+        1 => (rng.Pick(65537L, 200_000L, rng.Long(400_000)), 1 + rng.Int(6)),
+        _ => (rng.Pick(1L << 20, 3_000_000L), 1 + rng.Int(3)),
+    };
+
+    /// <summary>Existing file, then 1-3 appender sessions (new row groups or AppendToLatestRowGroup), checked as one file.</summary>
+    static void Append(Rng rng, int tier, List<string> describe)
+    {
+        var (rows0, columns) = DrawSize(rng, tier);
+        var cols = DrawColumns(rng, columns, rows0 * 3, allowHuge: false);
+        foreach (var c in cols)
+            if (c.Encodings.Contains(Plank.Schema.EncodingKind.Alp))
+                c.Encodings = []; // keep Arrow able to read every chunk
+        var options = Writers.DrawOptions(rng, rows0, tier, rowApi: false, columns);
+        var schema = Writers.Schema(cols);
+        var sizes = new List<long>(Writers.DrawRowGroups(rng, rows0));
+        describe.Add($"append rows0={rows0} cols={columns} groups0={sizes.Count} page={options.TargetDataPageSizeBytes} idx={options.WritePageIndexes}");
+        describe.AddRange(cols.Select(c => c.ToString()));
+        var path = TempFile("app");
+        try
+        {
+            using (var output = File.Create(path))
+                Writers.Columnar(output, cols, [.. sizes], options, rng);
+            long total = rows0;
+            var sessions = 1 + rng.Int(3);
+            for (var s = 0; s < sessions; s++)
+            {
+                var more = Writers.DrawRowGroups(rng, rng.Pick(0L, 1L, 2049L, rows0, rng.Long(rows0 + 1)));
+                var latest = rng.Chance(50);
+                var appendOptions = new ParquetAppendOptions
+                {
+                    AppendToLatestRowGroup = latest,
+                    PreserveExistingMetadata = rng.Chance(50),
+                    WriterOptions = Writers.DrawOptions(rng, rows0, tier, rowApi: false, columns),
+                };
+                describe.Add($"session {s}: latest={latest} groups={string.Join(",", more.Take(20))}");
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite))
+                using (var appender = schema.CreateAppender(stream, appendOptions))
+                {
+                    Writers.WriteGroups(appender, schema, cols, more, total, rng);
+                    appender.CloseFile();
+                }
+                // Expected row groups: with AppendToLatestRowGroup the first new group extends the last existing one.
+                var rest = more.AsEnumerable();
+                if (latest && more.Length > 0 && sizes.Count > 0)
+                {
+                    sizes[^1] += more[0];
+                    rest = more.Skip(1);
+                }
+                sizes.AddRange(rest);
+                total += more.Sum();
+            }
+            VerifyAll(path, new Expected { Cols = cols, Rows = total, RowGroupSizes = [.. sizes] }, rng, describe, scaleRow: false);
+        }
+        finally { Keep(path); File.Delete(path); }
+    }
+
+    /// <summary>2-6 files of consecutive rows merged into one (copying merger or in-place merger).</summary>
+    static void Merge(Rng rng, int tier, List<string> describe)
+    {
+        var (rows0, columns) = DrawSize(rng, tier);
+        var cols = DrawColumns(rng, columns, rows0 * 4, allowHuge: false);
+        foreach (var c in cols)
+            if (c.Encodings.Contains(Plank.Schema.EncodingKind.Alp))
+                c.Encodings = [];
+        var schema = Writers.Schema(cols);
+        var files = 2 + rng.Int(5);
+        var parts = new List<byte[]>();
+        long total = 0;
+        describe.Add($"merge files={files} rows0={rows0} cols={columns}");
+        describe.AddRange(cols.Select(c => c.ToString()));
+        for (var f = 0; f < files; f++)
+        {
+            var rows = rng.Pick(0L, 1L, rows0, rng.Long(rows0 + 1));
+            var groups = Writers.DrawRowGroups(rng, rows);
+            var options = Writers.DrawOptions(rng, rows, tier, rowApi: false, columns);
+            var output = new MemoryStream();
+            using (var writer = schema.CreateWriter(output, options))
+            {
+                Writers.WriteGroups(writer, schema, cols, groups, total, rng);
+                writer.CloseFile();
+            }
+            parts.Add(output.ToArray());
+            describe.Add($"file {f}: rows={rows} groups={groups.Length}");
+            total += rows;
+        }
+        var store = new MemFiles();
+        var destination = new MemFiles.Source(store);
+        destination.Open("merged.parquet"u8, FileMode.Create);
+        var mergeOptions = new ParquetMergeOptions { PreserveFirstFileMetadata = rng.Chance(50), WriterOptions = Writers.DrawOptions(rng, rows0, tier, rowApi: false, columns) };
+        var inPlace = rng.Chance(50);
+        ParquetFileMerger merger;
+        if (inPlace)
+        {
+            destination.Write(0, parts[0]);
+            merger = schema.CreateMerger(destination, mergeOptions);
+        }
+        else
+            merger = schema.CreateMerger(new MemoryReadSource(parts[0]), destination, mergeOptions);
+        for (var f = 1; f < parts.Count; f++)
+            merger.AppendFile(rng.Chance(50) ? new MemoryReadSource(parts[f]) : new JitterSource(parts[f]));
+        if (merger.RowCount != total)
+            throw new Finding($"merger.RowCount {merger.RowCount}, expected {total} (inPlace={inPlace})");
+        merger.CloseFile();
+        destination.Close();
+        var path = TempFile("merge");
+        try
+        {
+            File.WriteAllBytes(path, store.Files["merged.parquet"].ToArray());
+            VerifyAll(path, new Expected { Cols = cols, Rows = total }, rng, describe, scaleRow: false);
         }
         finally { Keep(path); File.Delete(path); }
     }

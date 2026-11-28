@@ -36,6 +36,18 @@ public static class Writers
             TargetRowGroupSizeBytes = rng.Pick(1UL, 1000UL, 65536UL, 1UL << 20, 16UL << 20, 128UL << 20, 1UL << 31, (1UL << 32) + 5),
             TargetFileSizeBytes = rng.Chance(80) ? 512UL << 20 : rng.Pick(1UL, 4096UL, 1UL << 20, 64UL << 20),
         };
+        // The segment table is InitialColumnBufferBytes / BufferChunkSizeBytes entries: a tiny chunk with the 40 MB
+        // default allocates ~1 GB per column buffer. Keep that product affordable.
+        if (o.BufferChunkSizeBytes < 4096 && (o.InitialColumnBufferBytes > o.BufferChunkSizeBytes * 64 || o.InitialPageBufferBytes > o.BufferChunkSizeBytes * 64))
+            o = new ParquetWriterOptions
+            {
+                TargetDataPageSizeBytes = o.TargetDataPageSizeBytes, WritePageIndexes = o.WritePageIndexes, WritePageCrc = o.WritePageCrc,
+                DataPageVersion = o.DataPageVersion, FileVersion = o.FileVersion, Compression = o.Compression,
+                BufferChunkSizeBytes = o.BufferChunkSizeBytes, InitialColumnBufferBytes = Math.Min(o.InitialColumnBufferBytes, o.BufferChunkSizeBytes * 64),
+                InitialPageBufferBytes = Math.Min(o.InitialPageBufferBytes, o.BufferChunkSizeBytes * 64), InitialPageCapacity = o.InitialPageCapacity,
+                RowApiInitialRowCapacity = o.RowApiInitialRowCapacity, RowApiMaxParallelism = o.RowApiMaxParallelism,
+                Execution = o.Execution, TargetRowGroupSizeBytes = o.TargetRowGroupSizeBytes, TargetFileSizeBytes = o.TargetFileSizeBytes,
+            };
         return o;
     }
 
@@ -56,13 +68,21 @@ public static class Writers
 
     // ---------------- columnar (runtime schema) ----------------
 
+    public static ParquetSchema Schema(ColSpec[] cols) => new([.. cols.Select(c => c.Definition())]);
+
     public static void Columnar(Stream output, ColSpec[] cols, long[] groups, ParquetWriterOptions options, Rng rng)
     {
-        var schema = new ParquetSchema([.. cols.Select(c => c.Definition())]);
+        var schema = Schema(cols);
         using var writer = schema.CreateWriter(output, options);
+        WriteGroups(writer, schema, cols, groups, 0, rng);
+        writer.CloseFile();
+    }
+
+    /// <summary>Writes row groups of global rows [start, start + sum(groups)) into an open writer (no CloseFile).</summary>
+    public static void WriteGroups(ParquetWriter writer, ParquetSchema schema, ColSpec[] cols, long[] groups, long start, Rng rng)
+    {
         var perGroupColumns = rng.Chance(30);
         var shared = new object?[cols.Length];
-        long start = 0;
         foreach (var n in groups)
         {
             var rg = writer.StartRowGroup();
@@ -88,7 +108,6 @@ public static class Writers
             }
             start += n;
         }
-        writer.CloseFile();
     }
 
     static T[] Fill<T>(long n, Func<long, T> f)
