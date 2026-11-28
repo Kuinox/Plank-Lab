@@ -87,6 +87,7 @@ static class Program
                 case "rgwriter": RowGroupRowWriter(rng, tier, describe); break;
                 case "types": TypesMode(rng, tier, describe); break;
                 case "nestedtypes": NestedTypes.Run(rng, tier, describe); break;
+                case "arrowtypes": ArrowTypesMode(rng, tier, describe); break;
                 case "rowtypes": RowTypesMode(rng, tier, describe, dataset: false); break;
                 case "datatypes": RowTypesMode(rng, tier, describe, dataset: true); break;
                 case "merge": Merge(rng, tier, describe); break;
@@ -566,6 +567,28 @@ static class Program
         {
             foreach (var (path, _) in files) { Keep(path); File.Delete(path); }
         }
+    }
+
+    static void ArrowTypesMode(Rng rng, int tier, List<string> describe)
+    {
+        var (rows, columns) = DrawSize(rng, tier);
+        var types = Enumerable.Range(0, columns).Select(i => ArrowTypes.Draw(rng, $"a{i}", rows)).ToArray();
+        // ParquetSharp's string columns are optional.
+        foreach (var t in types)
+            if (t.K is LKind.Json or LKind.Enum && !t.Spec.Optional) { t.Spec.Optional = true; t.Spec.NullPattern = 0; }
+        var groups = Writers.DrawRowGroups(rng, rows);
+        describe.Add($"arrowtypes rows={rows} cols={columns} groups={groups.Length}");
+        describe.AddRange(types.Select(t => t.ToString()));
+        var path = TempFile("arrowtypes");
+        try
+        {
+            ArrowTypes.Write(path, types, groups, rng);
+            var e = new Expected { Cols = [.. types.Select(t => t.Spec)], Rows = rows, RowGroupSizes = groups, BoundsOnly = true };
+            VerifyAll(path, e, rng, describe, scaleRow: false);
+            using (var source = new FileReadSource(path))
+                TypesVerify.Check(source, types, e);
+        }
+        finally { Keep(path); File.Delete(path); }
     }
 
     static long RowCount(Rng rng, int tier) => tier switch
