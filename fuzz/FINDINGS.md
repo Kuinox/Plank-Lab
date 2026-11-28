@@ -277,6 +277,23 @@ Found on the way, none of them a Plank bug:
 - `agents/build2.lock` was held for hours by idle Roslyn compiler servers that inherited the lock fd from a finished
   build (on ovh and on nas). The Lab's `Directory.Build.targets` now sets `UseSharedCompilation=false`; use `flock -o`.
 
+## Logical-span sweep with the checked-access build (checked agent, 2026-11-28)
+
+`-p:PlankCheckedAccess=true` (see [`Plank.Fuzzing.Checked/README.md`](../Plank.Fuzzing.Checked/README.md)) rewrites a
+build copy of the library so that every unchecked access (2,250 sites: `Unsafe.*`, `MemoryMarshal.*`, vector
+loads/stores, gathers, pointer derefs, `fixed`, plus InternalGen's generated delta decoder) is checked against the
+*logical* span its ref came from: an over-read past a page payload, a slice or a dictionary that stays inside a
+larger valid buffer throws `PlankOobReadException` / prints `PLANK-OOB` (guard pages cannot see those). Inventory:
+[`notes/unchecked-access-sites.md`](notes/unchecked-access-sites.md).
+
+**No Plank logical-span violation found so far.** Replayed clean (default tier, AVX2): every committed reader seed
+directory (8,603 inputs, 18.6 M checked accesses, 0.03 % unattributable), writer (1,304) and merger (1,271) seeds.
+Positive control: `tools/checked-positive-control.patch` (a +1 read in the boolean bit unpacker, copy only) is
+reported on `pqt-data-alltypes_plain.bin` in the replay driver and FailFasts the SharpFuzz reader target.
+Running: `job-24574813-checked-c1-*` (all tiers on ovh: seeds, 6,000 reader + 3,000 writer mutants, structured page
+mutants, AFL queues; results in `agents/checked/runs/c1/<tier>/*/{summary,oob}.txt|tsv`) and AFL workers
+`cr-chk`/`cw-chk` on the checked targets. AVX-512 is untested (no AVX-512 machine up).
+
 ## Fuzz-harness defects (fixed)
 
 - `DecimalBinaryStatisticsCoverageCase` (`DBS1`): any control byte >= 2 drew the third value set but the expectation was only
