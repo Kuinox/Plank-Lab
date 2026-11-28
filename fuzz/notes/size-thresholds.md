@@ -63,10 +63,11 @@ only switches on at thousands of rows, MB-sized pages or GB-sized offsets was un
 
 ## Not crossed by anything yet
 
-- More than `int.MaxValue` rows, values, pages or row groups (unaffordable; the guards are refusals).
+- More than `int.MaxValue` values in one page, row group or Serialize call, or `int.MaxValue` pages / row groups (unaffordable;
+  the guards are refusals). More than `int.MaxValue` rows *in a file* is crossed by mode `manyrows` (2^31+7 … 2^32+3 rows in
+  row groups of 2^26–2^27 rows, logical reader, multi-worker row reader, Arrow).
 - A dictionary page above 2 GB.
 - Thousands of columns at large row counts (the wide columnar shapes are 300–3000 columns with ≤ 50 rows).
-- Nested (repeated) columns at scale: the `ScaleNested` type is declared but no scale mode drives it yet.
 
 ## The scale driver
 
@@ -75,8 +76,14 @@ function of (column seed, row index), so files of any size are verified while st
 drawn encodings/compression/bloom per column, drawn row-group sizes including 0, 2047/2048/2049, serialized columns shared
 across groups or per group), `row` (generated `ScaleRow`, `GetRow`/cursor, drawn row-API options), `rollover`
 (`TargetFileSizeBytes` file rollover), `dataset` (partitioned, few open files so files are reopened and appended),
-`concurrency` (hundreds of multi-threaded reads/writes per input against the single-threaded file), `big` (2.3 / 4.3 GB files and
-a 2.1 GB chunk). Each file is read back with: the runtime logical reader over `FileReadSource`, `StreamReadSource` and
+`concurrency` (hundreds of multi-threaded reads/writes per input against the single-threaded file; a counting pool asserts the
+parallel row writer returns every buffer), `big` (2.3 / 4.3 GB files and a 2.1 GB chunk), `nested` (optional lists of int/string
+with rare 300k-element rows: logical levels, row reader with workers, Arrow levels), `append` (1–3 appender sessions, with and
+without `AppendToLatestRowGroup`), `merge` (2–6 files, copying and in-place merger), `arrow` (files written by Arrow C++ with
+drawn dictionary-page limits, page/batch sizes, DELTA/BSS, v1/v2, page index; Plank reads them), `manyrows` (> 2^31 rows).
+Column kinds: INT32, INT64, DOUBLE, FLOAT, BOOLEAN, BYTE_ARRAY, STRING, FIXED_LEN_BYTE_ARRAY (1–100 bytes).
+`SCALE_SELFTEST=1` plants a one-row mismatch in the expectation and requires every reader to report it ("SELFTEST MISSED"
+otherwise); `inspect <file>` and `repro <name> <dir>` are triage helpers. Each file is read back with: the runtime logical reader over `FileReadSource`, `StreamReadSource` and
 `MemoryReadSource` (values, nulls, chunk statistics, offset/column index per page, Bloom no-false-negative), a projected read
 with a random page pruner (values must equal exactly the kept pages' rows), the generated row reader (random projection,
 WorkerCount, read-ahead) and typed reader, and ParquetSharp (Arrow C++).

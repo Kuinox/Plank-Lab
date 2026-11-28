@@ -25,3 +25,12 @@ public sealed partial class ScaleNested
     public List<int>? Values { get; set; }
     public List<string>? Tags { get; set; }
 }
+
+/// <summary>Cheap columns for files with more than int.MaxValue rows (RLE / dictionary compress them to almost nothing).</summary>
+[ParquetSchema]
+public sealed partial class ScaleMany
+{
+    public bool Flag { get; set; }
+    public int Small { get; set; }
+    public int? Missing { get; set; }
+}

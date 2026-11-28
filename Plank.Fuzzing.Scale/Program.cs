@@ -77,6 +77,7 @@ static class Program
                 case "nested": NestedMode.Run(rng, tier, describe); break;
                 case "append": Append(rng, tier, describe); break;
                 case "arrow": ArrowFiles(rng, tier, describe); break;
+                case "manyrows": ManyRows.Run(rng, tier, describe); break;
                 case "merge": Merge(rng, tier, describe); break;
                 default: throw new ArgumentException("unknown mode " + mode);
             }
