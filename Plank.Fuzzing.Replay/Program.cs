@@ -22,6 +22,13 @@ static class Program
 {
     static int Main(string[] args)
     {
+        // Cross-writer seeds (Arrow-written plans) without building the instrumented writer target.
+        if (args is ["--generate-cross-writer", var crossDirectory])
+        {
+            Console.WriteLine($"wrote {CrossWriterCorpusGenerator.Generate(crossDirectory)} cross-writer seeds");
+            return 0;
+        }
+
         if (args.Length < 2)
         {
             Console.Error.WriteLine("usage: Plank.Fuzzing.Replay <reader|writer|merger|both> <dir> [<dir>...]");

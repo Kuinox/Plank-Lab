@@ -401,6 +401,29 @@ public static class FullValueOracle
         }
     }
 
+    /// <summary>
+    /// A valid file written by another writer (Arrow, in the cross-writer route): Plank must read it in
+    /// full, every column's levels and values must equal Arrow's, and every read API is then held to
+    /// Arrow (<see cref="ReadApiMatrix"/>) along with the footer comparison of <see cref="VerifyAccepted"/>.
+    /// </summary>
+    public static void VerifyForeign(byte[] file)
+    {
+        if (Disabled)
+            return;
+        using var plank = new ParquetReader();
+        plank.Reset(new MemoryReadSource(file));
+        var traces = new List<ColumnTrace?[]>();
+        foreach (var group in plank.RowGroups)
+        {
+            var groupTraces = new ColumnTrace?[plank.Schema.LeafColumns.Length];
+            traces.Add(groupTraces);
+            for (var c = 0; c < groupTraces.Length; c++)
+                groupTraces[c] = ColumnTrace.CapturePlank(group, plank.Schema.LeafColumns[c]);
+        }
+        ReaderAcceptanceOracle.VerifyWithParquetSharp(file, traces);
+        VerifyAccepted(file, plank);
+    }
+
     // ---- Writer-side verification ------------------------------------------
 
     static void VerifyWrittenCore(byte[] file, ParquetReader plank, List<ColumnTrace?[]> traces)

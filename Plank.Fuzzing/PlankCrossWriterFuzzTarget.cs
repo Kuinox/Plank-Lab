@@ -123,6 +123,9 @@ public static class PlankCrossWriterFuzzTarget
         // each page's bounds before it can decide to skip one. An accept-all
         // pruner changes no results, so the same value comparison applies.
         VerifyValues(plan, file, pagePruner: static (in ParquetDataPageMetadata _) => true);
+
+        // oracle agent: every Plank read API against Arrow on the same Arrow-written file.
+        FullValueOracle.VerifyForeign(file);
     }
 
     static void VerifyValues(CrossWriterPlan plan, byte[] file, ParquetPagePruner? pagePruner)

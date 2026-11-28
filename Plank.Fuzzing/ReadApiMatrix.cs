@@ -650,7 +650,10 @@ public static class ReadApiMatrix
                         var count = (int)Math.Min(header.ValueCount, int.MaxValue);
                         if (entry + (long)count > column.EntryCount)
                             Fail("page cursor: data page value counts exceed Arrow's entries", $"{where}, page {page}: num_values={header.ValueCount}, entries so far={entry}, Arrow={column.EntryCount}");
-                        if (header.Type == PageHeaderType.DataPageV2)
+                        // v2 num_nulls/num_rows are not cross-validated by Plank or Arrow when reading
+                        // (both decode the levels): on foreign/fuzzed files a wrong header field is an
+                        // input-tolerance difference; on Plank's own files it must be right.
+                        if (strict && header.Type == PageHeaderType.DataPageV2)
                         {
                             int nulls = 0, rows = 0;
                             for (var e = entry; e < entry + count; e++)
