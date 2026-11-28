@@ -294,6 +294,33 @@ Running: `job-24574813-checked-c1-*` (all tiers on ovh: seeds, 6,000 reader + 3,
 mutants, AFL queues; results in `agents/checked/runs/c1/<tier>/*/{summary,oob}.txt|tsv`) and AFL workers
 `cr-chk`/`cw-chk` on the checked targets. AVX-512 is untested (no AVX-512 machine up).
 
+### Guard sweep with exact read buffers (guard agent, 2026-11-28, build `replay-v13`, Plank master 3a6a28a + local #276 fix)
+
+Owner hint: the canary is an out-of-bounds read that does not crash. The earlier guard could not see over-reads past
+a page or section that stay inside the file or a reused buffer, so `-p:PlankGuardArrays=true` now also gives every
+read range its own exact guarded memory: `MemoryReadSource.TryBorrow` returns an exact guarded copy of the borrowed
+range (pages, sections, header probes), the page payload / decompression output, `ColumnReadBuffers` scratch, level
+and int buffers, the header-probe buffer and the statistics builder are re-rented at the exact size instead of reused
+larger, and `new T[n]` for primitives is guarded across `Reading/`, `Compression/`, `BloomFilters/`, `Schema/` (37
+sites; Plank's reading code has no `ArrayPool` / `AllocateUninitializedArray`). Self-test `borrow`: reading one byte
+past a borrowed 5-byte range of an ordinary 100-byte file array faults in both modes.
+
+**No guard fault**, all in end and start mode:
+- every `reader*` seed directory (7,183 inputs, compressed and uncompressed) and 29,991 decoder mutants, in each of
+  the default (AVX2), SSE, scalar and ISA-flip tiers;
+- the AFL reader queues (12,468 inputs, including the campaign's guard worker), default tier;
+- structure-aware page mutants (oracle agent's `StructuredPageMutator`, `structured` mode: pages rewritten
+  uncompressed with a valid envelope, judged by Plank and Arrow): 1,319 seeds x 20 (end) / x 12 (start) in the default
+  tier, x 6 in end mode for SSE, scalar and ISA flip; no `SFINDING` either.
+Not yet run: AVX-512 (queued on kuinox-desktop), start mode of the structured mutants in the non-default tiers.
+
+Triaged along the way: AFL reader inputs on the `PRFS` route where Plank reads row 0 = 0 and Parquet.Net 16777216
+(a statistics binary length stretched by AFL): an independent Thrift decode shows the header still ends at the same
+offset and the page holds `(0, 1, -1, INT_MAX, INT_MIN)`, so Plank is right and Parquet.Net reads one byte late.
+Harness issues fixed on the way (no Plank bug): released guard arrays held by static tables crashed the JIT (now not
+guarded under static constructors), memory from seeds parsed outside a scope (now guarded only inside one), and
+RLIMIT_DATA aborting processes whose native libraries reserve untouched mappings (cap off; guard memory budget instead).
+
 ## Fuzz-harness defects (fixed)
 
 - `WCD1` mode 6 (external LZ4 payloads, `WriterCodecLz4Cases.Lz4ExternalPayload`): "pristine" was decided by the payload CRC only, but the
