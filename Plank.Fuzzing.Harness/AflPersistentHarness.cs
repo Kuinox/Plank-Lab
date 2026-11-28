@@ -40,13 +40,13 @@ internal static unsafe class AflPersistentHarness
         ArgumentNullException.ThrowIfNull(execute);
 
         var lastInputPath = $"/tmp/plank-fuzz-{targetName}-last-input.bin";
-        RecoverGuardDeath(targetName);
 
         if (!TryGetEnvInt("__AFL_SHM_ID", out int shmId))
         {
             // Match the AFL loop's warm-up so state-dependent findings also
             // reproduce with the simple standalone stdin command.
             PinDummyCoverageBuffer();
+            RecoverGuardDeath(targetName);
             try { execute([]); } catch { }
             execute(ReadTestcase());
             return;
@@ -57,6 +57,8 @@ internal static unsafe class AflPersistentHarness
         byte* coveragePtr = (byte*)coverageMem;
         Trace.SharedMem = coveragePtr;
         SetupCoreCoverage(coveragePtr);
+        // Instrumented code (this included) needs the coverage map first; the warm-up clear below drops its edges.
+        RecoverGuardDeath(targetName);
 
         // afl-cmin passes AFL_NO_FORKSRV=1: no fork-server protocol, just run stdin once.
         // Coverage is tracked via the already-mapped SHM bitmap.
@@ -315,11 +317,6 @@ internal static unsafe class AflPersistentHarness
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
-    }
-
-    static void TryWriteAllBytes(string path, byte[] contents)
-    {
-        try { File.WriteAllBytes(path, contents); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     static void TryWriteAllBytes(string path, byte[] contents)
