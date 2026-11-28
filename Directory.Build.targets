@@ -66,6 +66,11 @@
       <_PlankCheckedLine Include="@(ReferencePathWithRefAssemblies->'ref=%(FullPath)')" />
       <_PlankCheckedLine Include="@(_PlankCheckedGen->'gen=%(FullPath)')" />
     </ItemGroup>
+    <!-- The ProjectReference normally builds the tool first; build it here too when it is missing (a build that skips
+         project references, or a parallel graph that reached this target first), instead of failing in Exec. -->
+    <MSBuild Projects="$(_PlankCheckedRewriterProject)" Targets="Restore;Build" Properties="Configuration=$(Configuration);MSBuildRestoreSessionId=$([System.Guid]::NewGuid())"
+             Condition="!Exists('$(_PlankCheckedTool)')" />
+    <Error Condition="!Exists('$(_PlankCheckedTool)')" Text="PlankCheckedAccess: rewriter tool not built: $(_PlankCheckedTool)" />
     <MakeDir Directories="$(_PlankCheckedDir)" />
     <WriteLinesToFile File="$(_PlankCheckedDir)rewriter.rsp" Lines="@(_PlankCheckedLine)" Overwrite="true" />
     <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(_PlankCheckedTool)&quot; &quot;$(_PlankCheckedDir)rewriter.rsp&quot;" />
