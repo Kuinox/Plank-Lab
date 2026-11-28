@@ -43,7 +43,8 @@
     <_PlankCheckedRewriterProject>$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Rewriter/Plank.Fuzzing.Checked.Rewriter.csproj</_PlankCheckedRewriterProject>
   </PropertyGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Plank' and '$(PlankCheckedAccess)' == 'true'">
-    <Compile Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Runtime/PlankCheckedAccess.cs" Link="Checked/PlankCheckedAccess.cs" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Plank.Fuzzing.Checked/Runtime/Plank.Fuzzing.Checked.Runtime.csproj"
+                      GlobalPropertiesToRemove="PlankCheckedAccess" />
     <ProjectReference Include="$(_PlankCheckedRewriterProject)" ReferenceOutputAssembly="false" Private="false"
                       SkipGetTargetFrameworkProperties="true" GlobalPropertiesToRemove="PlankCheckedAccess" />
   </ItemGroup>

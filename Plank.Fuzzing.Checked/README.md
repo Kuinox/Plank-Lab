@@ -10,8 +10,9 @@ Nothing is committed into `library/Plank`. At build time the Roslyn tool `Rewrit
 runs `Plank.InternalGen` itself (so its generated delta-bit-unpacking decoder is rewritten too; the compiler then
 stops running that generator), applies `hand-rewrites.txt`, rewrites every unchecked access and compiles the copies
 (`obj/<cfg>/net10.0/checked-access/`, with `#line` directives so stack traces and sites keep library file:line).
-`Runtime/PlankCheckedAccess.cs` is compiled into the library: `Plank.CheckedAccess.C` (the checked calls) and
-`PlankChecked` (the region table), `PlankOobReadException`.
+`Runtime/` is its own assembly (`Plank.CheckedAccess.dll`, referenced by the checked library only): `C` (the checked
+calls), `PlankChecked` (the region table), `PlankOobReadException`. Separate so SharpFuzz, which instruments
+`Plank.dll`, does not instrument the region table's state-dependent loops (AFL would see unstable edges).
 
 ## What is rewritten
 
@@ -58,6 +59,10 @@ GC: run with a large gen0 budget (`DOTNET_GCgen0size=0x10000000`) to keep most a
 agents-style build: dotnet build Plank.Fuzzing.Replay -c Release -p:PlankCheckedAccess=true -p:RunAnalyzers=false
 bash fuzz/tools/checked-campaign.sh <replay.tgz> <out> <tier> <reader-mutants> <writer-mutants> <seed-base>
 ```
+
+AFL: build `Plank.Fuzzing.Reader.Target` / `Plank.Fuzzing.Target` with `-p:PlankCheckedAccess=true` and run them with
+`PLANK_CHECKED_FAILFAST=1 DOTNET_GCgen0size=0x10000000`: a violation is `Environment.FailFast` (SIGABRT), an AFL crash,
+with the `PLANK-OOB` message on stderr. Replaying a saved crash through `checked-replay.py` prints the same line.
 
 Positive control: `fuzz/tools/checked-positive-control.patch` (applied to a throwaway copy of library/Plank only)
 adds one deliberate +1 over-read; the control seeds must report `PLANK-OOB`.

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runtime of -p:PlankCheckedAccess=true builds (../README.md): referenced by the rewritten Plank library, kept in its own
+       assembly so SharpFuzz (which instruments Plank.dll) does not instrument the region table's state-dependent loops. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RunAnalyzers>false</RunAnalyzers>
+    <AssemblyName>Plank.CheckedAccess</AssemblyName>
+    <NoWarn>$(NoWarn);CS1591;CS8619</NoWarn>
+  </PropertyGroup>
+</Project>
