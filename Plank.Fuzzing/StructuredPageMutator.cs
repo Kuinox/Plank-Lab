@@ -29,7 +29,7 @@ namespace Plank.Fuzzing;
 /// values need) must be rejected; Plank returning values for it is a finding, as is any other
 /// exception type.
 /// </remarks>
-public static class StructuredPageMutator
+public static partial class StructuredPageMutator
 {
     // ---- Parsed file model ----------------------------------------------------------
 
@@ -149,7 +149,7 @@ public static class StructuredPageMutator
     }
 
     /// <summary>Re-serializes the model as an uncompressed file with every size and offset recomputed.</summary>
-    static byte[] Build(TStruct footerTemplate, List<Page>[][] pages)
+    static byte[] Build(TStruct footerTemplate, List<Page>[][] pages, long codec = 0)
     {
         var output = new List<byte>(4096);
         output.AddRange("PAR1"u8.ToArray());
@@ -174,24 +174,30 @@ public static class StructuredPageMutator
                     else if (page.IsData)
                         dataOffset ??= output.Count;
                     var header = page.Header.Clone();
+                    var stored = page.Body;
+                    if (codec != 0)
+                    {
+                        // v2: the levels stay uncompressed, only the values are compressed.
+                        var levels = page.IsV2 ? (int)Math.Min(page.Body.Length,
+                            (page.V2!.Long(5) ?? 0) + (page.V2.Long(6) ?? 0)) : 0;
+                        stored = Join(page.Body[..levels], Compress(codec, page.Body[levels..]));
+                    }
                     header.SetLong(2, I32, page.Body.Length);
-                    header.SetLong(3, I32, page.Body.Length);
+                    header.SetLong(3, I32, stored.Length);
                     header.Remove(4); // crc
                     header.Child(5)?.Remove(5);
                     if (header.Child(8) is { } v2)
                     {
-                        v2.Set(7, Bool, false);
+                        v2.Set(7, Bool, codec != 0);
                         v2.Remove(8);
                     }
-                    var start = output.Count;
                     Write(output, header);
-                    output.AddRange(page.Body);
-                    _ = start;
+                    output.AddRange(stored);
                 }
                 var chunkSize = output.Count - chunkStart;
                 uncompressedTotal += chunkSize;
-                meta.SetLong(4, I32, 0);
-                meta.SetLong(6, I64, chunkSize);
+                meta.SetLong(4, I32, codec);
+                meta.SetLong(6, I64, chunkSize); // approximate when compressed; no reader validates it
                 meta.SetLong(7, I64, chunkSize);
                 meta.SetLong(9, I64, dataOffset ?? chunkStart);
                 if (dictionaryOffset is { } d) meta.SetLong(11, I64, d); else meta.Remove(11);
@@ -428,6 +434,15 @@ public static class StructuredPageMutator
         ("v2-num-nulls", V2NumNulls),
         ("num-values", NumValues),
         ("values-havoc", ValuesHavoc),
+        ("hybrid-overflow", HybridRunOverflow),
+        ("hybrid-overflow", HybridRunOverflow),
+        ("hybrid-overflow", HybridRunOverflow),
+        ("rle-run-overflow", RleRunOverflow),
+        ("varint-header-wide", VarintHeaderWide),
+        ("dict-reencode-width", DictReencodeWidth),
+        ("count-overflow", CountOverflow),
+        ("count-overflow", CountOverflow),
+        ("delta-overflow", DeltaOverflow),
     ];
 
     static bool IsDictionaryEncoded(Page page) => page.Encoding is 2 or 8;
@@ -831,7 +846,8 @@ public static class StructuredPageMutator
                 continue;
             var all = parsed.Pages.Select(static row => row.ToArray()).ToArray();
             all[g][c] = pages;
-            return (Build(parsed.Footer, all), m with { Detail = $"row group {g}, column {c}, page {index}: {m.Detail}" });
+            var codec = PickCodec(rng);
+            return (Build(parsed.Footer, all, codec), m with { Detail = $"row group {g}, column {c}, page {index}{(codec != 0 ? $", codec {codec}" : "")}: {m.Detail}" });
         }
         return null;
     }
@@ -843,6 +859,10 @@ public static class StructuredPageMutator
     // ---- Driver ------------------------------------------------------------------------
 
     static string? LastPlankError;
+    // PLANK_FUZZ_VERDICTS=<file>: one line per mutant (id, verdict, digest of every path's values) to diff ISA tiers.
+    static readonly StreamWriter? VerdictLog = Environment.GetEnvironmentVariable("PLANK_FUZZ_VERDICTS") is { Length: > 0 } verdictPath
+        ? new StreamWriter(verdictPath, append: true) { AutoFlush = true } : null;
+    static string MutantId = "";
     static readonly int Stack = int.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_STACK"), out var stack) ? stack : 0;
 
     public static long Mutants, BothReject, PlankOnlyReject, ArrowOnlyReject, BothAccept, Findings, BaselineFailures, Seeds;
@@ -919,6 +939,7 @@ public static class StructuredPageMutator
                         m.Mutation.Impossible || n.Mutation.Impossible));
                 }
                 Mutants++;
+                MutantId = $"{Path.GetFileName(path)}#{i}";
                 // PLANK_FUZZ_GUARD: a guard fault kills the process, so the mutant is on disk first (and named on stderr).
                 if (GuardMemory.Enabled)
                 {
@@ -996,6 +1017,26 @@ public static class StructuredPageMutator
             arrowTraces = null;
         }
 
+        // Twin paths: every Plank decode path must agree with every other, whatever Arrow says.
+        string? twin;
+        string twinSummary;
+        try
+        {
+            twin = TwinDisagreement(file, out twinSummary);
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            plank?.Dispose();
+            return Finding("a twin read path threw an exception other than CorruptParquetException", $"{error.GetType().Name}: {error.Message}", error);
+        }
+        if (VerdictLog is not null && !quiet)
+            VerdictLog.WriteLine($"{MutantId}\t{(plankError is null ? "A" : "R")}\t{XxHash64.HashToUInt64(System.Text.Encoding.UTF8.GetBytes(twinSummary)):x16}");
+        if (twin is not null)
+        {
+            plank?.Dispose();
+            return Finding("twin read paths disagree", twin, null);
+        }
+
         try
         {
             if (plankError is not null)
@@ -1054,7 +1095,7 @@ public static class StructuredPageMutator
             var name = Path.Combine(dumpDirectory, $"{mutation.Kind}-{XxHash64.HashToUInt64(file):x16}.parquet");
             File.WriteAllBytes(name, file);
             var where = error?.StackTrace?.Split('\n').FirstOrDefault(static l => l.Contains("Plank.", StringComparison.Ordinal) && !l.Contains("Plank.Fuzzing", StringComparison.Ordinal))?.Trim();
-            log.WriteLine($"SFINDING\t{mutation.Kind}\t{bucket}\t{detail.Replace('\n', ' ')}\t{mutation.Detail}\t{where}\t{name}");
+            log.WriteLine($"SFINDING\t#{Mutants}\t{MutantId}\t{mutation.Kind}\t{bucket}\t{detail.Replace('\n', ' ')}\t{mutation.Detail}\t{where}\t{name}");
             return "finding";
         }
     }

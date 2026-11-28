@@ -8,6 +8,31 @@ The detailed coverage and reachability notes that used to live here are in
 lab notes, not findings; see [About the notes](#about-the-notes) before relying
 on them.
 
+## THE canary (revealed 2026-11-28; external report by CurtHagenlocher) — re-found by the fuzzer
+
+- **Dictionary literal-run group count overflows in `ColumnChunkReader.DecodeDictionaryIndexesIntoBuffer<T>`** (the
+  generic overload behind the typed, nullable, converted and nested decoders of every non-binary dictionary column):
+  `literalCount = (header >> 1) * 8U` and `literalByteCount = ((literalCount * bitWidth) + 7) >> 3` wrap in unchecked
+  `uint` for huge bit-packed group counts, so the literal slice is nearly empty and `DecodeDictionaryLiteralIndexes<T>`
+  reads past it — an out-of-bounds read that either throws `IndexOutOfRange`/`ArgumentOutOfRange` or silently decodes
+  indices from bytes outside the run. The `int` overload (binary dictionaries) guards `literalGroupCount > uint.MaxValue / 8`
+  and computes in `ulong`. Repro: [`repros/dictionary-literal-group-overflow/`](repros/dictionary-literal-group-overflow/).
+  **Found by fuzzing, without special-casing:** after the structured mutator gained arithmetic-overflow boundary values for
+  every count/length field (`StructuredPageMutator.Overflow.cs`), an ordinary run over the committed pyarrow + gap seeds
+  reported it at the **156th** structured mutant (5 reports in the first 2,580 mutants, all this bug; again at #2,974 on a
+  Brotli-recompressed page). Why it was missed before: no mutator wrote a group count whose products with ×8 / ×bit width
+  wrap 32 bits while keeping the page envelope valid, and byte-level mutation cannot plant such a varint inside a
+  compressed, CRC'd page.
+
+## Library defects found by the overflow-boundary mutations (oracle agent, 2026-11-28)
+
+- **v2 page level byte lengths overflow `int` → `OverflowException`.** A DataPageV2 header with
+  `repetition_levels_byte_length` (or definition) = 2147483647 makes `checked((int)(rep + def))` throw `OverflowException`
+  in `ParquetPageCursor.ReadPage` / the fixed-width batch start, before the "level bytes exceed the page payload" check
+  reports `CorruptParquetException`. Checked arithmetic (no memory unsafety); malformed input escapes with the wrong
+  exception type. Repro: [`repros/v2-level-length-overflow/`](repros/v2-level-length-overflow/) (4 seeds hit it in the
+  first ~30k mutants).
+
 ## Library defects
 
 All found by the reader/writer fuzz targets or their oracles, all fixed.
