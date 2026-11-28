@@ -238,6 +238,37 @@ Found while adding `WTM1` / `WNS1` / `WGS1`. Each is asserted by the route that 
 - **Boolean RLE (batched decoder) ignores the 4-byte section length** (low severity, reader agent 2026-11-28): the columnar reader decodes bytes beyond the declared RLE section, the row API's whole-page decoder rejects the same page, ParquetSharp rejects it.
   Repro: `fuzz/repros/boolean-rle-declared-length/`. The `NestedRowMaterializer` level model needed no change: master already derives collection levels from the schema tree (`SchemaCollectionLevels`); 450 valid nested seeds (optional elements included) give no fault while the 61 impossible-level mutants still do.
 
+## Memory-safety sweep with the guard-page allocator (guard agent, 2026-11-28)
+
+`PLANK_FUZZ_GUARD=end|start` (see [`Plank.Fuzzing.Guard/README.md`](../Plank.Fuzzing.Guard/README.md)) puts every
+pool buffer (exact length), every `DefaultParquetBufferPool` allocation (library shim, `Shared` included), the reader
+input bytes (zero-copy borrow path included) and the generic writer route's value arrays against a PROT_NONE page, and
+makes released buffers PROT_NONE: an out-of-bounds read or write, or a use after release, is a fatal
+AccessViolation. `fuzz/tools/guard-selftest.sh` proves each layer fires.
+
+**No Plank out-of-bounds access found so far.** Replayed without a guard fault:
+
+- every committed seed directory through reader (8,602), writer (1,409) and merger (1,230), both guard modes, tiers
+  default (AVX2), AVX2 off (SSE) and `PLANK_FUZZ_ISA_MASK=all`, and the scalar tier in start mode (runs v3/v5);
+- ~30,000 reader decoder mutants per guard mode in the default tier and ~8,000 per mode in each other tier;
+  ~3,000 writer/merger program mutants per mode in the ISA-flip tier and ~10,000 end-mode in the default tier (v6,
+  guarded value arrays).
+
+Still running at the time of writing (`job-24574813-guard-v7-*`, results in `agents/guard/runs/{v7,q7}`): all of the
+above again on the final build for every tier/mode with more writer mutants, and the AFL campaign's queues (~18k).
+
+Found on the way, none of them a Plank bug:
+
+- **.NET JIT over-read** (scalar tier only): with `DOTNET_EnableHWIntrinsic=0` a by-value copy of a struct whose
+  size is 4 mod 8 reads 4 bytes past it; 646 reader seeds died in `ParquetFileMetadata.SchemaNodeNameUtf8` copying the
+  last 92-byte `ParquetSchemaNodeInfo` of an exactly sized buffer. Reproduced without Plank:
+  [`repros/dotnet-jit-struct-overread/`](repros/dotnet-jit-struct-overread/). The scalar tier now runs with
+  `PLANK_FUZZ_GUARD_SLACK=8`.
+- `RWG1/RWN1/RWW1/RWD1` row-group row-writer routes die (also without guard): known #276, skipped by the runner.
+- Guard capacity limits (vm.max_map_count; memory): fixed in the allocator, see its README.
+- `agents/build2.lock` was held for hours by idle Roslyn compiler servers that inherited the lock fd from a finished
+  build (on ovh and on nas). The Lab's `Directory.Build.targets` now sets `UseSharedCompilation=false`; use `flock -o`.
+
 ## Fuzz-harness defects (fixed)
 
 - `DecimalBinaryStatisticsCoverageCase` (`DBS1`): any control byte >= 2 drew the third value set but the expectation was only
