@@ -53,6 +53,13 @@ Managed buffers can move in a GC, so managed registrations are tagged with `GC.C
 GC: run with a large gen0 budget (`DOTNET_GCgen0size=0x10000000`) to keep most accesses checked.
 `PLANK_CHECKED=0` disables every check in the same binary.
 
+## Combining with guard pages
+
+`-p:PlankCheckedAccess=true -p:PlankGuardArrays=true` builds both: agent guard's rewrite (exact-size, page-guarded
+library arrays: catches *safe-span* over-slices into neighbouring data and allocation overruns) runs first, then this
+rewriter, which names guard's `#line`-prefixed copies after their originals. Run with `PLANK_FUZZ_GUARD=end` to
+arm the guard side. Verified to build (2272 sites); the plain build (`-p:PlankCheckedAccess=false`) is unchanged.
+
 ## Running
 
 ```

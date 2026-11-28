@@ -34,8 +34,32 @@ static class Program
 
         var sources = identities.Keys.ToList();
         var hand = HandRewrites.Load(Many("hand"));
+        // A Compile item that is itself a generated copy of a library file (agent guard's -p:PlankGuardArrays=true writes
+        // obj/.../guard-arrays/X.cs starting with `#line 1 "<original>"`) is named after its original for sites, hand
+        // rewrites and the output #line.
+        var logical = new Dictionary<string, string>(StringComparer.Ordinal);
+        var texts = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var p in sources)
+        {
+            var text = File.ReadAllText(p);
+            var name = p;
+            if (text.StartsWith("#line 1 \"", StringComparison.Ordinal))
+            {
+                var end = text.IndexOf('"', 9);
+                var original = Path.GetFullPath(text[9..end]);
+                if (original.StartsWith(root, StringComparison.Ordinal))
+                {
+                    name = original;
+                    text = text[(text.IndexOf('\n') + 1)..];
+                }
+            }
+
+            logical[p] = name;
+            texts[p] = text;
+        }
+
         var trees = sources.Select(p => CSharpSyntaxTree.ParseText(
-            hand.Apply(p.StartsWith(root, StringComparison.Ordinal) ? p[root.Length..] : null, File.ReadAllText(p)),
+            hand.Apply(logical[p].StartsWith(root, StringComparison.Ordinal) ? logical[p][root.Length..] : null, texts[p]),
             parse, p, Encoding.UTF8)).ToList();
         hand.ThrowIfUnused();
         var refs = Many("ref").Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList();
@@ -74,7 +98,8 @@ static class Program
             var path = tree.FilePath;
             if (!isGenerated && !Path.GetFullPath(path).StartsWith(root, StringComparison.Ordinal))
                 continue;
-            var relative = isGenerated ? "generated/" + Path.GetFileName(path) : Path.GetFullPath(path)[root.Length..];
+            var logicalPath = isGenerated ? path : logical[Path.GetFullPath(path)];
+            var relative = isGenerated ? "generated/" + Path.GetFileName(path) : logicalPath[root.Length..];
             var model = compilation.GetSemanticModel(tree);
             var rewriter = new CheckedRewriter(model, relative, report);
             var result = rewriter.Visit(tree.GetRoot());
@@ -82,7 +107,7 @@ static class Program
                 continue;
             total += rewriter.Count;
             var target = Path.Combine(outDir, relative.Replace('/', '_'));
-            var text = (isGenerated ? "" : "#line 1 \"" + Path.GetFullPath(path) + "\"\n") + result.ToFullString();
+            var text = (isGenerated ? "" : "#line 1 \"" + logicalPath + "\"\n") + result.ToFullString();
             if (!File.Exists(target) || File.ReadAllText(target) != text)
                 File.WriteAllText(target, text);
             if (!isGenerated)
