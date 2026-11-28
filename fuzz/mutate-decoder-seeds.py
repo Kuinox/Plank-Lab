@@ -11,7 +11,7 @@ out, count, seed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 files = []
 for p in sys.argv[4:]:
     if os.path.isdir(p):
-        files += [os.path.join(p, f) for f in sorted(os.listdir(p)) if os.path.getsize(os.path.join(p, f)) <= 6000]
+        files += [os.path.join(p, f) for f in sorted(os.listdir(p)) if os.path.getsize(os.path.join(p, f)) <= int(os.environ.get("MUT_MAXSIZE", "6000"))]
     else:
         files.append(p)
 rnd = random.Random(seed)

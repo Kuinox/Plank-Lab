@@ -4,7 +4,7 @@
 set -u
 RP="$1"; OUT="$2"; CHUNKS="$3"; SIZE="$4"; BASE="$5"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"; F="$ROOT/fuzz"
-SEEDS="$F/reader-gap-generated $F/reader-corpus $F/reader-pyarrow-seeds $F/reader-pqt-seeds $F/reader-focused-seeds $F/reader-gap-seeds"
+SEEDS="${OOB_SEEDS:-$F/reader-gap-generated $F/reader-corpus $F/reader-pyarrow-seeds $F/reader-pqt-seeds $F/reader-focused-seeds $F/reader-gap-seeds}"
 mkdir -p "$OUT"
 for c in $(seq 0 $((CHUNKS - 1))); do
   [ -f "$OUT/chunk-$c.done" ] && continue
