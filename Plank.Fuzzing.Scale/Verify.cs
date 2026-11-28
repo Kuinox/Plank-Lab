@@ -30,6 +30,7 @@ public sealed class Expected
 
 public static class Verify
 {
+    public static readonly Dictionary<string, long> MissingByType = [];
     public static long ArrowSkippedHugeHeader, ArrowSkipped, Values, Chunks, Pages, BloomProbes, StatsChecked, StatsMissing, PrunedPages, ArrowValues;
 
     static void Fail(string what) => throw new Finding(what);
@@ -324,6 +325,12 @@ public static class Verify
             Fail($"{where}: null_count {nulls}, expected {acc.Nulls}");
         if (!s.HasMinimum || !s.HasMaximum)
         {
+            if (acc.Has)
+                lock (MissingByType)
+                {
+                    var key = (spec.TypeName ?? spec.Kind.ToString()) + (where.Contains(" page ") ? " page" : " chunk");
+                    MissingByType[key] = MissingByType.GetValueOrDefault(key) + 1;
+                }
             if (acc.Has && !spec.Kind.IsBinary())
                 StatsMissing++;
             if (acc.Has && spec.Kind.IsBinary())

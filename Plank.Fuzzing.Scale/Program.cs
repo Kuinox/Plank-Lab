@@ -58,6 +58,8 @@ static class Program
         Console.WriteLine($"campaign {mode} tier {t} seeds {seed}..{seed + (ulong)count - 1}: {findings} findings in {sw.Elapsed}; " +
                           $"values={Verify.Values} arrow={Verify.ArrowValues} rows={RowRead.Rows} chunks={Verify.Chunks} pages={Verify.Pages} " +
                            $"semantic={TypesVerify.SemanticValues} refusals={TypesVerify.SemanticRefusals} selftestCaught={s_selfTestCaught} arrowSkipped={Verify.ArrowSkipped} arrowHugeHeader={Verify.ArrowSkippedHugeHeader} stats={Verify.StatsChecked} statsMissing={Verify.StatsMissing} bloom={Verify.BloomProbes} pruned={Verify.PrunedPages}");
+        foreach (var (key, n) in Verify.MissingByType.OrderBy(kv => kv.Key))
+            Console.WriteLine($"NOSTATS {n} x {key}");
         foreach (var (key, n) in TypesVerify.Refused.OrderBy(kv => kv.Key))
             Console.WriteLine($"REFUSED {n} x {key}");
         return findings == 0 ? 0 : 1;
@@ -84,6 +86,8 @@ static class Program
                 case "manyrows": ManyRows.Run(rng, tier, describe); break;
                 case "rgwriter": RowGroupRowWriter(rng, tier, describe); break;
                 case "types": TypesMode(rng, tier, describe); break;
+                case "rowtypes": RowTypesMode(rng, tier, describe, dataset: false); break;
+                case "datatypes": RowTypesMode(rng, tier, describe, dataset: true); break;
                 case "merge": Merge(rng, tier, describe); break;
                 default: throw new ArgumentException("unknown mode " + mode);
             }
@@ -494,6 +498,73 @@ static class Program
                 TypesVerify.Check(source, types, e);
         }
         finally { Keep(path); File.Delete(path); }
+    }
+
+    /// <summary>Semantic CLR types through the generated row writer (or the dataset writer) and every read API, vs Arrow.</summary>
+    static void RowTypesMode(Rng rng, int tier, List<string> describe, bool dataset)
+    {
+        var rows = RowCount(rng, tier);
+        var c = RowTypes.Columns(rng, rows);
+        var options = Writers.DrawOptions(rng, rows, tier, rowApi: true, 15);
+        var id = new LType { Spec = RowTypes.IdSpec(), K = LKind.IntN, Bits = 64, Signed = true };
+        LType[] all = [id, .. c];
+        describe.Add($"{(dataset ? "datatypes" : "rowtypes")} rows={rows} page={options.TargetDataPageSizeBytes} rg={options.TargetRowGroupSizeBytes} cap={options.RowApiInitialRowCapacity} par={options.RowApiMaxParallelism}");
+        describe.AddRange(c.Select(t => t.ToString()));
+        var files = new List<(string Path, Expected E)>();
+        if (!dataset)
+        {
+            var path = TempFile("rowtypes");
+            using (var output = File.Create(path))
+                RowTypes.WriteRows(rng.Chance(20) ? new JitterWriteStream(output) : output, c, rows, options, rng);
+            files.Add((path, new Expected { Cols = [.. all.Select(t => t.Spec)], Rows = rows }));
+        }
+        else
+        {
+            var parts = RowTypes.Dataset(c, rows, options, rng, out var partitionOf);
+            var seen = new bool[rows];
+            long total = 0;
+            foreach (var (name, bytes) in parts)
+            {
+                var ids = new List<long>();
+                using (var reader = new Plank.Reading.Logical.ParquetReader())
+                {
+                    reader.Reset(new MemoryReadSource(bytes));
+                    foreach (Plank.Reading.Logical.RowGroup g in reader.RowGroups)
+                        foreach (var b in g.Column<long>(reader.Schema.LeafColumns[0]))
+                            foreach (var v in b.Values) ids.Add(v);
+                }
+                foreach (var v in ids)
+                {
+                    if (v < 0 || v >= rows || seen[v] || partitionOf(v) != name)
+                        throw new Finding($"datatypes {name}: Id {v} misplaced or duplicated");
+                    seen[v] = true;
+                }
+                total += ids.Count;
+                var path = TempFile("dt" + files.Count);
+                File.WriteAllBytes(path, bytes);
+                files.Add((path, new Expected { Cols = [.. all.Select(t => t.Spec)], Rows = ids.Count, RowMap = [.. ids] }));
+            }
+            if (total != rows)
+                throw new Finding($"datatypes: {total} rows in the partitions, expected {rows}");
+        }
+        try
+        {
+            foreach (var (path, e) in files)
+            {
+                VerifyAll(path, e, rng, describe, scaleRow: false);
+                using (var source = new FileReadSource(path))
+                    TypesVerify.Check(source, all, e);
+                using (var source = new FileReadSource(path))
+                    RowTypes.CheckRows(source, c, e, RowRead.DrawOptions(rng), "rowtypes rowreader(file)");
+                if (new FileInfo(path).Length < (256L << 20))
+                    RowTypes.CheckRows(new JitterSource(File.ReadAllBytes(path)), c, e, RowRead.DrawOptions(rng), "rowtypes rowreader(jitter)");
+                RowTypes.CheckArrowLogical(path, c, e);
+            }
+        }
+        finally
+        {
+            foreach (var (path, _) in files) { Keep(path); File.Delete(path); }
+        }
     }
 
     static long RowCount(Rng rng, int tier) => tier switch

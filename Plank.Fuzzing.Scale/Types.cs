@@ -84,6 +84,28 @@ public sealed class LType
         return bytes;
     }
 
+    /// <summary>A column with a fixed logical layout (e.g. the one the source generator picks for a CLR type).</summary>
+    public static LType Make(Rng rng, string name, LKind k, bool optional, long rows, int precision = 0, int scale = 0, int length = 0,
+        TimeUnit unit = TimeUnit.Micros, bool utc = false, int bits = 0, bool signed = false)
+    {
+        var physical = k switch
+        {
+            LKind.DecFlba or LKind.Uuid or LKind.F16 or LKind.Interval => Kind.Fixed,
+            LKind.Date or LKind.DecI32 => Kind.Int32,
+            LKind.DecBin or LKind.Enum or LKind.Json or LKind.Bson => Kind.Bytes,
+            LKind.Time when unit == TimeUnit.Millis => Kind.Int32,
+            LKind.IntN when bits < 64 => Kind.Int32,
+            _ => Kind.Int64,
+        };
+        var spec = ColSpec.Draw(rng, name, physical, optional, rows, allowHuge: false);
+        var t = new LType { Spec = spec, K = k, Precision = precision, Scale = scale, Length = length, Unit = unit, Utc = utc, Bits = bits, Signed = signed };
+        t.Configure(rng);
+        spec.Encodings = [];
+        spec.Compression = null;
+        spec.Bloom = false;
+        return t;
+    }
+
     void Configure(Rng rng)
     {
         var s = Spec;
