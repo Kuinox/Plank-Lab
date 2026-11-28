@@ -65,6 +65,10 @@ public sealed class ColSpec
     public ImmutableArray<EncodingKind> Encodings = [];
     public CompressionKind? Compression;
     public bool Bloom;
+    public double BloomFpp = 0.01;
+    public uint? BloomNdv;
+    public uint BloomMaxBytes = 128 << 20;
+    public int? CompressionLevel;
 
     /// <summary>Byte budget for one drawn binary column (set per file by the caller; SCALE_BUDGET_MB caps the file).</summary>
     [ThreadStatic] public static long BudgetBytes;
@@ -75,7 +79,7 @@ public sealed class ColSpec
          32767, 32768, 32769, 65535, 65536, 65537, 1 << 20, (1 << 20) + 1];
 
     public override string ToString()
-        => $"{Name}:{Kind}{(Optional ? "?" : "")} pat={Pattern}({P1},{P2},{P3}) null={NullPattern}({N1},{N2}) len={LenMode}({L1},{L2},{L3}) sp={SpecialEvery} enc=[{string.Join(",", Encodings)}] comp={Compression} bloom={Bloom}";
+        => $"{Name}:{Kind}{(Optional ? "?" : "")} pat={Pattern}({P1},{P2},{P3}) null={NullPattern}({N1},{N2}) len={LenMode}({L1},{L2},{L3}) sp={SpecialEvery} enc=[{string.Join(",", Encodings)}] comp={Compression}{(CompressionLevel is { } l ? "/" + l : "")} bloom={Bloom}{(Bloom ? $"(fpp={BloomFpp},ndv={BloomNdv},max={BloomMaxBytes})" : "")}";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ulong H(long r, ulong salt = 0) => Rng.Mix(Seed ^ salt ^ (ulong)r * 0xD6E8FEB86659FD93UL);
@@ -314,6 +318,20 @@ public sealed class ColSpec
             c.Compression = rng.Pick(CompressionKind.None, CompressionKind.Snappy, CompressionKind.Gzip,
                 CompressionKind.Zstd, CompressionKind.Lz4, CompressionKind.Brotli);
         c.Bloom = kind != Kind.Bool && rng.Chance(25);
+        if (c.Bloom && rng.Chance(60))
+        {
+            c.BloomFpp = rng.Pick(0.5, 0.1, 0.01, 0.001, 1e-6);
+            c.BloomNdv = rng.Chance(50) ? rng.Pick(1u, 2u, 1000u, 1u << 20, 100_000_000u) : null;
+            c.BloomMaxBytes = rng.Pick(32u, 1024u, 65536u, 1u << 20, 128u << 20);
+        }
+        if (c.Compression is { } comp && rng.Chance(40))
+            c.CompressionLevel = comp switch
+            {
+                CompressionKind.Zstd => rng.Pick(-5, 1, 3, 9, 19, 22),
+                CompressionKind.Gzip => rng.Pick(0, 1, 6, 9),
+                CompressionKind.Brotli => rng.Pick(0, 1, 5, 11),
+                _ => null,
+            };
         return c;
     }
 
@@ -375,8 +393,9 @@ public sealed class ColSpec
 
     public ColumnDefinition Definition()
     {
-        var bloom = Bloom ? new ParquetBloomFilterOptions() : null;
-        var options = new ColumnOptions(encodings: Encodings, typeLength: Kind == Kind.Fixed ? (uint)L1 : 0, compression: Compression, bloomFilter: bloom);
+        var bloom = Bloom ? new ParquetBloomFilterOptions { FalsePositiveProbability = BloomFpp, ExpectedDistinctValueCount = BloomNdv, MaximumBytes = BloomMaxBytes } : null;
+        var options = new ColumnOptions(encodings: Encodings, typeLength: Kind == Kind.Fixed ? (uint)L1 : 0, compression: Compression,
+            compressionLevel: CompressionLevel, bloomFilter: bloom);
         LogicalType? logical = Kind == Kind.String ? new LogicalType.String() : null;
         return Optional
             ? ColumnDefinition.OptionalLeaf(Name, Physical, options, logical)
