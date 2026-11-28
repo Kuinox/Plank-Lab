@@ -16,10 +16,13 @@ import hashlib, os, resource, shutil, subprocess, sys
 
 # Committed writable memory per replay process (RLIMIT_DATA counts private writable mappings, not the GC's PROT_NONE
 # reservations): an input that wants more gets OutOfMemory (a FAULT line) instead of the kernel OOM-killing the shard.
-DATA_LIMIT = int(os.environ.get("GUARD_DATA_LIMIT_MB", "2304")) * 1024 * 1024
+DATA_LIMIT = int(os.environ.get("GUARD_DATA_LIMIT_MB", "0")) * 1024 * 1024
 
 def limit_memory():
-    resource.setrlimit(resource.RLIMIT_DATA, (DATA_LIMIT, DATA_LIMIT))
+    # Off by default: native libraries (ParquetSharp/Arrow) reserve huge writable mappings they never touch, which
+    # RLIMIT_DATA counts, so a cap aborted processes that use 65 MB. GuardCore bounds the guard's own memory instead.
+    if DATA_LIMIT > 0:
+        resource.setrlimit(resource.RLIMIT_DATA, (DATA_LIMIT, DATA_LIMIT))
 
 TIERS = {
     "default": {},

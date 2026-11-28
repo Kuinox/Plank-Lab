@@ -21,11 +21,14 @@ TIERS = {
     "isaflip": {"PLANK_FUZZ_ISA_MASK": "all"},
 }
 CHUNK = 40
-DATA_LIMIT = int(os.environ.get("GUARD_DATA_LIMIT_MB", "2304")) * 1024 * 1024
+DATA_LIMIT = int(os.environ.get("GUARD_DATA_LIMIT_MB", "0")) * 1024 * 1024
 
 
 def limit_memory():
-    resource.setrlimit(resource.RLIMIT_DATA, (DATA_LIMIT, DATA_LIMIT))
+    # Off by default: native libraries (ParquetSharp/Arrow) reserve huge writable mappings they never touch, which
+    # RLIMIT_DATA counts, so a cap aborted processes that use 65 MB. GuardCore bounds the guard's own memory instead.
+    if DATA_LIMIT > 0:
+        resource.setrlimit(resource.RLIMIT_DATA, (DATA_LIMIT, DATA_LIMIT))
 
 
 def collect(paths):

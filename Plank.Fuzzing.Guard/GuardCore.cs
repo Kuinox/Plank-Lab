@@ -131,7 +131,7 @@ internal static unsafe class GuardCore
         if (alignment <= 0 || (alignment & (alignment - 1)) != 0 || alignment > PageSize)
             throw new ArgumentOutOfRangeException(nameof(alignment));
 
-        if (LiveByData.Count >= MaxLiveGuarded)
+        if (LiveByData.Count >= MaxLiveGuarded || Interlocked.Read(ref _liveBytes) + length > MaxLiveBytes)
             return AllocateUnguarded(length, prefix, alignment, mode, owner);
 
         long page = PageSize;
@@ -194,6 +194,7 @@ internal static unsafe class GuardCore
         };
         LiveByData[data] = region;
         Interlocked.Increment(ref _allocations);
+        Interlocked.Add(ref _liveBytes, region.RwLength);
         if (Trace)
             Console.Error.WriteLine($"GUARD-ALLOC\t{region}\tmap=[0x{map:x}..0x{map + (nint)total:x})");
         return region;
@@ -203,19 +204,28 @@ internal static unsafe class GuardCore
     // keep more buffers than this alive at once (e.g. a fuzzed 16-byte BufferChunkSizeBytes over a large column)
     // get canary-only heap memory past this point instead of failing (logged once per process).
     const int MaxLiveGuarded = 12_000;
+
+    // Bytes of live guarded buffers (PLANK_FUZZ_GUARD_MAX_MB, default 1536): past it new buffers are canary-only heap
+    // memory, so the guard never makes an input need more memory than it would without it.
+    static readonly long MaxLiveBytes = long.TryParse(Environment.GetEnvironmentVariable("PLANK_FUZZ_GUARD_MAX_MB"),
+        out var maxMb) && maxMb > 0 ? maxMb * 1024 * 1024 : 1536L * 1024 * 1024;
+    static long _liveBytes;
     static int _degradedWarned;
 
     static GuardRegion AllocateUnguarded(long length, int prefix, int alignment, GuardMode mode, string owner)
     {
         if (Interlocked.Exchange(ref _degradedWarned, 1) == 0)
-            Console.Error.WriteLine($"GUARD-DEGRADED\t{MaxLiveGuarded} guard buffers alive: further ones are canary-only heap memory");
+            Console.Error.WriteLine($"GUARD-DEGRADED\t{LiveByData.Count} guard buffers / {Interlocked.Read(ref _liveBytes) >> 20} MiB alive: further ones are canary-only heap memory until they are released");
         const int Tail = 64;
         var rwBytes = (int)(prefix + length + alignment + Tail);
         var rw = (nint)System.Runtime.InteropServices.NativeMemory.AlignedAlloc((nuint)rwBytes, 64);
         if (rw == 0)
             throw new OutOfMemoryException();
-        new Span<byte>((void*)rw, rwBytes).Fill(Canary);
         var data = (rw + prefix + (alignment - 1)) & ~(nint)(alignment - 1);
+        // Canary around the data only (the data itself is left as allocated): touching a large block commits it.
+        var head = (int)(data - rw);
+        new Span<byte>((void*)rw, head).Fill(Canary);
+        new Span<byte>((void*)(data + (nint)length), rwBytes - head - (int)length).Fill(Canary);
         var region = new GuardRegion
         {
             MapBase = rw, MapLength = (nuint)rwBytes, RwStart = rw, RwLength = rwBytes, Data = data,
@@ -267,6 +277,8 @@ internal static unsafe class GuardCore
             Console.Error.WriteLine($"GUARD-FREE\t{region}");
 
         var violation = CheckCanaries(region);
+        if (!region.Unguarded)
+            Interlocked.Add(ref _liveBytes, -region.RwLength);
         if (region.Unguarded)
         {
             System.Runtime.InteropServices.NativeMemory.AlignedFree((void*)region.RwStart);

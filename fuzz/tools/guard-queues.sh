@@ -5,7 +5,7 @@ set -u
 TGZ="$1"; OUT="$2"; MODE="$3"; TIER="$4"; AFL="$5"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export DOTNET_ROOT=${DOTNET_ROOT:-/session/24574813-2a30-4744-ab55-c22a19c29613/workspace/.tools/dotnet} DOTNET_ROLL_FORWARD=Major
-export DOTNET_gcServer=0 DOTNET_GCHeapHardLimit=0x60000000
+export DOTNET_gcServer=0 DOTNET_GCHeapHardLimit=${DOTNET_GCHeapHardLimit:-0x60000000}
 ulimit -c 0
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 tar -xzf "$TGZ" -C "$T"; RP="$T/net10.0"
